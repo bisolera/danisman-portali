@@ -55,8 +55,8 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Word CV'yi **yalnızca kendisi ve yönetici** görür / indirir (KVKK: CV'de telefon, adres gibi kişisel bilgi olur). Diğer danışmanlar yalnızca yüklü olup olmadığını görür (`canSeeCv`). Sunucuya geçince `GET /api/users/:id/cv` de yalnızca bu ikisine açılır.
 
 ## Masraflar
-- [ ] Kategoriler: Ulaşım (uçak, tren, otobüs) · Taksi · Konaklama · Yemek · Otopark / otoyol · Diğer. Eksik var mı? (`EXPENSE_CATEGORIES`, `js/data.js`)
-- [ ] Tutar TL ve KDV dahil; tek masraf en fazla 100.000 TL (`EXPENSE_MAX`); tarih ileri olamaz. **Döviz** (yurt dışı) ve **kendi aracıyla km başına ödeme** gerekli mi?
+- [x] Kategoriler: Ulaşım (uçak, tren, otobüs) · Taksi · Konaklama · Yemek · Otopark / otoyol · Diğer (`EXPENSE_CATEGORIES`, `js/data.js`)
+- [x] Tutar TL ve KDV dahil; tek masraf en fazla 100.000 TL (`EXPENSE_MAX`); tarih ileri olamaz. Döviz ve kendi aracıyla km başına ödeme **yok**
 - [x] Fiş / fatura **isteğe bağlı**; fişsiz masraf "fişsiz" etiketiyle görünür, yönetici onaylarken ve ödeme listesinde görür
 - [x] "Müşteriye yansıtılacak" işaretlenirse proje zorunlu; yönetici raporunda müşteri bazında toplanır
 - [x] Akış: onay bekliyor → onaylandı (ödenecek) → ödendi; reddedilen gerekçesiyle danışmana döner, düzeltilip yeniden gönderilir. Onaylanan ve ödenen değiştirilemez (`canEditExpense`)
