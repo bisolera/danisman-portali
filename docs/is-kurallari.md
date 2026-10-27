@@ -45,7 +45,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 
 ## Yetkinlikler
 - [x] Yetkinlik listesi: BW 7.x, BW/4HANA, ABAP/AMDP, HANA·CDS, Datasphere, SAC raporlama, SAC planlama, BPC, PaPM, Embedded Analytics, Fabric, Power BI, Proje yönetimi (`SKILLS`, `js/data.js`)
-- [ ] Seviye: Temel / Orta (bağımsız çalışır) / Uzman (proje yönetir, öğretir). Danışman kendisi girer; yönetici herkesinkini düzenler. Yönetici onayı gereksin mi?
+- [x] Seviye: Temel / Orta (bağımsız çalışır) / Uzman (proje yönetir, öğretir). Danışman kendisi girer, **yönetici onayı gerekmez**; yönetici gerekirse herkesinkini düzenler. Beyan edilen seviyenin yanında portaldan gelen deneyim saati de görünür.
 - [x] Deneyim: son 12 ayda o yetkinlikle etiketli projelere yazılan saat (kendiliğinden); etiketleri yönetici proje formunda verir
 - [x] Sertifika: bitişe **90 gün** kala "yakında doluyor" (Özet'te ve Yetkinlikler'de uyarı), bitince "süresi doldu" ve CV'ye girmez (`certStatus`, `CERT_WARN_DAYS`)
 - [x] Uygun danışman: seçilen yetkinliklerin hepsinde en az istenen seviye; sıralama seviye toplamı, sonra deneyim. "Bu ay müsait" (doluluk %75 altı) filtresi yalnızca yöneticide
