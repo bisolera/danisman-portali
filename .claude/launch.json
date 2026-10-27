@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "portal",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["serve.py", "4321"],
+      "port": 4321
+    },
+    {
+      "name": "portal-test",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["serve.py", "4322"],
+      "port": 4322
+    }
+  ]
+}

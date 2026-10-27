@@ -1,0 +1,5 @@
+# Satır sonları ekipte (Windows/Mac) tutarlı kalsın
+* text=auto
+*.png binary
+*.jpg binary
+*.ico binary

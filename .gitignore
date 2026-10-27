@@ -1,0 +1,30 @@
+# Müşteri ve kişisel veri içerebilecek dosyalar repoya girmesin
+# (aylık aktivite formları, takvim dışa aktarımları, test kopyaları)
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.ics
+.tmp-test/
+
+# Şifreler ve ortam ayarları (sunucu aşamasında: veritabanı, Entra ID gizli anahtarı)
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+
+# Kişisel araç ayarları
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# Bağımlılıklar ve geçici dosyalar
+node_modules/
+__pycache__/
+*.log
+
+# İşletim sistemi
+.DS_Store
+Thumbs.db
+desktop.ini

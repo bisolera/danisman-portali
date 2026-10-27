@@ -1,0 +1,244 @@
+/* Sabit tanımlar ve demo veriler.
+   Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
+
+const COMPANY_DOMAIN = 'bisolera.com';
+const DATA_VERSION = 4;
+const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor   // demo verisi değişince artır: tarayıcıdaki eski kayıt otomatik yenilenir
+
+const BRAND = {
+  logoOnDark: 'https://cdn.prod.website-files.com/61efd059117be97cc736bc2d/6231108fc186d4df713d8cc0_logo%20beyaz%20yazi%20(1).png',
+};
+
+const ACTIVITY_TYPES = [
+  { id: 'gelistirme', name: 'Geliştirme' },
+  { id: 'analiz', name: 'Analiz & Tasarım' },
+  { id: 'toplanti', name: 'Toplantı' },
+  { id: 'destek', name: 'Destek' },
+  { id: 'test', name: 'Test' },
+  { id: 'dokumantasyon', name: 'Dokümantasyon' },
+  { id: 'egitim', name: 'Eğitim' },
+  { id: 'proje_yonetimi', name: 'Proje Yönetimi' },
+];
+const activityTypeName = id => (ACTIVITY_TYPES.find(t => t.id === id) || { name: id }).name;
+
+// deducts: yıllık izin bakiyesinden düşer mi?
+const LEAVE_TYPES = [
+  { id: 'yillik', name: 'Yıllık izin', deducts: true },
+  { id: 'mazeret', name: 'Mazeret izni', deducts: false },
+  { id: 'hastalik', name: 'Hastalık / Rapor', deducts: false },
+  { id: 'ucretsiz', name: 'Ücretsiz izin', deducts: false },
+];
+const leaveTypeName = id => (LEAVE_TYPES.find(t => t.id === id) || { name: id }).name;
+
+const LEAVE_STATUS = {
+  beklemede: { label: 'Onay bekliyor', tone: 'warn' },
+  onaylandi: { label: 'Onaylandı', tone: 'ok' },
+  reddedildi: { label: 'Reddedildi', tone: 'danger' },
+  iptal: { label: 'İptal edildi', tone: 'muted' },
+};
+
+// Ay kapanışı: açık → onaya gönderildi (kilitli) → onaylandı (kilitli) · iade edilirse yeniden açılır
+const PERIOD_STATUS = {
+  acik: { label: 'Açık', tone: 'muted' },
+  gonderildi: { label: 'Onay bekliyor', tone: 'warn' },
+  onaylandi: { label: 'Onaylandı', tone: 'ok' },
+  iade: { label: 'İade edildi', tone: 'danger' },
+};
+const PERIOD_ACTIONS = {
+  gonderildi: 'onaya gönderdi', geri_cekildi: 'gönderimi geri çekti', iade: 'iade etti',
+  onaylandi: 'onayladı', onay_geri_alindi: 'onayı geri aldı', kilit_acildi: 'kilidi açtı',
+};
+
+const PROJECT_STATUS = {
+  aktif: { label: 'Aktif', tone: 'ok' },
+  beklemede: { label: 'Beklemede', tone: 'warn' },
+  tamamlandi: { label: 'Tamamlandı', tone: 'muted' },
+};
+
+// Resmi tatiller. half: true → yarım gün (arife).
+// Not: dini bayram tarihleri her yıl Diyanet takvimine göre kontrol edilmeli; 2027 tarihleri tahminidir.
+const HOLIDAYS = [
+  { date: '2026-01-01', name: 'Yılbaşı' },
+  { date: '2026-03-19', name: 'Ramazan Bayramı Arifesi', half: true },
+  { date: '2026-03-20', name: 'Ramazan Bayramı' },
+  { date: '2026-03-21', name: 'Ramazan Bayramı' },
+  { date: '2026-03-22', name: 'Ramazan Bayramı' },
+  { date: '2026-04-23', name: 'Ulusal Egemenlik ve Çocuk Bayramı' },
+  { date: '2026-05-01', name: 'Emek ve Dayanışma Günü' },
+  { date: '2026-05-19', name: 'Atatürk\'ü Anma, Gençlik ve Spor Bayramı' },
+  { date: '2026-05-26', name: 'Kurban Bayramı Arifesi', half: true },
+  { date: '2026-05-27', name: 'Kurban Bayramı' },
+  { date: '2026-05-28', name: 'Kurban Bayramı' },
+  { date: '2026-05-29', name: 'Kurban Bayramı' },
+  { date: '2026-05-30', name: 'Kurban Bayramı' },
+  { date: '2026-07-15', name: 'Demokrasi ve Millî Birlik Günü' },
+  { date: '2026-08-30', name: 'Zafer Bayramı' },
+  { date: '2026-10-28', name: 'Cumhuriyet Bayramı Arifesi', half: true },
+  { date: '2026-10-29', name: 'Cumhuriyet Bayramı' },
+  { date: '2027-01-01', name: 'Yılbaşı' },
+  { date: '2027-03-08', name: 'Ramazan Bayramı Arifesi', half: true },
+  { date: '2027-03-09', name: 'Ramazan Bayramı' },
+  { date: '2027-03-10', name: 'Ramazan Bayramı' },
+  { date: '2027-03-11', name: 'Ramazan Bayramı' },
+  { date: '2027-04-23', name: 'Ulusal Egemenlik ve Çocuk Bayramı' },
+  { date: '2027-05-01', name: 'Emek ve Dayanışma Günü' },
+  { date: '2027-05-15', name: 'Kurban Bayramı Arifesi', half: true },
+  { date: '2027-05-16', name: 'Kurban Bayramı' },
+  { date: '2027-05-17', name: 'Kurban Bayramı' },
+  { date: '2027-05-18', name: 'Kurban Bayramı' },
+  { date: '2027-05-19', name: 'Kurban Bayramı · 19 Mayıs' },
+  { date: '2027-07-15', name: 'Demokrasi ve Millî Birlik Günü' },
+  { date: '2027-08-30', name: 'Zafer Bayramı' },
+  { date: '2027-10-28', name: 'Cumhuriyet Bayramı Arifesi', half: true },
+  { date: '2027-10-29', name: 'Cumhuriyet Bayramı' },
+];
+const HOLIDAYS_BY_DATE = Object.fromEntries(HOLIDAYS.map(h => [h.date, h]));
+
+const CUSTOMER_COLORS = ['#3b82f6', '#f59e0b', '#06b6d4', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+
+/* ---------- Demo veriler (kurgusal müşteriler ve kişiler) ---------- */
+
+// Demo aktivitelerinde kullanılan iş tanımları: [tür, açıklama]
+const SEED_TASKS = {
+  p1: [['gelistirme', 'ADSO ve CompositeProvider modelleme'], ['gelistirme', 'AMDP transformasyon rutini düzeltmesi'], ['analiz', 'BW 7.5 veri akışlarının envanter analizi'], ['test', 'Migrasyon sonrası veri karşılaştırma testleri'], ['toplanti', 'Müşteriyle haftalık durum toplantısı'], ['proje_yonetimi', 'Proje planı ve risk listesinin güncellenmesi']],
+  p2: [['destek', 'Gece process chain hatalarının analizi ve çözümü'], ['destek', 'Delta yükleme hatasının düzeltilmesi'], ['destek', 'Kullanıcı yetki talebinin incelenmesi'], ['toplanti', 'Destek taleplerinin gözden geçirilmesi']],
+  p3: [['gelistirme', 'Planlama modeli ve veri aksiyonları geliştirme'], ['gelistirme', 'Story ve dashboard tasarımı'], ['analiz', 'Satış planlama sürecinin analizi'], ['toplanti', 'Kullanıcılarla demo toplantısı']],
+  p5: [['gelistirme', 'Graphical view ve analytic model geliştirme'], ['gelistirme', 'Replication flow kurulumu'], ['analiz', 'Space ve yetki yapısının tasarımı'], ['dokumantasyon', 'Teknik tasarım dokümanı']],
+  p7: [['gelistirme', 'Maliyet dağıtım fonksiyonlarının geliştirilmesi'], ['analiz', 'Karlılık analizi gereksinimlerinin çıkarılması'], ['test', 'Dağıtım sonuçlarının mutabakatı']],
+  p8: [['gelistirme', 'Konsolidasyon kurallarının düzenlenmesi'], ['gelistirme', 'Bütçe input formu geliştirme'], ['destek', 'Bütçe dönemi kullanıcı desteği']],
+  p9: [['gelistirme', 'CDS view ve analitik sorgu geliştirme'], ['analiz', 'Rapor ihtiyaçlarının analizi'], ['test', 'Kullanıcı kabul testleri']],
+  p11: [['egitim', 'SAP Datasphere sertifika çalışması'], ['egitim', 'İç eğitim: SAC planlama']],
+  p12: [['analiz', 'Teklif için kapsam ve efor çalışması'], ['toplanti', 'Potansiyel müşteri sunumu']],
+  p13: [['proje_yonetimi', 'Haftalık ekip toplantısı'], ['dokumantasyon', 'Aylık proje raporlarının hazırlanması']],
+  p14: [['destek', 'Rapor farkı incelemesi ve kullanıcı desteği'], ['gelistirme', 'BPC veri akışı düzenlemesi'], ['destek', 'Process chain hata takibi'], ['toplanti', 'Kullanıcılarla durum görüşmesi']],
+  p15: [['destek', 'Stok raporu veri kontrolü'], ['gelistirme', 'Rapora alan ekleme geliştirmesi'], ['analiz', 'Kaynak tablo karşılaştırması']],
+  p16: [['gelistirme', 'Composite yapılarının Fabric’e aktarımı'], ['test', 'Pipeline veri kontrolleri'], ['analiz', 'Kaynak nesne analizi']],
+  p17: [['gelistirme', 'Tartım verisi için BW veri akışı geliştirme'], ['gelistirme', 'Datasource append geliştirmesi'], ['test', 'Geliştirme ortamında veri doğrulama']],
+};
+// Her danışmanın demo verisinde ağırlıklı çalıştığı projeler (ilk sıradaki ana proje)
+const SEED_ROUTINE = { u1: ['p1', 'p12', 'p13'], u2: ['p14', 'p15', 'p16', 'p17'], u3: ['p3', 'p9', 'p12'], u4: ['p5', 'p1', 'p11'], u5: ['p7', 'p8', 'p13'] };
+
+function buildSeed() {
+  const users = [
+    { id: 'u1', name: 'Ayşe Yılmaz', email: 'ayse.yilmaz@bisolera.com', title: 'Kıdemli Proje Yöneticisi', role: 'admin', annualLeave: 20, startDate: '2022-03-01', active: true },
+    { id: 'u2', name: 'Emre Aydın', email: 'emre.aydin@bisolera.com', title: 'SAP BW Danışmanı', role: 'consultant', annualLeave: 14, startDate: '2023-02-13', active: true },
+    { id: 'u3', name: 'Zeynep Kaya', email: 'zeynep.kaya@bisolera.com', title: 'SAP Analytics Cloud Danışmanı', role: 'consultant', annualLeave: 14, startDate: '2023-09-04', active: true },
+    { id: 'u4', name: 'Can Öztürk', email: 'can.ozturk@bisolera.com', title: 'Datasphere Danışmanı', role: 'consultant', annualLeave: 14, startDate: '2024-06-03', active: true },
+    { id: 'u5', name: 'Elif Şahin', email: 'elif.sahin@bisolera.com', title: 'SAP BPC / PaPM Danışmanı', role: 'consultant', annualLeave: 20, startDate: '2022-05-16', active: true },
+  ];
+
+  const customers = [
+    { id: 'c1', name: 'Atlas Holding', sector: 'Holding', color: '#3b82f6' },
+    { id: 'c2', name: 'Lale Perakende', sector: 'Perakende', color: '#f59e0b' },
+    { id: 'c3', name: 'Ege Enerji', sector: 'Enerji', color: '#06b6d4' },
+    { id: 'c4', name: 'Toros Gıda', sector: 'Gıda', color: '#ef4444' },
+    { id: 'c5', name: 'Poyraz Lojistik', sector: 'Lojistik', color: '#8b5cf6' },
+    { id: 'c6', name: 'Kuzey Elektronik', sector: 'Dayanıklı tüketim', color: '#e11d48' },
+    { id: 'c7', name: 'Mavi Seramik', sector: 'Yapı malzemeleri', color: '#0ea5e9' },
+    { id: 'c8', name: 'Ada İçecek', sector: 'İçecek', color: '#16a34a' },
+    { id: 'c9', name: 'Demir Maden', sector: 'Maden / metal', color: '#a16207' },
+    { id: 'c0', name: 'Bisolera (İç)', sector: 'Şirket içi', color: '#66cc66', internal: true },
+  ];
+
+  const projects = [
+    { id: 'p1', customerId: 'c1', name: 'BW/4HANA Migrasyonu', code: 'ATL-BW4', status: 'aktif', billable: true },
+    { id: 'p2', customerId: 'c1', name: 'Process Chain İzleme & Destek', code: 'ATL-SUP', status: 'aktif', billable: true },
+    { id: 'p3', customerId: 'c2', name: 'SAC Satış Planlama', code: 'LAL-SAC', status: 'aktif', billable: true },
+    { id: 'p4', customerId: 'c2', name: 'Power BI Mağaza Raporları', code: 'LAL-PBI', status: 'tamamlandi', billable: true },
+    { id: 'p5', customerId: 'c3', name: 'Datasphere Kurulumu', code: 'EGE-DSP', status: 'aktif', billable: true },
+    { id: 'p6', customerId: 'c3', name: 'Health Check & Optimizasyon', code: 'EGE-HC', status: 'beklemede', billable: true },
+    { id: 'p7', customerId: 'c4', name: 'PaPM Karlılık Analizi', code: 'TRS-PAPM', status: 'aktif', billable: true },
+    { id: 'p8', customerId: 'c4', name: 'BPC Bütçe Konsolidasyonu', code: 'TRS-BPC', status: 'aktif', billable: true },
+    { id: 'p9', customerId: 'c5', name: 'Embedded Analytics Raporlama', code: 'PYZ-EA', status: 'aktif', billable: true },
+    { id: 'p10', customerId: 'c5', name: 'Assessment & Roadmap', code: 'PYZ-ASR', status: 'tamamlandi', billable: true },
+    { id: 'p11', customerId: 'c0', name: 'Eğitim & Sertifikasyon', code: 'BIS-EGT', status: 'aktif', billable: false },
+    { id: 'p12', customerId: 'c0', name: 'Satış Öncesi / Teklif', code: 'BIS-PRE', status: 'aktif', billable: false },
+    { id: 'p13', customerId: 'c0', name: 'İdari İşler', code: 'BIS-ADM', status: 'aktif', billable: false },
+    { id: 'p14', customerId: 'c6', name: 'SAP BW & BPC Destek', code: 'KZY-BW', status: 'aktif', billable: true },
+    { id: 'p15', customerId: 'c7', name: 'SAP BW Raporlama Destek', code: 'MAV-BW', status: 'aktif', billable: true },
+    { id: 'p16', customerId: 'c8', name: 'BW → Fabric Geçişi', code: 'ADA-FAB', status: 'aktif', billable: true },
+    { id: 'p17', customerId: 'c9', name: 'SAP BW Geliştirme', code: 'DMR-BW', status: 'aktif', billable: true },
+  ];
+
+  // İzinler bugünün haftasına göre yerleştirilir ki demo her zaman güncel görünsün
+  const monday = weekStart(todayISO());
+  const d = n => addDays(monday, n);
+  const leaves = [
+    { id: 'l1', userId: 'u2', type: 'yillik', start: d(-77), end: d(-73), note: 'Yaz tatili', status: 'onaylandi' },
+    { id: 'l2', userId: 'u2', type: 'yillik', start: d(-17), end: d(-17), note: '', status: 'onaylandi' },
+    { id: 'l3', userId: 'u2', type: 'yillik', start: d(21), end: d(28), note: 'Aile ziyareti', status: 'beklemede' },
+    { id: 'l4', userId: 'u3', type: 'yillik', start: d(4), end: d(4), note: 'Köprü izni', status: 'onaylandi' },
+    { id: 'l5', userId: 'u3', type: 'yillik', start: d(56), end: d(58), note: '', status: 'beklemede' },
+    { id: 'l6', userId: 'u4', type: 'hastalik', start: d(-13), end: d(-12), note: 'Doktor raporu', status: 'onaylandi' },
+    { id: 'l7', userId: 'u5', type: 'yillik', start: d(7), end: d(11), note: '', status: 'onaylandi' },
+    { id: 'l8', userId: 'u1', type: 'mazeret', start: d(-6), end: d(-6), halfDay: true, note: 'Resmi işlem', status: 'onaylandi' },
+  ].map(l => ({ halfDay: false, createdAt: `${addDays(l.start, -10)}T10:00`, ...l }));
+
+  // Geçen ayın kapanışları: bir danışman onaylanmış, ikisi onay bekliyor (u2 ve Ayşe henüz göndermedi)
+  const prev = addMonths(todayISO(), -1).slice(0, 7);
+  const stamp = (n, time) => `${[addDays(monthStart(todayISO()), n), todayISO()].sort()[0]}T${time}`;
+  const periods = [
+    { id: 'm1', userId: 'u4', month: prev, status: 'onaylandi', note: '', submittedAt: stamp(0, '17:20'), decidedBy: 'u1', decidedAt: stamp(1, '09:05'),
+      history: [{ at: stamp(0, '17:20'), by: 'u4', action: 'gonderildi' }, { at: stamp(1, '09:05'), by: 'u1', action: 'onaylandi' }] },
+    { id: 'm2', userId: 'u3', month: prev, status: 'gonderildi', note: 'Ay boyunca ağırlıklı Lale Perakende planlama projesindeydim.', submittedAt: stamp(1, '18:10'),
+      history: [{ at: stamp(1, '18:10'), by: 'u3', action: 'gonderildi' }] },
+    { id: 'm3', userId: 'u5', month: prev, status: 'gonderildi', note: '', submittedAt: stamp(2, '10:30'),
+      history: [{ at: stamp(2, '10:30'), by: 'u5', action: 'gonderildi' }] },
+  ];
+
+  return { version: DATA_VERSION, users, customers, projects, leaves, periods, activities: generateActivities(users, leaves, monday) };
+}
+
+// Son 5 haftanın aktivitelerini üretir: hafta sonu, tatil ve izin günleri atlanır
+function generateActivities(users, leaves, monday) {
+  const rand = mulberry32(42);   // sabit tohum: demo her sıfırlamada aynı görünsün
+  const pick = arr => arr[Math.floor(rand() * arr.length)];
+  const SPLITS = {
+    8: [[8], [6, 2], [5, 3], [4, 4], [4, 3, 1], [3.5, 3, 1.5]],
+    6: [[6], [4, 2]],
+    4: [[4], [3, 1], [2.5, 1.5]],
+    2: [[2]],
+  };
+  // Demo hesabında birkaç eksik gün olsun ki "eksik giriş" uyarısı görülsün
+  const gaps = { u2: { [addDays(monday, -4)]: 6, [addDays(monday, -12)]: 0 } };
+  const yesterday = addDays(todayISO(), -1);
+  const out = [];
+
+  users.forEach(u => {
+    const routine = SEED_ROUTINE[u.id] || [];
+    if (!routine.length) return;
+    // Diğerlerinde geçen ay tam dolu (ay kapanışı incelenebilsin); u2'nin geçen ayı boş
+    // bırakılır ki aylık Excel formu içe aktarılıp ay kapatılarak denenebilsin
+    const start = u.id === 'u2' ? monthStart(todayISO()) : monthStart(addMonths(todayISO(), -1));
+    for (let day = start; day <= yesterday; day = addDays(day, 1)) {
+      if (isWeekend(day)) continue;
+      const holiday = HOLIDAYS_BY_DATE[day];
+      if (holiday && !holiday.half) continue;
+      const leave = leaves.find(l => l.userId === u.id && l.status === 'onaylandi' && day >= l.start && day <= l.end);
+      if (leave && !leave.halfDay) continue;
+      let target = holiday ? 4 : 8;
+      if (leave) target /= 2;
+      if (gaps[u.id] && day in gaps[u.id]) target = gaps[u.id][day];
+      if (!target) continue;
+
+      const used = new Set();
+      pick(SPLITS[target]).forEach((hours, i) => {
+        let pid = i === 0 && rand() < 0.7 ? routine[0] : pick(routine);
+        if (used.has(pid)) pid = routine.find(p => !used.has(p)) || pid;
+        used.add(pid);
+        const [type, note] = pick(SEED_TASKS[pid]);
+        out.push({ id: uid(), userId: u.id, projectId: pid, date: day, hours, type, note, createdAt: `${day}T${String(9 + i * 2).padStart(2, '0')}:00` });
+      });
+    }
+  });
+  return out;
+}
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
