@@ -43,6 +43,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `holiday_work` | holiday_id → holidays, user_id → users, mode (`half`/`full`), chosen_by, chosen_at | köprü izninde kim ne kadar çalışıyor; satırı olmayan izinli sayılır |
 | `user_skills` | user_id, skill_id, level (1–3), updated_at | yetkinlik seviyeleri; özet metni `users.summary` |
 | `certifications` | id, user_id, name, code, skill_id, issued, expires | bitişe 90 gün kala e-posta hatırlatması da buradan |
+| `cv_files` | user_id (tekil), name, size, storage_key, uploaded_at, uploaded_by | dosyanın kendisi veritabanında değil, dosya deposunda (Azure Blob Storage / hosting'de web kökü dışındaki bir klasör) |
 | `project_skills` | project_id, skill_id | deneyim saati bu etiketlerden hesaplanır |
 | `user_prefs` | user_id, key, value (JSON) | son proje, Excel/takvim eşleştirmeleri |
 | `notifications` | id, user_id, kind, ref, sent_at | aynı e-posta iki kez gitmesin (aşağıya bak) |
@@ -67,6 +68,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET /api/reports/:month/utilization` | `teamUtilization`, `internalBreakdown` | yönetici |
 | `GET /api/skills`, `PUT /api/users/:id/skills`, `GET/POST/PATCH/DELETE /api/certifications` | yetkinlik ve sertifikalar | okuma: herkes; yazma: kendisi ya da yönetici |
 | `GET /api/consultants/search?skills&minLevel&cert&available` | `findConsultants` | herkes; `available` (doluluk) yalnızca yönetici |
+| `PUT/DELETE /api/users/:id/cv`, `GET /api/users/:id/cv` | Word CV yükle / sil / indir | kendisi ya da yönetici; sunucu .docx imzasını ve 10 MB sınırını yeniden kontrol eder, dosya kişiye özel geçici bağlantıyla verilir |
 
 ## Microsoft 365 girişi (Entra ID)
 Şirketin Microsoft 365 yöneticisi yapar:
@@ -104,7 +106,7 @@ Tarayıcıdaki prototip e-posta gönderemez; sunucuyla birlikte eklenir. Gönder
 `manifest.webmanifest` ve `sw.js` hazır. Canlıda **HTTPS zorunlu** (service worker yalnızca HTTPS ya da localhost'ta çalışır). `sw.js` "ağ önce" çalışır: bağlantı varken her zaman sunucudaki güncel dosya alınır, yalnızca bağlantı yokken önbellek kullanılır; yeni sürümde kimse eski kodda kalmaz. Sunucuya geçince API istekleri (`/api/…`) önbelleğe alınmamalı; `sw.js`'te bu yol hariç tutulur.
 
 ## Mevcut verinin taşınması
-Portalın **yedek dosyası (JSON)** taşıma kaynağıdır. Tek seferlik bir betik, yedekteki kullanıcıları, müşterileri, projeleri, aktiviteleri, izinleri ve ay kapanışlarını API'ye yükler. Kimlikler korunur, eşleştirme gerekmez. Deneme haftasındaki gerçek kayıtlar böylece kaybolmaz.
+Portalın **yedek dosyası (JSON)** taşıma kaynağıdır; Word CV'ler de içinde (base64, `files` bölümü). Tek seferlik bir betik, yedekteki kullanıcıları, müşterileri, projeleri, aktiviteleri, izinleri ve ay kapanışlarını API'ye yükler. Kimlikler korunur, eşleştirme gerekmez. Deneme haftasındaki gerçek kayıtlar böylece kaybolmaz.
 
 ## Sıra
 1. Hosting kararı ve Entra ID uygulama kaydı

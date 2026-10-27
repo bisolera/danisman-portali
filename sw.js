@@ -17,6 +17,7 @@ const SHELL = [
   'js/ui.js',
   'js/excel.js',
   'js/print.js',
+  'js/files.js',
   'js/closing.js',
   'js/calendar.js',
   'js/views/login.js',

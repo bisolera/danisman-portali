@@ -1,10 +1,13 @@
 # Müşteri ve kişisel veri içerebilecek dosyalar repoya girmesin
-# (aylık aktivite formları, takvim dışa aktarımları, test kopyaları)
+# (aylık aktivite formları, takvim dışa aktarımları, CV'ler, portal yedekleri, test kopyaları)
 *.xlsx
 *.xls
 *.xlsm
 *.csv
 *.ics
+*.docx
+*.doc
+bisolera-portal-yedek-*.json
 .tmp-test/
 
 # Şifreler ve ortam ayarları (sunucu aşamasında: veritabanı, Entra ID gizli anahtarı)

@@ -10,7 +10,7 @@ Kurulum gerekmez. Klasörde `python serve.py` çalıştırıp http://localhost:4
 
 Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postanın `@` öncesini yaz (`emre.aydin`). Müşteri ve kişi adları kurgusaldır.
 
-**Veriler tarayıcıda (localStorage) durur.** Tarayıcı verisi silinirse kayıtlar gider. **Profilim → Yedek indir** ile tek bir JSON dosyası alınır, **Yedekten geri yükle** ile geri yüklenir; geri yüklemeden önce mevcut verinin yedeği kendiliğinden indirilir. **Demo verilerini sıfırla** baştan başlatır.
+**Veriler tarayıcıda durur** (kayıtlar localStorage'da, Word CV'ler IndexedDB'de). Tarayıcı verisi silinirse kayıtlar gider. **Profilim → Yedek indir** ile CV'ler dahil tek bir JSON dosyası alınır, **Yedekten geri yükle** ile geri yüklenir; geri yüklemeden önce mevcut verinin yedeği kendiliğinden indirilir. **Demo verilerini sıfırla** baştan başlatır.
 
 ## Ekranlar
 
@@ -20,7 +20,7 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 | Aktiviteler | Üç görünüm: **Günlük** (klavyeyle hızlı giriş, önceki günü kopyala), **Haftalık tablo** (CATS tarzı; hücreye saat yaz, Excel'den yapıştır), **Aylık** takvim ve ay kapanışı. Excel'den yükle, Excel'e aktar |
 | İzinler | Bakiye (**devreden izin** dahil), talep formu (hafta sonu/tatil düşülmez, arife yarım gün), taleplerim, onaylı izin için **iptal talebi**, ekipte kim izinli |
 | Müşteriler & Projeler | Danışman için rehber, projelerde bu ayın sözleşme saati kullanımı; yönetici müşteri/proje ekler, durum, sözleşme saati ve **yetkinlik etiketlerini** belirler |
-| Yetkinlikler | **Profil** (seviye: Temel / Orta / Uzman, son 12 ayın deneyim saati, sertifikalar ve bitiş uyarısı), **ekip matrisi** (kim neyi biliyor, hangi yetkinlikte açık var), **uygun danışman** arama (seviye, sertifika şartı; yöneticide "bu ay müsait"), **teklif için CV** (yazdır / PDF, müşteri adlarını gizleme) |
+| Yetkinlikler | **Profil** (seviye: Temel / Orta / Uzman, son 12 ayın deneyim saati, sertifikalar ve bitiş uyarısı, **Word CV**: yükle, açılır pencerede önizle, indir), **ekip matrisi** (kim neyi biliyor, kimin CV'si var), **uygun danışman** arama (seviye, sertifika şartı; yöneticide "bu ay müsait" ve CV önizleme), **yetkinlik özeti** (portaldaki bilgilerden PDF, müşteri adlarını gizleme) |
 | Yönetim (yönetici) | İzin ve iptal talebi onayı, **ay kapanışı onayı**, **raporlar** (faturalanır/iç saat, müşteri → proje → danışman, sözleşme kullanımı, talep bazında saat, Excel), **doluluk** (faturalanır saat ÷ hedef saat, %75 altı uyarı, son 6 ay, faturalanmayan saatlerin dökümü, Excel), ekibin haftalık ve aylık durumu, **tatiller** (resmi tatil ve şirketin köprü günleri), kullanıcılar |
 
 ## Tatiller
@@ -50,7 +50,7 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 
 - **İçe aktarma** (Aktiviteler → Excel'den yükle): şirketin *Danışman Aylık Aktivite Formu* doğrudan okunur. Her sayfa bir müşteri; GÜN satırları dosya adındaki aya yerleşir (`..._Eylül_2026.xlsx`). Müşteri → proje eşleştirmesi bir kez seçilir, sonraki aylarda hatırlanır. Tarih · Proje Kodu · Süre · Tür · Açıklama sütunlu her tablo ya da Excel'den yapıştırılan satırlar da olur. Önizlemede hatalı, zaten kayıtlı ve uyarılı satırlar ayrı gösterilir.
 - **Dışa aktarma:** aynı aylık form, müşteri başına sayfa ve TOPLAM formülüyle üretilir. Ayrıca kayıt listesi (hafta/ay) ve proje özeti alınabilir.
-- Excel işlemleri SheetJS 0.20.3 (Apache 2.0) ile yapılır; kütüphane `vendor/xlsx`'te projeyle gelir ve yalnızca gerektiğinde yüklenir. Yazı tipleri (Inter, Montserrat; OFL) de `vendor/fonts`'ta; portal çalışırken dışarıya istek gitmez.
+- Excel işlemleri SheetJS 0.20.3 (Apache 2.0) ile yapılır; kütüphane `vendor/xlsx`'te projeyle gelir ve yalnızca gerektiğinde yüklenir. Word CV önizlemesi docx-preview 0.3.7 (Apache 2.0) ve JSZip 3.10.1 (MIT) ile yapılır (`vendor/docx-preview`, `vendor/jszip`); belge, komut çalıştıramayan ayrı bir çerçevede (sandbox) gösterilir. Yazı tipleri (Inter, Montserrat; OFL) de `vendor/fonts`'ta; portal çalışırken dışarıya istek gitmez.
 
 ## Testler
 
@@ -75,7 +75,8 @@ js/store.js      veri katmanı — sunucuya geçerken değişecek tek dosya
 js/rules.js      iş kuralları: hedef saat, izin günü, bakiye, eksik gün, iptal talebi
 js/ui.js         ortak bileşenler: proje seçici, aktivite formu, aylık takvim, pencere, menü, bildirim
 js/excel.js      Excel/CSV içe aktarma, aylık form, şablon ve dışa aktarma
-js/print.js      aylık form ve danışman CV'sinin yazdırılabilir / PDF hali
+js/print.js      aylık form ve yetkinlik özetinin yazdırılabilir / PDF hali
+js/files.js      dosya deposu (IndexedDB) ve Word CV: yükleme, önizleme, indirme
 js/closing.js    ay kapanışı: gönderme, onay/iade, kilit, geçmiş
 js/calendar.js   Outlook takvimi (.ics) okuma, tekrarlar, toplantı → proje önerileri
 js/views/*.js    ekranlar

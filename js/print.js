@@ -125,9 +125,9 @@ function printCv(user, options = {}) {
 
 function openCvDialog(user) {
   openModal({
-    title: `${user.name} · CV yazdır / PDF`,
+    title: `${user.name} · yetkinlik özeti`,
     body: `<div class="form-stack">
-      <p class="muted">Tek sayfa: özet, uzmanlıklar, geçerli sertifikalar ve son 24 ayın müşteri projeleri. Süresi dolmuş sertifikalar ve iç projeler girmez.</p>
+      <p class="muted">Portaldaki bilgilerden tek sayfa: özet, uzmanlıklar, geçerli sertifikalar ve son 24 ayın müşteri projeleri. Süresi dolmuş sertifikalar ve iç projeler girmez. Asıl CV, Profil'deki Word CV'dir.</p>
       <label class="toggle"><input type="checkbox" data-hide-customers> Müşteri adlarını gizle, yerine sektör yaz</label>
       <p class="muted small-text">Başka bir müşteriye giden teklifte işaretle. Proje adlarında müşteri adı geçiyorsa onları da kontrol et.</p>
     </div>`,

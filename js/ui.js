@@ -36,6 +36,7 @@ const ICONS = {
   printer: '<path d="M6 9V3h12v6"/><rect width="20" height="9" x="2" y="9" rx="2"/><path d="M6 14h12v7H6z"/>',
   phone: '<rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/>',
   award: '<circle cx="12" cy="8" r="6"/><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
 };
 
 function icon(name, size = 18) {
@@ -120,9 +121,12 @@ function avatar(user, size = 32) {
   return `<span class="avatar" style="--av:${color};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px" title="${esc(user.name)}">${esc(initials(user.name))}</span>`;
 }
 
-// Tarayıcıda oluşturulan metni dosya olarak indirir
+// Tarayıcıda oluşturulan metni ya da dosyayı indirir
 function downloadText(fileName, text, type = 'application/json') {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+  downloadBlob(fileName, new Blob([text], { type }));
+}
+function downloadBlob(fileName, blob) {
+  const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement('a'), { href: url, download: fileName });
   document.body.appendChild(a);
   a.click();

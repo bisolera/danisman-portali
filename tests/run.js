@@ -19,10 +19,18 @@ async function runTestFile(testFile) {
   const { window } = dom;
   window.HTMLElement.prototype.scrollIntoView = function () {};
   window.scrollTo = () => {};
+  // Dosya deposu (IndexedDB) jsdom'da yok: her test dosyasına boş ve ayrı bir sahte depo
+  const { IDBFactory, IDBKeyRange } = require('fake-indexeddb');
+  window.indexedDB = new IDBFactory();
+  window.IDBKeyRange = IDBKeyRange;
+  // JSZip'in zamanlayıcısı jsdom'un postMessage'ında takılıyor; gerçek tarayıcıda gerek yok
+  window.setImmediate = (fn, ...args) => setTimeout(fn, 0, ...args);
   const inject = code => { const s = window.document.createElement('script'); s.textContent = code; window.document.body.appendChild(s); };
 
-  // Excel kütüphanesi önceden yüklenir; uygulamanın kendi yükleyicisi bunu kullanır
-  inject(fs.readFileSync(path.join(ROOT, 'vendor/xlsx/xlsx.full.min.js'), 'utf8'));
+  // Excel ve Word önizleme kütüphaneleri önceden yüklenir; uygulamanın kendi yükleyicileri bunları kullanır
+  for (const lib of ['vendor/xlsx/xlsx.full.min.js', 'vendor/jszip/jszip.min.js', 'vendor/docx-preview/docx-preview.min.js']) {
+    inject(fs.readFileSync(path.join(ROOT, lib), 'utf8'));
+  }
   for (const src of scripts) inject(fs.readFileSync(path.join(ROOT, src), 'utf8'));
   // Test, gerçek tarayıcıdaki gibi sayfa açıldıktan (App.start) sonra başlar; yoksa açılış testin ortasında ekranı yeniden kurar
   if (window.document.readyState === 'loading') await new Promise(r => window.document.addEventListener('DOMContentLoaded', r, { once: true }));

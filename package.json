@@ -8,6 +8,7 @@
     "test": "node tests/run-all.js"
   },
   "devDependencies": {
+    "fake-indexeddb": "6.2.5",
     "jsdom": "24.1.3"
   }
 }

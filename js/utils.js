@@ -81,6 +81,7 @@ function fmtNum(n) {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100).replace('.', ',');
 }
 function fmtHours(h) { return `${fmtNum(h)} sa`; }
+function fmtSize(bytes) { return bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${fmtNum(Math.round(bytes / 104857.6) / 10)} MB`; }
 
 // Kullanıcının yazdığı süreyi saate çevirir: "2", "1,5", "1.5" veya "1:30"
 function parseHours(input) {

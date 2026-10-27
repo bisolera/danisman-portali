@@ -182,7 +182,7 @@ const Store = (() => {
   };
 })();
 
-/* Yedekleme: bu tarayıcıdaki tüm portal verisi (kayıtlar, tercihler, takvim) tek JSON dosyasında.
+/* Yedekleme: bu tarayıcıdaki tüm portal verisi (kayıtlar, tercihler, takvim, CV dosyaları) tek JSON dosyasında.
    Sunucuya geçene kadar tarayıcı verisinin silinmesine karşı tek güvence budur. */
 const Backup = {
   PREFIX: 'bisolera-',
@@ -203,6 +203,18 @@ const Backup = {
       data: Object.fromEntries(Backup.keys().map(k => [k, localStorage.getItem(k)])) };
   },
 
+  // Kayıtlar + dosya deposundaki dosyalar (CV); dosya içeriği base64
+  async snapshotFull() {
+    const snap = Backup.snapshot(), files = {};
+    try {
+      for (const key of await Files.keys()) {
+        const f = await Files.get(key);
+        if (f) files[key] = { name: f.name, type: f.type, size: f.size, data: bufferToBase64(f.data) };
+      }
+    } catch (e) { console.warn('Dosyalar yedeğe eklenemedi', e); }
+    return { ...snap, files };
+  },
+
   // Dosyayı doğrular ve geri yüklemeden önce gösterilecek özeti çıkarır; sorun varsa hata fırlatır
   inspect(text) {
     let b;
@@ -213,13 +225,23 @@ const Backup = {
     try { db = JSON.parse(b.data['bisolera-portal-v1']); } catch { /* aşağıda yakalanır */ }
     if (!db || !Array.isArray(db.users) || !Array.isArray(db.activities)) throw new Error('Yedekte portal verisi eksik ya da bozuk.');
     if (Number(b.version) > DATA_VERSION) throw new Error('Bu yedek portalın daha yeni bir sürümünden; önce portalı güncelle.');
-    return { backup: b, summary: { exportedAt: b.exportedAt, users: db.users.length, activities: db.activities.length, leaves: (db.leaves || []).length } };
+    if (b.files != null && (typeof b.files !== 'object' || Object.values(b.files).some(f => typeof f?.name !== 'string' || typeof f.data !== 'string'))) {
+      throw new Error('Yedekteki dosyalar bozuk; dosya değiştirilmiş olabilir.');
+    }
+    return { backup: b, summary: { exportedAt: b.exportedAt, users: db.users.length, activities: db.activities.length, leaves: (db.leaves || []).length, files: Object.keys(b.files || {}).length } };
   },
 
   // Mevcut portal verisini tamamen yedektekiyle değiştirir (sayfa yeniden yüklenmeli)
   restore(backup) {
     Backup.keys().forEach(k => localStorage.removeItem(k));
     Object.entries(backup.data).forEach(([k, v]) => localStorage.setItem(k, v));
+  },
+
+  // Yedekte dosya bölümü varsa dosya deposu da onunla değiştirilir (dosyasız eski yedekte mevcut dosyalar kalır)
+  async restoreFiles(backup) {
+    if (!backup.files) return;
+    await Files.clear();
+    for (const [key, f] of Object.entries(backup.files)) await Files.put(key, { name: f.name, type: f.type, size: f.size, data: base64ToBuffer(f.data) });
   },
 
   // Portalın tarayıcıda kapladığı yer (bayt, yaklaşık). Tarayıcılar site başına ~5 MB izin verir.

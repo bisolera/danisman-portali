@@ -48,9 +48,10 @@ const SkillsView = {
             <span class="cell-user">${avatar(u, 40)}<span><strong>${esc(u.name)}</strong><small>${esc(u.title)}${u.startDate ? ` · ${tenureText(u)}` : ''}</small></span></span>
             <div class="row-gap">
               <select class="input sm-select" data-person aria-label="Kişi seç">${people.map(x => `<option value="${x.id}"${x.id === u.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-              <button class="btn primary sm" data-cv>${icon('printer', 15)} CV yazdır / PDF</button>
+              <button class="btn ghost sm" data-cv title="Portaldaki yetkinlik, sertifika ve projelerden tek sayfa">${icon('printer', 15)} Yetkinlik özeti (PDF)</button>
             </div>
           </div>
+          ${cvBoxHtml(u)}
           ${edit ? '' : `<p class="muted small-text">${icon('lock', 13)} ${esc(firstName(u.name))} kendi profilini düzenler; sen görüntülüyorsun.</p>`}
           <label class="field"><span class="field-label">Kısa özet <span class="faint">(CV'nin başında görünür)</span></span>
             <textarea class="input" rows="2" maxlength="500" data-summary${edit ? '' : ' disabled'} placeholder="Örn. 8 yıllık SAP BW deneyimi; BW/4HANA geçişleri ve BPC planlama projeleri">${esc(u.summary || '')}</textarea></label>
@@ -82,6 +83,23 @@ const SkillsView = {
         </section>`;
     }
 
+    // Word CV: kendisi ve yönetici görür / yükler; diğerleri yalnızca yüklü olup olmadığını görür
+    function cvBoxHtml(u) {
+      const cv = u.cv, see = canSeeCv(me, u), edit = canEditCv(me, u);
+      const info = !cv ? (edit ? 'Henüz yüklenmedi. Tekliflerde kullanılan Word CV’ni (.docx) yükle.' : 'Yüklenmemiş.')
+        : see ? `${esc(cv.name)} · ${fmtSize(cv.size)} · ${daysAgoText(cv.uploadedAt)} yüklendi${cv.uploadedBy && cv.uploadedBy !== u.id ? ` (${esc(firstName(Store.user(cv.uploadedBy)?.name || ''))})` : ''}`
+        : 'Yüklü. CV’de kişisel bilgiler olduğu için yalnızca kendisi ve yönetici görebilir.';
+      return `<div class="cv-box${cv ? ' has-cv' : ''}">
+        <span class="cv-ic">${icon('sheet', 18)}</span>
+        <div class="grow min0"><strong>CV (Word)</strong><small class="muted block-sm">${info}</small></div>
+        <div class="row-gap">
+          ${cv && see ? `<button class="btn primary sm" data-cv-preview>${icon('eye', 15)} Önizle</button><button class="btn ghost sm" data-cv-download>${icon('download', 15)} İndir</button>` : ''}
+          ${edit ? `<label class="btn ${cv ? 'ghost' : 'primary'} sm">${icon('upload', 15)} ${cv ? 'Değiştir' : 'Word CV yükle'}<input type="file" accept=".docx,${DOCX_TYPE}" data-cv-file hidden></label>
+            ${cv ? `<button class="icon-btn sm" data-cv-delete title="CV'yi sil" aria-label="CV'yi sil">${icon('trash', 15)}</button>` : ''}` : ''}
+        </div>
+      </div>`;
+    }
+
     /* ---------- Ekip matrisi: satır = kişi, sütun = yetkinlik ---------- */
 
     function renderMatrix() {
@@ -91,7 +109,7 @@ const SkillsView = {
       body.innerHTML = `<section class="card">
         <div class="card-head"><div><h2>Ekip matrisi</h2><p class="sub">Kutunun üstüne gelince seviye ve son 12 aydaki saat görünür. Bir kişiye tıkla, profiline git.</p></div></div>
         <div class="table-wrap"><table class="table skill-matrix">
-          <thead><tr><th class="sticky-col">Danışman</th>${SKILLS.map(s => `<th class="sm-col" title="${esc(s.name)}">${esc(s.short)}</th>`).join('')}<th class="num">Sertifika</th></tr></thead>
+          <thead><tr><th class="sticky-col">Danışman</th>${SKILLS.map(s => `<th class="sm-col" title="${esc(s.name)}">${esc(s.short)}</th>`).join('')}<th class="num">Sertifika</th><th class="sm-col">CV</th></tr></thead>
           <tbody>${users.map(u => {
             const certs = Store.certs({ userId: u.id }), bad = certs.filter(c => ['yakinda', 'doldu'].includes(certStatus(c))).length;
             return `<tr data-person-row="${u.id}">
@@ -101,12 +119,13 @@ const SkillsView = {
                 return `<td class="sm-col"><span class="lvl lvl-${n}" title="${esc(`${s.name} · ${SKILL_LEVELS[n]}${h ? ` · ${fmtNum(h)} sa (12 ay)` : ''}`)}">${n ? n : h ? '·' : ''}</span></td>`;
               }).join('')}
               <td class="num nowrap">${certs.length ? `${certs.length}${bad ? ` ${pill(`${bad} uyarı`, 'warn')}` : ''}` : '<span class="faint">—</span>'}</td>
+              <td class="sm-col" data-cv-col>${u.cv ? `<span class="cv-yes" title="Word CV yüklü">${icon('check', 14)}</span>` : '<span class="faint">—</span>'}</td>
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr><td class="sticky-col muted">Uzman / orta ve üstü</td>${SKILLS.map(s => {
             const expert = count(s, 3), mid = count(s, 2);
             return `<td class="sm-col${!mid ? ' gap' : ''}" title="${esc(`${s.name}: ${expert} uzman, ${mid} orta ve üstü`)}">${expert}/${mid}</td>`;
-          }).join('')}<td></td></tr></tfoot>
+          }).join('')}<td></td><td></td></tr></tfoot>
         </table></div>
         <div class="heat-legend"><span><i class="lvl lvl-1">1</i>Temel</span><span><i class="lvl lvl-2">2</i>Orta</span><span><i class="lvl lvl-3">3</i>Uzman</span><span><i class="lvl lvl-0">·</i>Seviye yok ama saat var</span><span><i class="gap-key"></i>Orta ve üstü kimse yok</span></div>
       </section>`;
@@ -137,7 +156,9 @@ const SkillsView = {
               ${r.levels.map((n, i) => `<td class="nowrap"><span class="lvl lvl-${n}">${n}</span> ${SKILL_LEVELS[n]}${r.certs[i] ? ` <span class="cert-ok" title="${esc(r.certs[i].name)}">${icon('shield', 13)} sertifikalı</span>` : ''}</td>`).join('')}
               <td class="num">${fmtNum(r.hours)} sa</td>
               ${admin && search.available ? `<td class="num">%${Math.round(r.util.pct * 100)}</td>` : ''}
-              <td class="num"><button class="btn ghost sm" data-cv-of="${r.user.id}">${icon('printer', 15)} CV</button></td>
+              <td class="num nowrap">${r.user.cv && canSeeCv(me, r.user)
+                ? `<button class="btn ghost sm" data-cv-preview-of="${r.user.id}">${icon('eye', 15)} CV</button>`
+                : `<button class="btn ghost sm" data-cv-of="${r.user.id}" title="Portaldaki yetkinlik, sertifika ve projelerden tek sayfa">${icon('printer', 15)} Özet</button>`}</td>
             </tr>`).join('')}</tbody>
           </table></div>`
           : emptyState('users', 'Bu şartlara uyan danışman yok', 'Seviyeyi düşürmeyi ya da bir yetkinliği çıkarmayı dene.')}
@@ -147,7 +168,7 @@ const SkillsView = {
     /* ---------- Olaylar ---------- */
 
     el.addEventListener('click', e => {
-      const t = e.target.closest('[data-mode], [data-level], [data-cv], [data-cv-of], [data-add-cert], [data-edit-cert], [data-del-cert], [data-min-level], [data-person-row]');
+      const t = e.target.closest('[data-mode], [data-level], [data-cv], [data-cv-of], [data-cv-preview], [data-cv-preview-of], [data-cv-download], [data-cv-delete], [data-add-cert], [data-edit-cert], [data-del-cert], [data-min-level], [data-person-row]');
       if (!t) return;
       if (t.dataset.mode) { mode = t.dataset.mode; setHash(); return render(); }
       if (t.dataset.level && canEdit()) {
@@ -158,6 +179,16 @@ const SkillsView = {
       }
       if (t.hasAttribute('data-cv')) return openCvDialog(Store.user(personId));
       if (t.dataset.cvOf) return openCvDialog(Store.user(t.dataset.cvOf));
+      if (t.hasAttribute('data-cv-preview')) return openCvPreview(Store.user(personId));
+      if (t.dataset.cvPreviewOf) return openCvPreview(Store.user(t.dataset.cvPreviewOf));
+      if (t.hasAttribute('data-cv-download')) return downloadCv(Store.user(personId)).catch(err => toast(err.message, { tone: 'danger' }));
+      if (t.hasAttribute('data-cv-delete') && canEditCv(me, Store.user(personId))) {
+        const owner = Store.user(personId);
+        return deleteCv(owner.id).then(removed => {
+          render();
+          toast(`${removed.meta?.name || 'CV'} silindi`, { tone: 'info', action: { label: 'Geri al', fn: () => restoreCv(owner.id, removed).then(render) } });
+        }).catch(err => toast(err.message, { tone: 'danger' }));
+      }
       if (t.hasAttribute('data-add-cert')) return certModal(null, personId, render);
       const certRow = t.closest('[data-cert]');
       if (certRow && t.hasAttribute('data-edit-cert')) return certModal(Store.certs().find(c => c.id === certRow.dataset.cert), personId, render);
@@ -172,6 +203,14 @@ const SkillsView = {
 
     el.addEventListener('change', e => {
       if (e.target.matches('[data-person]')) { personId = e.target.value; setHash(); return render(); }
+      if (e.target.matches('[data-cv-file]')) {
+        const file = e.target.files[0], owner = Store.user(personId), replacing = !!owner.cv;
+        e.target.value = '';
+        if (!file || !canEditCv(me, owner)) return;
+        return saveCv(owner.id, file, me.id)
+          .then(() => { render(); toast(replacing ? 'CV güncellendi' : 'CV yüklendi'); })
+          .catch(err => toast(err.message, { tone: 'danger', duration: 7000 }));
+      }
       if (e.target.matches('[data-summary]') && canEdit()) {
         Store.updateUser(personId, { summary: e.target.value.trim() });
         return toast('Özet kaydedildi');
