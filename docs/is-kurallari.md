@@ -60,7 +60,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Fiş / fatura **isteğe bağlı**; fişsiz masraf "fişsiz" etiketiyle görünür, yönetici onaylarken ve ödeme listesinde görür
 - [x] "Müşteriye yansıtılacak" işaretlenirse proje zorunlu; yönetici raporunda müşteri bazında toplanır
 - [x] Akış: onay bekliyor → onaylandı (ödenecek) → ödendi; reddedilen gerekçesiyle danışmana döner, düzeltilip yeniden gönderilir. Onaylanan ve ödenen değiştirilemez (`canEditExpense`)
-- [ ] Onaylayan: yönetici rolündeki herkes. Yönetici kendi masrafını onaylayabilir mi?
+- [x] Onaylayan: yönetici rolündeki herkes; **yönetici kendi masrafını da onaylayabilir** (onaylayan kayıtta ve masraf formunda görünür)
 - [x] Danışman kendi masraflarını, yönetici herkesinkini görür
 - [x] Aynı gün, aynı kategori ve tutarda ikinci masrafta uyarı çıkar (iki kez girilmiş olabilir); ikinci gönderimde kaydedilir
 
