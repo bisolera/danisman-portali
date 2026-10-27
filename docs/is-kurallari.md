@@ -64,6 +64,14 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Danışman kendi masraflarını, yönetici herkesinkini görür
 - [x] Aynı gün, aynı kategori ve tutarda ikinci masrafta uyarı çıkar (iki kez girilmiş olabilir); ikinci gönderimde kaydedilir
 
+## Sözleşmeler
+- [x] Sözleşme: müşteri, ad, başlangıç–bitiş, isteğe bağlı saat havuzu, bağlı projeler, hatırlatma süresi (varsayılan 60 gün), yenileme (manuel / otomatik), not. Bedel tutulmaz
+- [x] Kullanılan saat: bağlı projelere sözleşme döneminde yazılan tüm saatler (`contractUsage`)
+- [x] Uyarılar: bitişe hatırlatma süresi kadar kala; havuzun %80'inde (uyarı) ve %100'ünde (aşım); bu kullanım hızıyla havuz bitişten önce tükenecekse (en az 14 günlük veriyle) (`contractAlerts`)
+- [x] Aynı proje aynı dönemde iki sözleşmede olamaz (`contractClash`)
+- [x] Yenile: yeni dönem aynı ayarlarla açılır (tam ay süren sözleşme aynı sayıda ay uzar, adındaki yıl ilerler); eski sözleşme bitiş uyarısı vermez, ama sürüyorsa saat havuzu izlenmeye devam eder
+- [x] Yalnızca yönetici görür (Yönetim → Sözleşmeler, Özet'te uyarı, müşteri kartında özet)
+
 ## Müşteri ve proje
 - [ ] Faturalanır / faturalanmaz ayrımı **proje bazında**
 - [ ] Aylık sözleşme saati: %80'de uyarı, %100'de aşım (`budgetState`)

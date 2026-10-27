@@ -660,6 +660,26 @@ async function exportExpenses(iso) {
   toast(`${monthTitle(iso)} masraf raporu indirildi`);
 }
 
+// Sözleşme listesi: dönem, saat havuzu kullanımı, tahmini tükenme ve durum
+async function exportContracts() {
+  const today = todayISO(), list = Store.contracts().slice().sort((a, b) => a.end.localeCompare(b.end));
+  if (!list.length) { toast('Sözleşme yok', { tone: 'info' }); return; }
+  const XLSX = await loadXLSX();
+  const rows = [['Müşteri', 'Sözleşme', 'Başlangıç', 'Bitiş', 'Kalan gün', 'Projeler', 'Saat havuzu', 'Kullanılan', 'Kalan saat', 'Kullanım %', 'Tahmini tükenme', 'Durum', 'Yenileme', 'Not'],
+    ...list.map(c => {
+      const u = contractUsage(c, today);
+      return [Store.customer(c.customerId)?.name || '', c.name, c.start, c.end, c.end >= today ? daysBetween(today, c.end) : 0,
+        c.projectIds.map(pid => Store.project(pid)?.code).filter(Boolean).join(', '), c.hours || '', u.used, u.remaining ?? '',
+        u.pct == null ? '' : Math.round(u.pct), u.runsOutOn || '', CONTRACT_STATUS[contractStatus(c, today)].label, CONTRACT_RENEWAL[c.renewal] || '', c.note || ''];
+    })];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [20, 32, 12, 12, 10, 18, 11, 11, 11, 10, 15, 13, 18, 36].map(wch => ({ wch }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sözleşmeler');
+  XLSX.writeFile(wb, `bisolera-sozlesmeler-${today}.xlsx`);
+  toast(`${list.length} sözleşme Excel'e aktarıldı`);
+}
+
 // Ham liste: her kayıt bir satır + proje bazında özet sayfası
 async function exportActivities(user, from, to, tag) {
   const items = Store.activities({ userId: user.id, from, to }).slice().sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt));

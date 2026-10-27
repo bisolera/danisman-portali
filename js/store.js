@@ -50,6 +50,7 @@ const Store = (() => {
       d.projects.forEach(p => { if (!p.skills) p.skills = SEED_PROJECT_SKILLS[p.id] || []; });
     }
     if (d.version < 8) d.expenses = d.expenses || [];                   // masraflar
+    if (d.version < 9) d.contracts = d.contracts || [];                 // müşteri sözleşmeleri
     d.version = DATA_VERSION;
     return d;
   }
@@ -163,6 +164,20 @@ const Store = (() => {
       return removed;
     },
     restoreExpense(x) { db.expenses.push(x); persist(); return x; },
+
+    // Sözleşmeler: { customerId, name, start, end, hours?, projectIds, noticeDays, renewal, note, renewedTo? }
+    contracts: ({ customerId } = {}) => db.contracts.filter(c => !customerId || c.customerId === customerId),
+    contract: id => byId(db.contracts, id),
+    addContract(c) { const contract = { id: uid(), projectIds: [], noticeDays: 60, renewal: 'manuel', note: '', ...c }; db.contracts.push(contract); persist(); return contract; },
+    updateContract: (id, changes) => patch(db.contracts, id, changes),
+    deleteContract(id) {
+      const i = db.contracts.findIndex(c => c.id === id);
+      if (i < 0) return null;
+      const [removed] = db.contracts.splice(i, 1);
+      persist();
+      return removed;
+    },
+    restoreContract(c) { db.contracts.push(c); persist(); return c; },
 
     // Sertifikalar: { userId, name, code?, skillId?, issued?, expires? }
     certs: ({ userId } = {}) => db.certs.filter(c => !userId || c.userId === userId),

@@ -2,7 +2,7 @@
    Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
 
 const COMPANY_DOMAIN = 'bisolera.com';
-const DATA_VERSION = 8;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
+const DATA_VERSION = 9;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
 const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor
 
 const BRAND = {
@@ -70,6 +70,16 @@ const EXPENSE_STATUS = {
   reddedildi: { label: 'Reddedildi', tone: 'danger' },
 };
 const EXPENSE_MAX = 100000;
+
+// Müşteri sözleşmeleri: tarih ve saat havuzu (bedel tutulmaz)
+const CONTRACT_STATUS = {
+  baslamadi: { label: 'Başlamadı', tone: 'muted' },
+  aktif: { label: 'Aktif', tone: 'ok' },
+  yakinda: { label: 'Bitişe yakın', tone: 'warn' },
+  bitti: { label: 'Bitti', tone: 'muted' },
+  yenilendi: { label: 'Yenilendi', tone: 'info' },
+};
+const CONTRACT_RENEWAL = { manuel: 'Manuel', otomatik: 'Otomatik yenilenir' };
 
 // Yetkinlik kataloğu: danışman seviyesini girer, projeler bu kimliklerle etiketlenir (deneyim saati buradan hesaplanır)
 const SKILLS = [
@@ -298,7 +308,16 @@ function buildSeed() {
     { id: 'x5', userId: 'u5', date: addDays(pm, 14), category: 'otopark', amount: 150, description: 'Müşteri otoparkı', projectId: 'p8', rebill: false, status: 'reddedildi', decidedBy: 'u1', decidedAt: `${addDays(pm, 16)}T11:00`, rejectReason: 'Fiş eksik; fişi ekleyip yeniden gönder.' },
   ].map(x => ({ createdAt: `${x.date}T18:00`, receipt: null, ...x }));
 
-  return { version: DATA_VERSION, users, customers, projects, leaves, periods, certs, expenses, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
+  // Sözleşmeler (demo): biri yıllık havuzlu, biri bitişe yakın, biri bitmiş ve yenilenmiş
+  const year = today.slice(0, 4);
+  const contracts = [
+    { id: 'k-kzy', customerId: 'c6', name: `${year} BW & BPC Destek Sözleşmesi`, start: `${year}-01-01`, end: `${year}-12-31`, hours: 500, projectIds: ['p14'], noticeDays: 60, renewal: 'otomatik', note: '' },
+    { id: 'k-mav', customerId: 'c7', name: 'Raporlama Destek Paketi', start: addMonths(monthStart(today), -5), end: addDays(today, 40), hours: 120, projectIds: ['p15'], noticeDays: 60, renewal: 'manuel', note: 'Yenileme için teklif hazırlanacak' },
+    { id: 'k-atl1', customerId: 'c1', name: 'BW/4HANA Migrasyon – 1. faz', start: addMonths(monthStart(today), -14), end: addDays(monthStart(today), -1), hours: null, projectIds: ['p1'], noticeDays: 60, renewal: 'manuel', note: '', renewedTo: 'k-atl2' },
+    { id: 'k-atl2', customerId: 'c1', name: 'BW/4HANA Migrasyon – 2. faz', start: monthStart(today), end: addDays(addMonths(monthStart(today), 6), -1), hours: 900, projectIds: ['p1'], noticeDays: 60, renewal: 'manuel', note: '' },
+  ];
+
+  return { version: DATA_VERSION, users, customers, projects, leaves, periods, certs, expenses, contracts, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
 }
 
 // Son 5 haftanın aktivitelerini üretir: hafta sonu, tatil ve izin günleri atlanır

@@ -2,7 +2,8 @@
 
 const AdminView = {
   mount(el, { query }) {
-    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['doluluk', 'Doluluk'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
+    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['doluluk', 'Doluluk'], ['sozlesmeler', 'Sözleşmeler'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
+    let contractFilter = 'aktif';
     let tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'onaylar';
     // Doluluk: bağlantıyla ay seçilebilir (#/yonetim?tab=doluluk&ay=2026-09); ay yeni başladıysa geçen ay açılır
     let utilMonth = /^\d{4}-\d{2}$/.test(query.ay || '') ? `${query.ay}-01` : todayISO();
@@ -20,10 +21,14 @@ const AdminView = {
     const tabsEl = el.querySelector('#tabs'), panel = el.querySelector('#panel');
 
     function render() {
-      const counts = { onaylar: Store.leaves({ status: 'beklemede' }).length + cancelRequests().length, kapanis: Store.periods({ status: 'gonderildi' }).length };
+      const counts = {
+        onaylar: Store.leaves({ status: 'beklemede' }).length + cancelRequests().length,
+        kapanis: Store.periods({ status: 'gonderildi' }).length,
+        sozlesmeler: new Set(contractAlerts().map(a => a.contract.id)).size,
+      };
       tabsEl.innerHTML = TABS.map(([k, label]) =>
         `<button class="${k === tab ? 'is-active' : ''}" data-tab="${k}">${label}${counts[k] ? ` <span class="count">${counts[k]}</span>` : ''}</button>`).join('');
-      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, doluluk: renderUtilization, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
+      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, doluluk: renderUtilization, sozlesmeler: renderContracts, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
       App.refreshBadges();
     }
 
@@ -198,6 +203,59 @@ const AdminView = {
             <small class="muted">${names(r.users)}</small>
           </div>`).join('')}</div>` : emptyState('check', 'Bu dönemde faturalanmayan saat yok')}
         </section>`;
+    }
+
+    // Sözleşmeler: bitiş tarihleri ve saat havuzları; bitişe yakın, havuzu dolan ve erken tükenecekler üstte uyarılır
+    function renderContracts() {
+      const today = todayISO(), alerts = contractAlerts(today), alertIds = new Set(alerts.map(a => a.contract.id));
+      const all = Store.contracts().map(c => ({ c, st: contractStatus(c, today), u: contractUsage(c, today), customer: Store.customer(c.customerId) }));
+      const ended = r => r.st === 'bitti' || r.st === 'yenilendi';
+      const shown = all.filter(r => contractFilter === 'hepsi' || (contractFilter === 'aktif' ? !ended(r) : ended(r)))
+        .sort((a, b) => (alertIds.has(b.c.id) - alertIds.has(a.c.id)) || a.c.end.localeCompare(b.c.end));
+      const count = st => all.filter(r => r.st === st).length;
+      const poolAlerts = new Set(alerts.filter(a => a.kind !== 'bitiyor').map(a => a.contract.id)).size;
+      const period = ({ c, st }) => ({
+        baslamadi: `${daysBetween(today, c.start)} gün sonra başlar`,
+        bitti: `${fmtDate(c.end)} bitti`,
+        yenilendi: `Yenilendi: ${Store.contract(c.renewedTo)?.name || ''}`,
+      })[st] || `${daysBetween(today, c.end)} gün kaldı`;
+      panel.innerHTML = `<section class="card">
+        <div class="card-head">
+          <div><h2>Sözleşmeler</h2><p class="sub">Müşteri sözleşmelerinin bitiş tarihleri ve saat havuzları. Kullanılan saat, bağlı projelere sözleşme döneminde yazılan saattir.</p></div>
+          <div class="row-gap">
+            <button class="btn ghost sm" data-contract-export${all.length ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
+            <button class="btn primary sm" data-add-contract>${icon('plus', 15)} Sözleşme ekle</button>
+          </div>
+        </div>
+        <div class="close-stats report-stats">
+          <div><b>${count('aktif') + count('yakinda')}</b><span>aktif sözleşme</span></div>
+          <div class="${count('yakinda') ? 'is-bad' : ''}"><b>${count('yakinda')}</b><span>bitişe yakın</span></div>
+          <div class="${poolAlerts ? 'is-bad' : ''}"><b>${poolAlerts}</b><span>saat havuzu uyarısı</span></div>
+          <div><b>${count('baslamadi')}</b><span>henüz başlamadı</span></div>
+        </div>
+        ${alerts.length ? `<div class="callout warn">${icon('alert', 16)}<div><strong>İlgilenilmesi gerekenler</strong>
+          <ul class="alert-list">${alerts.map(a => `<li><b>${esc(a.customer.name)} · ${esc(a.contract.name)}:</b> ${esc(a.text)}</li>`).join('')}</ul></div></div>` : ''}
+        <div class="tabs sub-tabs">${[['aktif', 'Aktif'], ['biten', 'Biten'], ['hepsi', 'Tümü']].map(([k, label]) =>
+          `<button class="${k === contractFilter ? 'is-active' : ''}" data-contract-filter="${k}">${label}</button>`).join('')}</div>
+        ${shown.length ? `<div class="table-wrap"><table class="table contract-table">
+          <thead><tr><th>Müşteri / Sözleşme</th><th>Dönem</th><th>Projeler</th><th>Saat havuzu</th><th>Durum</th><th></th></tr></thead>
+          <tbody>${shown.map(r => `<tr data-contract="${r.c.id}" class="${alertIds.has(r.c.id) ? 'has-alert' : ''}">
+            <td><span class="cell-proj"><span class="dot" style="background:${r.customer.color}"></span><span><strong>${esc(r.customer.name)}</strong><small>${esc(r.c.name)}${r.c.note ? ` · ${esc(r.c.note)}` : ''}</small></span></span></td>
+            <td class="nowrap">${fmtDate(r.c.start)} – ${fmtDate(r.c.end)}<small class="muted block-sm">${esc(period(r))}</small></td>
+            <td>${r.c.projectIds.map(pid => `<span class="code">${esc(Store.project(pid)?.code || '?')}</span>`).join(' ') || '<span class="faint">—</span>'}</td>
+            <td class="w-budget">${r.u.hours
+              ? `<div class="budget budget-${r.u.tone}"><div class="meter"><span style="width:${Math.min(100, r.u.pct)}%"></span></div><span>${fmtNum(r.u.used)} / ${fmtNum(r.u.hours)} sa · %${Math.round(r.u.pct)}</span></div>
+                ${r.u.runsOutOn ? `<small class="warn-text block-sm">Bu hızla ${fmtDate(r.u.runsOutOn)} tarihinde tükenir</small>` : ''}`
+              : `<span class="muted">${fmtNum(r.u.used)} sa · havuz yok</span>`}</td>
+            <td>${pill(CONTRACT_STATUS[r.st].label, CONTRACT_STATUS[r.st].tone)}${r.c.renewal === 'otomatik' ? '<small class="muted block-sm">otomatik yenilenir</small>' : ''}</td>
+            <td class="num nowrap">
+              ${r.st !== 'yenilendi' && r.st !== 'baslamadi' ? `<button class="btn ghost sm" data-renew-contract>${icon('refresh', 14)} Yenile</button>` : ''}
+              <button class="icon-btn sm" data-edit-contract title="Düzenle" aria-label="Düzenle">${icon('pencil', 15)}</button>
+              <button class="icon-btn sm" data-del-contract title="Sil" aria-label="Sil">${icon('trash', 15)}</button>
+            </td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : emptyState('sheet', contractFilter === 'biten' ? 'Biten sözleşme yok' : 'Sözleşme girilmemiş', 'Müşteri sözleşmelerini bitiş tarihi ve saat havuzuyla ekle; bitmeden ve havuz dolmadan uyarılırsın.')}
+      </section>`;
     }
 
     // Ay kapanışı: kim gönderdi, kim onay bekliyor; incele → onayla / iade et / kilidi aç
@@ -382,6 +440,23 @@ const AdminView = {
       if (userRow && e.target.closest('[data-review]')) return openReviewDialog(Store.user(userRow.dataset.user), closeMonth, render);
       if (userRow && e.target.closest('[data-dl]')) return exportMonthlyForm(Store.user(userRow.dataset.user), closeMonth).catch(err => toast(err.message, { tone: 'danger' }));
       if (userRow && e.target.closest('[data-print-form]')) return openPrintDialog(Store.user(userRow.dataset.user), closeMonth);
+      const cFilter = e.target.closest('[data-contract-filter]');
+      if (cFilter) { contractFilter = cFilter.dataset.contractFilter; return renderContracts(); }
+      if (e.target.closest('[data-add-contract]')) return contractModal(null, render);
+      if (e.target.closest('[data-contract-export]')) return exportContracts().catch(err => toast(err.message, { tone: 'danger' }));
+      const cRow = e.target.closest('[data-contract]');
+      if (cRow && e.target.closest('[data-edit-contract]')) return contractModal(Store.contract(cRow.dataset.contract), render);
+      if (cRow && e.target.closest('[data-renew-contract]')) return contractModal(null, render, Store.contract(cRow.dataset.contract));
+      if (cRow && e.target.closest('[data-del-contract]')) {
+        const removed = Store.deleteContract(cRow.dataset.contract);
+        const renewedFrom = Store.contracts().find(c => c.renewedTo === removed.id);
+        if (renewedFrom) Store.updateContract(renewedFrom.id, { renewedTo: null });   // yenilemesi silinen sözleşme yeniden "aktif / bitti" olur
+        render();
+        return toast(`${removed.name} silindi`, {
+          tone: 'info',
+          action: { label: 'Geri al', fn: () => { Store.restoreContract(removed); if (renewedFrom) Store.updateContract(renewedFrom.id, { renewedTo: removed.id }); render(); } },
+        });
+      }
       const holNav = e.target.closest('[data-hol-year]');
       if (holNav) {
         holidayYear = holNav.dataset.holYear === '0' ? thisYear : holidayYear + Number(holNav.dataset.holYear);
@@ -498,6 +573,84 @@ function userModal(u, onSave) {
         close();
         onSave();
         toast(u ? 'Kullanıcı güncellendi' : `${name} eklendi · artık ${email} ile giriş yapabilir`);
+      });
+    },
+  });
+}
+
+// Yenilemede yeni dönem: ay başından ay sonuna giden sözleşme aynı sayıda ay uzar, diğerleri aynı gün sayısı kadar.
+// Addaki yıl da ilerletilir ("2026 Destek" → "2027 Destek").
+function renewalDraft(c) {
+  const start = addDays(c.end, 1), wholeMonths = c.start === monthStart(c.start) && c.end === monthEnd(c.end);
+  const months = (parseISO(c.end).getFullYear() - parseISO(c.start).getFullYear()) * 12 + parseISO(c.end).getMonth() - parseISO(c.start).getMonth() + 1;
+  const end = wholeMonths ? addDays(addMonths(start, months), -1) : addDays(start, daysBetween(c.start, c.end));
+  const name = c.name.replace(c.start.slice(0, 4), start.slice(0, 4));
+  return { ...c, id: null, renewedTo: null, start, end, name, note: '' };
+}
+
+// Sözleşme ekle / düzenle / yenile. Saat havuzu girilirse en az bir proje bağlanmalı (kullanılan saat oradan gelir).
+function contractModal(c, onSave, renewFrom = null) {
+  const src = c || (renewFrom && renewalDraft(renewFrom));
+  const customers = Store.customers().filter(x => !x.internal).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+  const start = src?.start || monthStart(todayISO()), end = src?.end || addDays(addMonths(start, 12), -1);
+  openModal({
+    title: renewFrom ? `Yenile · ${renewFrom.name}` : c ? 'Sözleşmeyi düzenle' : 'Sözleşme ekle',
+    body: `<form class="form-stack" id="contractForm" novalidate>
+      <div class="form-grid">
+        <label class="field"><span class="field-label">Müşteri</span>
+          <select class="input" name="customerId">${customers.map(x => `<option value="${x.id}"${src?.customerId === x.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+        <label class="field"><span class="field-label">Sözleşme adı</span><input class="input" name="name" maxlength="80" value="${esc(src?.name || '')}" placeholder="Örn. 2027 Destek Sözleşmesi"></label>
+        <label class="field"><span class="field-label">Başlangıç</span><input class="input" type="date" name="start" value="${start}"></label>
+        <label class="field"><span class="field-label">Bitiş</span><input class="input" type="date" name="end" value="${end}"></label>
+        <label class="field"><span class="field-label">Saat havuzu <span class="faint">(isteğe bağlı)</span></span><input class="input" name="hours" type="number" min="1" max="100000" step="1" value="${src?.hours || ''}" placeholder="Örn. 500"></label>
+        <label class="field"><span class="field-label">Hatırlatma <span class="faint">(bitişten kaç gün önce)</span></span><input class="input" name="noticeDays" type="number" min="1" max="365" value="${src?.noticeDays ?? 60}"></label>
+      </div>
+      <div class="field"><span class="field-label">Bağlı projeler <span class="faint">(bu projelere yazılan saat havuzdan düşer)</span></span><div class="chips" data-projects></div></div>
+      <div class="field"><span class="field-label">Yenileme</span>
+        <div class="seg">${Object.entries(CONTRACT_RENEWAL).map(([k, label]) => `<input type="radio" name="renewal" id="cr-${k}" value="${k}"${(src?.renewal || 'manuel') === k ? ' checked' : ''}><label for="cr-${k}">${label}</label>`).join('')}</div></div>
+      <label class="field"><span class="field-label">Not <span class="faint">(isteğe bağlı)</span></span><input class="input" name="note" maxlength="200" value="${esc(src?.note || '')}" placeholder="Örn. fesih bildirimi 30 gün önce yazılı"></label>
+      ${renewFrom ? `<p class="muted small-text">${esc(renewFrom.name)} geçmişte kalır ve artık bitiş uyarısı vermez.</p>` : ''}
+      <p class="form-error" hidden></p>
+    </form>`,
+    footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" type="submit" form="contractForm">${renewFrom ? 'Yenile' : c ? 'Kaydet' : 'Ekle'}</button>`,
+    onMount(m, close) {
+      const f = m.querySelector('form'), el = f.elements;
+      let chosen = new Set(src?.projectIds || []);
+      const renderProjects = () => {
+        const projects = Store.projects({ customerId: el.customerId.value });
+        m.querySelector('[data-projects]').innerHTML = projects.length ? projects.map(p => `<label class="chip"><input type="checkbox" name="projectIds" value="${p.id}"${chosen.has(p.id) ? ' checked' : ''}><span>${esc(p.name)} · ${esc(p.code)}</span></label>`).join('')
+          : '<span class="muted small-text">Bu müşterinin projesi yok.</span>';
+      };
+      el.customerId.addEventListener('change', () => { chosen = new Set(); renderProjects(); });
+      renderProjects();
+      el.name.focus();
+      f.addEventListener('submit', e => {
+        e.preventDefault();
+        const hours = el.hours.value ? Number(el.hours.value) : null, noticeDays = Number(el.noticeDays.value);
+        const data = {
+          customerId: el.customerId.value, name: el.name.value.trim(), start: el.start.value, end: el.end.value, hours, noticeDays,
+          projectIds: [...f.querySelectorAll('[name=projectIds]:checked')].map(x => x.value), renewal: el.renewal.value, note: el.note.value.trim(),
+        };
+        if (!data.name) return formError(f, 'Sözleşmenin adını yaz.', el.name);
+        if (!data.start || !data.end || data.end < data.start) return formError(f, 'Tarihleri kontrol et: bitiş başlangıçtan önce olamaz.', el.end);
+        if (hours != null && !(hours >= 1 && hours <= 100000)) return formError(f, 'Saat havuzu 1–100.000 arasında olmalı ya da boş bırakılmalı.', el.hours);
+        if (!(noticeDays >= 1 && noticeDays <= 365)) return formError(f, 'Hatırlatma 1–365 gün arasında olmalı.', el.noticeDays);
+        if (hours && !data.projectIds.length) return formError(f, 'Saat havuzu için en az bir proje bağla; kullanılan saat oradan hesaplanır.');
+        const clash = contractClash(data, c?.id);
+        if (clash) return formError(f, `${clash.projects.map(pid => Store.project(pid).code).join(', ')} aynı dönemde “${clash.contract.name}” sözleşmesinde (${fmtDate(clash.contract.start)} – ${fmtDate(clash.contract.end)}). Tarihleri ya da projeleri değiştir.`);
+        if (c) {
+          Store.updateContract(c.id, data);
+          close();
+          onSave();
+          return toast('Sözleşme güncellendi');
+        }
+        const created = Store.addContract(data);
+        if (renewFrom) Store.updateContract(renewFrom.id, { renewedTo: created.id });
+        close();
+        onSave();
+        toast(renewFrom ? `${renewFrom.name} yenilendi · ${fmtDate(created.start)} – ${fmtDate(created.end)}` : `${created.name} eklendi`, {
+          action: { label: 'Geri al', fn: () => { Store.deleteContract(created.id); if (renewFrom) Store.updateContract(renewFrom.id, { renewedTo: null }); onSave(); } },
+        });
       });
     },
   });

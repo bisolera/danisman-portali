@@ -21,6 +21,7 @@ const DashboardView = {
       <div id="reminder"></div>
       <div id="bridges"></div>
       <div id="certReminder"></div>
+      <div id="contractReminder"></div>
       <section class="grid kpis" id="kpis"></section>
       <section class="card section-gap" id="month"></section>
       <div class="grid two-col section-gap">
@@ -81,6 +82,18 @@ const DashboardView = {
         <div class="grow"><strong>${list.length === 1 ? 'Sertifikan yenilenmeli' : `${list.length} sertifikan yenilenmeli`}</strong>
           <p>${list.map(c => `${esc(c.name)}: ${certStatus(c) === 'doldu' ? `${fmtDate(c.expires)} doldu` : `${daysBetween(today, c.expires)} gün kaldı (${fmtDate(c.expires)})`}`).join(' · ')}</p></div>
         <a class="btn ghost sm" href="#/yetkinlik?v=ben">Sertifikalarım ${icon('arrow-right', 14)}</a>
+      </div>` : '';
+    }
+
+    // Yöneticiye: bitişe yakın, saat havuzu dolan ya da erken tükenecek sözleşmeler
+    function renderContractReminder() {
+      const alerts = App.isAdmin() ? contractAlerts(today) : [];
+      const n = new Set(alerts.map(a => a.contract.id)).size;
+      el.querySelector('#contractReminder').innerHTML = n ? `<div class="reminder">
+        ${icon('sheet', 18)}
+        <div class="grow"><strong>${n} sözleşme ilgilenilmeyi bekliyor</strong>
+          <p>${alerts.slice(0, 3).map(a => `${esc(a.customer.name)}: ${esc(a.text)}`).join(' · ')}${alerts.length > 3 ? ' …' : ''}</p></div>
+        <a class="btn ghost sm" href="#/yonetim?tab=sozlesmeler">Sözleşmeler ${icon('arrow-right', 14)}</a>
       </div>` : '';
     }
 
@@ -191,7 +204,7 @@ const DashboardView = {
         ? `<a class="link" href="#/aktiviteler?d=${today}&v=gun">${icon('calendar', 14)} Takviminde ${open.length} toplantı önerisi</a>` : '';
     }
 
-    function refresh() { renderReminder(); renderBridges(); renderCertReminder(); renderKpis(); renderMonth(); renderRecent(); renderDist(); renderUpcoming(); renderCalHint(); form.refresh(); }
+    function refresh() { renderReminder(); renderBridges(); renderCertReminder(); renderContractReminder(); renderKpis(); renderMonth(); renderRecent(); renderDist(); renderUpcoming(); renderCalHint(); form.refresh(); }
     refresh();
   },
 };

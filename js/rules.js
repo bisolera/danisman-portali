@@ -440,6 +440,63 @@ function expenseMonthReport(iso) {
 
 const pendingExpenses = () => Store.expenses({ status: 'beklemede' }).length;
 
+/* ---------- Müşteri sözleşmeleri ---------- */
+
+const CONTRACT_WARN_PCT = 80;       // saat havuzunun bu yüzdesi kullanılınca uyarı
+const CONTRACT_FORECAST_DAYS = 14;  // tükenme tahmini için en az bu kadar günlük kullanım gerekir
+
+// baslamadi · aktif · yakinda (bitişe hatırlatma süresi kadar kaldı) · bitti · yenilendi
+function contractStatus(c, today = todayISO()) {
+  if (c.start > today) return 'baslamadi';
+  if (c.renewedTo && Store.contract(c.renewedTo)) return 'yenilendi';
+  if (c.end < today) return 'bitti';
+  return daysBetween(today, c.end) <= (c.noticeDays ?? 60) ? 'yakinda' : 'aktif';
+}
+
+// Saat havuzu: bağlı projelere sözleşme döneminde yazılan saat (bütün danışmanlar).
+// Tahmin: şimdiye kadarki günlük ortalama sürerse havuzun tükeneceği gün; bitişten önceyse uyarı.
+function contractUsage(c, today = todayISO()) {
+  const to = c.end < today ? c.end : today;
+  const used = to < c.start ? 0 : sum(c.projectIds.flatMap(pid => Store.activities({ projectId: pid, from: c.start, to })), a => a.hours);
+  if (!c.hours) return { used, hours: null, pct: null, remaining: null, runsOutOn: null, tone: 'muted' };
+  const pct = (used / c.hours) * 100, remaining = c.hours - used;
+  let runsOutOn = null;
+  const elapsed = to < c.start ? 0 : daysBetween(c.start, to) + 1;
+  if (c.end >= today && remaining > 0 && used > 0 && elapsed >= CONTRACT_FORECAST_DAYS) {
+    const date = addDays(today, Math.ceil(remaining / (used / elapsed)));
+    if (date < c.end) runsOutOn = date;
+  }
+  return { used, hours: c.hours, pct, remaining, runsOutOn, tone: pct >= 100 ? 'danger' : pct >= CONTRACT_WARN_PCT || runsOutOn ? 'warn' : 'ok' };
+}
+
+// İlgilenilmesi gereken sözleşmeler: bitişe yakın, havuz %80 / %100, bu hızla erken tükenecek
+function contractAlerts(today = todayISO()) {
+  const out = [];
+  Store.contracts().forEach(c => {
+    const st = contractStatus(c, today);
+    if (st === 'bitti' || st === 'baslamadi' || (st === 'yenilendi' && c.end < today)) return;   // yenilenmiş ama sürmekte olanın havuzu yine izlenir
+    const u = contractUsage(c, today), customer = Store.customer(c.customerId);
+    if (st === 'yakinda') out.push({ contract: c, customer, kind: 'bitiyor', text: `${daysBetween(today, c.end)} gün sonra bitiyor (${fmtDate(c.end)})${c.renewal === 'otomatik' ? ' · otomatik yenilenir' : ''}` });
+    if (u.pct != null && u.pct >= 100) out.push({ contract: c, customer, kind: 'asim', text: `Saat havuzu aşıldı: ${fmtNum(u.used)} / ${fmtNum(u.hours)} sa` });
+    else if (u.pct != null && u.pct >= CONTRACT_WARN_PCT) out.push({ contract: c, customer, kind: 'havuz', text: `Saat havuzunun %${Math.round(u.pct)}'i kullanıldı (${fmtNum(u.remaining)} sa kaldı)` });
+    else if (u.runsOutOn) out.push({ contract: c, customer, kind: 'hizli', text: `Bu hızla havuz ${fmtDate(u.runsOutOn)} tarihinde biter (bitişten ${daysBetween(u.runsOutOn, c.end)} gün önce)` });
+  });
+  return out;
+}
+
+// Aynı proje aynı dönemde iki sözleşmede olamaz (saatler iki kez sayılırdı)
+function contractClash(draft, ignoreId = null) {
+  return Store.contracts().filter(c => c.id !== ignoreId && c.start <= draft.end && draft.start <= c.end)
+    .map(c => ({ contract: c, projects: c.projectIds.filter(pid => draft.projectIds.includes(pid)) }))
+    .find(x => x.projects.length) || null;
+}
+
+// Müşterinin şu an geçerli (yoksa en son) sözleşmesi: müşteri kartındaki özet için
+function currentContract(customerId, today = todayISO()) {
+  const list = Store.contracts({ customerId }).filter(c => c.start <= today).sort((a, b) => b.end.localeCompare(a.end));
+  return list.find(c => c.end >= today) || null;
+}
+
 /* ---------- Ay kapanışı ---------- */
 
 function periodStatus(userId, iso) { return Store.period(userId, iso.slice(0, 7))?.status || 'acik'; }

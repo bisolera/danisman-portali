@@ -40,6 +40,7 @@ const CustomersView = {
             <div class="grow min0"><h3>${esc(c.name)}</h3><small class="muted">${c.sector ? esc(c.sector) + ' · ' : ''}${activeCount} aktif proje</small></div>
             ${admin ? `<button class="icon-btn sm" data-edit-customer="${c.id}" title="Müşteriyi düzenle" aria-label="Müşteriyi düzenle">${icon('pencil', 15)}</button>` : ''}
           </header>
+          ${admin ? contractLine(c) : ''}
           ${projects.length ? projects.map(p => `<div class="proj-row">
               <div class="min0">
                 <div class="proj-name">${esc(p.name)}</div>
@@ -67,6 +68,21 @@ const CustomersView = {
     render();
   },
 };
+
+// Müşteri kartında geçerli sözleşmenin özeti (yalnızca yönetici): bitiş ve saat havuzu
+function contractLine(customer) {
+  const today = todayISO(), c = currentContract(customer.id);
+  if (!c) {   // hiç sözleşmesi olmayan müşteride satır gösterilmez
+    const last = Store.contracts({ customerId: customer.id }).sort((a, b) => b.end.localeCompare(a.end))[0];
+    if (!last) return '';
+    return `<a class="cust-contract${last.start > today ? '' : ' is-warn'}" href="#/yonetim?tab=sozlesmeler" title="${esc(last.name)}">${icon('sheet', 13)} ${last.start > today
+      ? `Sözleşme ${fmtDate(last.start)} tarihinde başlıyor` : `Sözleşme ${fmtDate(last.end)} tarihinde bitti`}</a>`;
+  }
+  const st = contractStatus(c, today), u = contractUsage(c, today);
+  return `<a class="cust-contract${st === 'yakinda' || u.tone === 'warn' || u.tone === 'danger' ? ' is-warn' : ''}" href="#/yonetim?tab=sozlesmeler" title="${esc(c.name)}">
+    ${icon('sheet', 13)} Sözleşme ${fmtDate(c.end)} tarihine kadar${u.hours ? ` · ${fmtNum(u.used)} / ${fmtNum(u.hours)} sa` : ''}${st === 'yakinda' ? ` · ${daysBetween(today, c.end)} gün kaldı` : ''}
+  </a>`;
+}
 
 // Bu ayın sözleşme saati kullanımı (ekip toplamı); sözleşme saati girilmemiş projede gösterilmez
 function budgetBar(p) {
