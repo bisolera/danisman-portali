@@ -1,10 +1,10 @@
 /* Yetkinlikler: kim neyi biliyor, sertifikalar, uygun danışman arama, teklif için CV.
-   Herkes ekibin yetkinliklerini görür; kendi profilini danışman, herkesinkini yönetici düzenler. Doluluk yalnızca yöneticide. */
+   Kendi profilini danışman, herkesinkini yönetici düzenler. Ekip matrisi, uygun danışman araması ve doluluk yalnızca yöneticide. */
 
 const SkillsView = {
   mount(el, { query }) {
     const me = App.user, admin = App.isAdmin();
-    const MODES = [['ben', 'Profil'], ['ekip', 'Ekip matrisi'], ['ara', 'Uygun danışman']];
+    const MODES = admin ? [['ben', 'Profil'], ['ekip', 'Ekip matrisi'], ['ara', 'Uygun danışman']] : [['ben', 'Profil']];
     let mode = MODES.some(([k]) => k === query.v) ? query.v : 'ben';
     let personId = Store.user(query.u)?.active ? query.u : me.id;     // başkasının profili: herkes görür, düzenleyemez
     const search = { skills: [], minLevel: 2, certRequired: false, available: false };
@@ -20,6 +20,7 @@ const SkillsView = {
     const setHash = () => history.replaceState(null, '', `#/yetkinlik?v=${mode}${mode === 'ben' && personId !== me.id ? `&u=${personId}` : ''}`);
 
     function render() {
+      el.querySelector('#modes').hidden = MODES.length < 2;
       el.querySelector('#modes').innerHTML = MODES.map(([k, label]) => `<button class="${k === mode ? 'is-active' : ''}" data-mode="${k}">${label}</button>`).join('');
       renderCertAlert();
       ({ ben: renderProfile, ekip: renderMatrix, ara: renderSearch })[mode]();
@@ -144,18 +145,18 @@ const SkillsView = {
           <div class="field"><span class="field-label">En az seviye</span>
             <div class="lvl-seg">${[1, 2, 3].map(n => `<button class="${search.minLevel === n ? 'is-active' : ''}" data-min-level="${n}">${SKILL_LEVELS[n]}</button>`).join('')}</div></div>
           <label class="toggle"><input type="checkbox" data-cert-required${search.certRequired ? ' checked' : ''}> İlgili yetkinlikte geçerli sertifikası olsun</label>
-          ${admin ? `<label class="toggle"><input type="checkbox" data-available${search.available ? ' checked' : ''}> Bu ay müsait (doluluk %${Math.round(UTILIZATION_TARGET * 100)} altında)</label>` : ''}
+          <label class="toggle"><input type="checkbox" data-available${search.available ? ' checked' : ''}> Bu ay müsait (doluluk %${Math.round(UTILIZATION_TARGET * 100)} altında)</label>
         </div>
       </section>
       <section class="card section-gap">
         ${!chosen.length ? emptyState('search', 'Yetkinlik seç', 'Örn. SAP Datasphere + SAC raporlama, en az Orta.')
           : rows.length ? `<div class="card-head"><h2>${rows.length} danışman uyuyor</h2></div><div class="table-wrap"><table class="table">
-            <thead><tr><th>Danışman</th>${chosen.map(s => `<th>${esc(s.name)}</th>`).join('')}<th class="num">Deneyim (12 ay)</th>${admin && search.available ? '<th class="num">Bu ay doluluk</th>' : ''}<th></th></tr></thead>
+            <thead><tr><th>Danışman</th>${chosen.map(s => `<th>${esc(s.name)}</th>`).join('')}<th class="num">Deneyim (12 ay)</th>${search.available ? '<th class="num">Bu ay doluluk</th>' : ''}<th></th></tr></thead>
             <tbody>${rows.map(r => `<tr data-person-row="${r.user.id}">
               <td><span class="cell-user">${avatar(r.user, 30)}<span><strong>${esc(r.user.name)}</strong><small>${esc(r.user.title)}</small></span></span></td>
               ${r.levels.map((n, i) => `<td class="nowrap"><span class="lvl lvl-${n}">${n}</span> ${SKILL_LEVELS[n]}${r.certs[i] ? ` <span class="cert-ok" title="${esc(r.certs[i].name)}">${icon('shield', 13)} sertifikalı</span>` : ''}</td>`).join('')}
               <td class="num">${fmtNum(r.hours)} sa</td>
-              ${admin && search.available ? `<td class="num">%${Math.round(r.util.pct * 100)}</td>` : ''}
+              ${search.available ? `<td class="num">%${Math.round(r.util.pct * 100)}</td>` : ''}
               <td class="num nowrap">${r.user.cv && canSeeCv(me, r.user)
                 ? `<button class="btn ghost sm" data-cv-preview-of="${r.user.id}">${icon('eye', 15)} CV</button>`
                 : `<button class="btn ghost sm" data-cv-of="${r.user.id}" title="Portaldaki yetkinlik, sertifika ve projelerden tek sayfa">${icon('printer', 15)} Özet</button>`}</td>

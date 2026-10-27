@@ -54,13 +54,10 @@
   go('#/yetkinlik?v=ben&u=u2');
   ok('baskasi_cv_goremez', !document.querySelector('[data-cv-preview]') && !document.querySelector('[data-cv-file]') && document.querySelector('.cv-box').textContent.includes('yalnızca kendisi ve yönetici'));
   go('#/yetkinlik?v=ara');
-  let box = document.querySelector('[data-search-skill][value="bw"]');
-  box.checked = true;
-  box.dispatchEvent(new Event('change', { bubbles: true }));
-  ok('aramada_danisman_ozet_gorur', !!document.querySelector('tr[data-person-row="u2"] [data-cv-of]') && !document.querySelector('tr[data-person-row="u2"] [data-cv-preview-of]'));
+  ok('danisman_arama_acamaz', !document.querySelector('[data-search-skill]'));
   App.login(Store.user('u1'));
   go('#/yetkinlik?v=ara');
-  box = document.querySelector('[data-search-skill][value="bw"]');
+  const box = document.querySelector('[data-search-skill][value="bw"]');
   box.checked = true;
   box.dispatchEvent(new Event('change', { bubbles: true }));
   ok('aramada_yonetici_cv_gorur', !!document.querySelector('tr[data-person-row="u2"] [data-cv-preview-of]'));

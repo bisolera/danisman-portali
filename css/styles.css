@@ -668,10 +668,52 @@ tr.is-inactive .grid-proj { opacity: .55; }
 @media (max-width: 560px) { .report-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------- Prim & yan haklar ---------- */
-.pay-rate { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -4px 0 14px; font-size: 13px; color: var(--muted); }
-.pay-rate b { color: var(--ink); }
-.pay-table tfoot td { font-weight: 700; border-top: 1px solid var(--line); }
+.month-switch { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 11px; background: var(--card); }
+.month-switch .icon-btn { width: 30px; height: 30px; border-radius: 8px; }
+.month-switch .icon-btn:disabled { opacity: .35; pointer-events: none; }
+.month-label { min-width: 112px; padding: 0 4px; text-align: center; font-weight: 700; font-size: 13.5px; }
+.pay-rate { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.rate-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 11px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--line-2); font-size: 13px; }
+.rate-chip small { color: var(--muted); font-size: 12px; }
+.rate-chip b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rate-meta { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.pay-sum { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.pay-sum > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 16px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2); }
+.pay-sum > div > span:first-child { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.pay-sum b { font-family: var(--font-head); font-size: 20px; font-variant-numeric: tabular-nums; }
+.pay-sum small { font-size: 12px; color: var(--muted); }
+.pay-sum .pay-sum-main { background: var(--brand-50); border-color: var(--brand-100); }
+.pay-sum-main b { font-size: 28px; line-height: 1.15; color: var(--brand-soft-ink); }
+.pay-sum-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+.pay-split { display: flex; height: 6px; margin: 4px 0 6px; border-radius: 99px; overflow: hidden; background: var(--line-2); }
+.pay-split span { display: block; height: 100%; }
+.s-bonus { background: var(--brand); }
+.s-car { background: var(--info); }
+.pay-table .w-days { width: 38%; min-width: 230px; }
+.pday { display: flex; flex-direction: column; gap: 6px; }
+.pday-bar { position: relative; height: 8px; border-radius: 99px; background: var(--line-2); }
+.pday-bar > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 99px; background: var(--line-strong); }
+.pday-bar > .over { background: var(--brand); border-radius: 0 99px 99px 0; }
+.pday-bar::after { content: ''; position: absolute; left: var(--goal); top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); opacity: .5; }
+.pday.no-goal .pday-bar::after { display: none; }
+.pday-text { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pday-text b { font-size: 13.5px; color: var(--ink); }
+.pday-text em { margin-left: auto; font-style: normal; white-space: nowrap; }
+.pday.is-over .pday-text em { font-weight: 700; color: var(--brand-700); }
+.pday-off { font-size: 12.5px; color: var(--faint); }
+.pay-st { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 3px; font-size: 11.5px; font-weight: 600; color: var(--warn); }
+.pay-st::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pay-st.is-final { color: var(--brand-700); }
+.pay-table tfoot td { border-top: 1px solid var(--line); }
 .rate-form { padding-top: 4px; border-top: 1px solid var(--line); }
+.rate-form .sub-head { margin-bottom: 0; }
+.rate-table td { padding: 8px 10px; white-space: nowrap; }
+.rate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 760px) {
+  .pay-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pay-sum .pay-sum-main { grid-column: 1 / -1; }
+  .rate-meta { margin-left: 0; }
+}
 
 /* ---------- Sözleşmeler ---------- */
 .contract-table .budget { margin-top: 0; }

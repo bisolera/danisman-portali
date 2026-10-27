@@ -47,8 +47,10 @@
   go('#/yonetim?tab=prim&ay=2025-03');
   const panel = () => document.querySelector('#panel');
   const row = panel().querySelector(`tr[data-pay-row="${p.id}"]`);
-  ok('ekran', panel().querySelector('h2').textContent.includes('Mart 2025') && row?.textContent.includes('7.375,00 ₺') && row.textContent.includes('25,375') && row.textContent.includes('Kesin')
-    && panel().querySelector(`tr[data-pay-row="${q.id}"]`)?.textContent.includes('Taslak') && panel().querySelector('.pay-rate').textContent.includes('1.000,00 ₺'), row?.textContent);
+  ok('ekran', panel().querySelector('.month-label').textContent.includes('Mart 2025') && row?.textContent.includes('7.375,00 ₺') && row.textContent.includes('25,375') && row.textContent.includes('Kesin')
+    && row.textContent.includes('+7,375 gün eşik üstü') && row.querySelector('.pday .over')
+    && panel().querySelector(`tr[data-pay-row="${q.id}"]`)?.textContent.includes('Taslak') && panel().querySelector(`tr[data-pay-row="${q.id}"]`).textContent.includes('Prime tabi değil')
+    && panel().querySelector('.pay-rate').textContent.includes('1.000,00 ₺') && panel().querySelector('.pay-sum-main').textContent.includes(fmtMoney(payrollMonth('2025-03-01').total)), row?.textContent);
   ok('kist_ekranda', panel().querySelector(`tr[data-pay-row="${joiner.id}"]`)?.textContent.includes('kıst 16/31 gün')
     && panel().querySelector(`tr[data-pay-row="${leaver.id}"]`)?.textContent.includes('ayrıldı'));
   go('#/yonetim?tab=prim&ay=2024-11');
@@ -57,6 +59,11 @@
   // Tutar ekleme: Türkçe tutar okunur, aynı tarihe ikinci tutar girilmez
   panel().querySelector('[data-pay-rates]').click();
   let m = lastModal(), f = m.querySelector('form');
+  // Örnek veride en son tutar bu yılın 1 Ocak'ı (1.000 ₺); form onunla dolar ve o satır "şu an geçerli" işaretlidir
+  const latest = Store.payRates().slice(-1)[0];
+  ok('tutar_formu_dolu_gelir', f.elements.daily.value === MONEY.format(latest.bonusDaily) && f.elements.threshold.value === String(latest.bonusThreshold)
+    && f.elements.car.value === MONEY.format(latest.carMonthly) && m.querySelectorAll('[data-rate] .pill-ok').length === 1
+    && m.querySelector('[data-rate] .pill-ok').closest('tr').dataset.rate === latest.id, [f.elements.daily.value, latest]);
   f.elements.from.value = '2025-09-01';
   f.elements.threshold.value = '16';
   f.elements.daily.value = '1.250,50';

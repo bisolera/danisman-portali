@@ -68,24 +68,27 @@
   ok('baskasi_salt_okunur', document.querySelector('[data-skill="dsp"] [data-level="1"]').disabled && !document.querySelector('[data-add-cert]')
     && document.querySelector('[data-summary]').disabled && document.querySelector('.card-head').textContent.includes('Can Öztürk'));
 
+  // Ekip matrisi ve uygun danışman yalnızca yöneticide: danışman adresle açsa da kendi profiline düşer, sekmeler görünmez
+  go('#/yetkinlik?v=ekip');
+  ok('danisman_matris_goremez', !document.querySelector('.skill-matrix') && document.querySelector('#modes').hidden && !!document.querySelector('[data-summary]'));
+  go('#/yetkinlik?v=ara');
+  ok('danisman_arama_goremez', !document.querySelector('[data-search-skill]') && !document.querySelector('[data-available]'));
+
+  App.login(Store.user('u1'));
   // Ekip matrisi: herkes bir satır; altta yetkinlik başına uzman / orta ve üstü sayısı
   go('#/yetkinlik?v=ekip');
-  ok('ekip_matrisi', document.querySelectorAll('.skill-matrix tbody tr').length === Store.users().filter(u => u.active).length
+  ok('ekip_matrisi', !document.querySelector('#modes').hidden && document.querySelectorAll('.skill-matrix tbody tr').length === Store.users().filter(u => u.active).length
     && document.querySelectorAll('.skill-matrix tfoot td.sm-col').length === SKILLS.length);
   document.querySelector('.skill-matrix tbody tr[data-person-row="u5"]').click();
   ok('matristen_profile', document.querySelector('.card-head').textContent.includes('Elif Şahin') && location.hash.includes('u=u5'));
 
-  // Uygun danışman ekranı: danışman doluluk filtresini görmez
+  // Uygun danışman ekranı: doluluk filtresiyle
   go('#/yetkinlik?v=ara');
-  ok('danisman_doluluk_gormez', !document.querySelector('[data-available]'));
+  ok('yonetici_doluluk_filtresi', !!document.querySelector('[data-available]'));
   const box = document.querySelector('[data-search-skill][value="dsp"]');
   box.checked = true;
   box.dispatchEvent(new Event('change', { bubbles: true }));
   ok('arama_ekrani', document.querySelectorAll('#body tr[data-person-row]').length === 2);
-
-  App.login(Store.user('u1'));
-  go('#/yetkinlik?v=ara');
-  ok('yonetici_doluluk_filtresi', !!document.querySelector('[data-available]'));
   go('#/yetkinlik?v=ben&u=u4');
   document.querySelector('[data-skill="fabric"] [data-level="1"]').click();
   ok('yonetici_duzenler', Store.user('u4').skills.fabric === 1);
