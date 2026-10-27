@@ -1,12 +1,12 @@
 /* Yetkinlikler: kim neyi biliyor, sertifikalar, uygun danışman arama, teklif için CV.
-   Kendi profilini danışman, herkesinkini yönetici düzenler. Ekip matrisi, uygun danışman araması ve doluluk yalnızca yöneticide. */
+   Danışman yalnızca kendi profilini görür ve düzenler. Başkasının profili, ekip matrisi, uygun danışman araması ve doluluk yalnızca yöneticide. */
 
 const SkillsView = {
   mount(el, { query }) {
     const me = App.user, admin = App.isAdmin();
     const MODES = admin ? [['ben', 'Profil'], ['ekip', 'Ekip matrisi'], ['ara', 'Uygun danışman']] : [['ben', 'Profil']];
     let mode = MODES.some(([k]) => k === query.v) ? query.v : 'ben';
-    let personId = Store.user(query.u)?.active ? query.u : me.id;     // başkasının profili: herkes görür, düzenleyemez
+    let personId = admin && Store.user(query.u)?.active ? query.u : me.id;     // başkasının profilini yalnızca yönetici açar; danışman ?u= ile de kendisine düşer
     const search = { skills: [], minLevel: 2, certRequired: false, available: false };
     const groups = [...new Set(SKILLS.map(s => s.group))];
 
@@ -18,6 +18,7 @@ const SkillsView = {
     const body = el.querySelector('#body');
     const canEdit = () => admin || personId === me.id;
     const setHash = () => history.replaceState(null, '', `#/yetkinlik?v=${mode}${mode === 'ben' && personId !== me.id ? `&u=${personId}` : ''}`);
+    if ((query.u && query.u !== personId) || (query.v && query.v !== mode)) setHash();     // izin verilmeyen adres: gösterilen ekrana düzelt
 
     function render() {
       el.querySelector('#modes').hidden = MODES.length < 2;
@@ -48,7 +49,7 @@ const SkillsView = {
           <div class="card-head">
             <span class="cell-user">${avatar(u, 40)}<span><strong>${esc(u.name)}</strong><small>${esc(u.title)}${u.startDate ? ` · ${tenureText(u)}` : ''}</small></span></span>
             <div class="row-gap">
-              <select class="input sm-select" data-person aria-label="Kişi seç">${people.map(x => `<option value="${x.id}"${x.id === u.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+              ${admin ? `<select class="input sm-select" data-person aria-label="Kişi seç">${people.map(x => `<option value="${x.id}"${x.id === u.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''}
               <button class="btn ghost sm" data-cv title="Portaldaki yetkinlik, sertifika ve projelerden tek sayfa">${icon('printer', 15)} Yetkinlik özeti (PDF)</button>
             </div>
           </div>
@@ -199,11 +200,11 @@ const SkillsView = {
         return toast(`${removed.name} silindi`, { tone: 'info', action: { label: 'Geri al', fn: () => { Store.addCert(removed); render(); } } });
       }
       if (t.dataset.minLevel) { search.minLevel = Number(t.dataset.minLevel); return renderSearch(); }
-      if (t.dataset.personRow) { personId = t.dataset.personRow; mode = 'ben'; setHash(); return render(); }
+      if (admin && t.dataset.personRow) { personId = t.dataset.personRow; mode = 'ben'; setHash(); return render(); }
     });
 
     el.addEventListener('change', e => {
-      if (e.target.matches('[data-person]')) { personId = e.target.value; setHash(); return render(); }
+      if (admin && e.target.matches('[data-person]')) { personId = e.target.value; setHash(); return render(); }
       if (e.target.matches('[data-cv-file]')) {
         const file = e.target.files[0], owner = Store.user(personId), replacing = !!owner.cv;
         e.target.value = '';

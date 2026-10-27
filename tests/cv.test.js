@@ -49,10 +49,11 @@
   m.querySelector('[data-close]').click();
   await wait(250);
 
-  // Görme yetkisi: başka danışman göremez (yalnızca yüklü olduğunu bilir), yönetici görür ve değiştirebilir
+  // Görme yetkisi: başka danışman ne profili ne CV'yi açabilir (?u= ile de kendi profiline düşer); yönetici görür ve değiştirebilir
   App.login(Store.user('u3'));
   go('#/yetkinlik?v=ben&u=u2');
-  ok('baskasi_cv_goremez', !document.querySelector('[data-cv-preview]') && !document.querySelector('[data-cv-file]') && document.querySelector('.cv-box').textContent.includes('yalnızca kendisi ve yönetici'));
+  ok('baskasi_cv_goremez', !canSeeCv(Store.user('u3'), Store.user('u2')) && !canEditCv(Store.user('u3'), Store.user('u2'))
+    && document.querySelector('.card-head').textContent.includes('Zeynep Kaya') && !document.querySelector('.cv-box').textContent.includes('Emre_Aydin_CV.docx'));
   go('#/yetkinlik?v=ara');
   ok('danisman_arama_acamaz', !document.querySelector('[data-search-skill]'));
   App.login(Store.user('u1'));

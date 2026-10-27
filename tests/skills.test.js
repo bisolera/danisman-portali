@@ -63,10 +63,10 @@
   go('#/ozet');
   ok('ozette_sertifika_hatirlatma', document.querySelector('#certReminder').textContent.includes('Deneme Fabric'));
 
-  // Başkasının profili: görülür, düzenlenemez
+  // Başkasının profili yalnızca yöneticide: danışmanda kişi seçimi yok, ?u= ile açsa da kendi profiline düşer
   go('#/yetkinlik?v=ben&u=u4');
-  ok('baskasi_salt_okunur', document.querySelector('[data-skill="dsp"] [data-level="1"]').disabled && !document.querySelector('[data-add-cert]')
-    && document.querySelector('[data-summary]').disabled && document.querySelector('.card-head').textContent.includes('Can Öztürk'));
+  ok('danisman_baskasini_acamaz', !document.querySelector('[data-person]') && !document.querySelector('.card-head').textContent.includes('Can Öztürk')
+    && document.querySelector('.card-head').textContent.includes('Emre Aydın') && !document.querySelector('[data-summary]').disabled && !location.hash.includes('u=u4'));
 
   // Ekip matrisi ve uygun danışman yalnızca yöneticide: danışman adresle açsa da kendi profiline düşer, sekmeler görünmez
   go('#/yetkinlik?v=ekip');

@@ -70,8 +70,8 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET /api/reports/:month` | `monthReport` | yönetici |
 | `GET /api/reports/:month/utilization` | `teamUtilization`, `internalBreakdown` | yönetici |
 | `GET /api/payroll/:month`, `GET/POST/DELETE /api/pay-rates` | prim ve araba parası | yalnızca yönetici; danışmana hiçbir uç nokta tutar döndürmez |
-| `GET /api/skills`, `PUT /api/users/:id/skills`, `GET/POST/PATCH/DELETE /api/certifications` | yetkinlik ve sertifikalar | okuma: herkes; yazma: kendisi ya da yönetici |
-| `GET /api/consultants/search?skills&minLevel&cert&available` | `findConsultants` | herkes; `available` (doluluk) yalnızca yönetici |
+| `GET /api/skills`, `PUT /api/users/:id/skills`, `GET/POST/PATCH/DELETE /api/certifications` | yetkinlik ve sertifikalar | okuma ve yazma: kendisi ya da yönetici; ekibin tamamı (matris) yalnızca yönetici |
+| `GET /api/consultants/search?skills&minLevel&cert&available` | `findConsultants` | yalnızca yönetici |
 | `GET/POST/PATCH/DELETE /api/contracts`, `POST /api/contracts/:id/renew` | sözleşmeler ve yenileme; kullanım ve uyarılar sunucuda hesaplanır | yönetici |
 | `GET/POST/PATCH/DELETE /api/expenses`, `PUT /api/expenses/:id/receipt` | masraf ve fişi | sahibi (yalnızca onay beklerken ya da reddedilmişken değiştirir); okuma: sahibi ve yönetici |
 | `POST /api/expenses/decision` (`ids`, `approve`/`reject`, gerekçe), `POST /api/expenses/pay` (`userId`) | onay, red, ödendi | yönetici |

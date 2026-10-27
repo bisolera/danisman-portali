@@ -52,11 +52,10 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Deneyim: son 12 ayda o yetkinlikle etiketli projelere yazılan saat (kendiliğinden); etiketleri yönetici proje formunda verir
 - [x] Sertifika: bitişe **90 gün** kala "yakında doluyor" (Özet'te ve Yetkinlikler'de uyarı), bitince "süresi doldu" ve CV'ye girmez (`certStatus`, `CERT_WARN_DAYS`)
 - [x] Uygun danışman: seçilen yetkinliklerin hepsinde en az istenen seviye; sıralama seviye toplamı, sonra deneyim; "Bu ay müsait" (doluluk %75 altı) filtresi
-- [x] **Ekip matrisi ve uygun danışman araması yalnızca yöneticide.** Danışman Yetkinlikler'de yalnızca Profil'i görür; adresle (`?v=ekip`, `?v=ara`) açsa da kendi profiline düşer. Düzenleme kendisi ve yönetici
-- [ ] Danışman, Profil'deki kişi seçimiyle başkasının profilini hâlâ salt okunur açabiliyor. Bu da yalnızca yöneticide mi kalsın?
+- [x] **Ekip matrisi, uygun danışman araması ve başkasının profili yalnızca yöneticide.** Danışman Yetkinlikler'de yalnızca kendi profilini görür ve düzenler; kişi seçimi çıkmaz, adresle (`?v=ekip`, `?v=ara`, `?u=`) açsa da kendi profiline düşer. Yönetici herkesinkini görür ve düzenler. Sunucuya geçince yetkinlik, sertifika ve arama uçları da bu kurala göre açılır (bkz. `docs/sunucu-gecisi.md`).
 - [x] Yetkinlik özeti (portalın ürettiği PDF): son 24 ayın müşteri projeleri (iç projeler hariç); "müşteri adlarını gizle" seçilince müşteri yerine sektör yazar
 - [x] **Word CV:** her danışmanın tek bir .docx CV'si (en fazla 10 MB); yenisi eskisinin yerine geçer; eski .doc kabul edilmez. Yükleme kendisi ve yönetici (`saveCv`, `js/files.js`)
-- [x] Word CV'yi **yalnızca kendisi ve yönetici** görür / indirir (KVKK: CV'de telefon, adres gibi kişisel bilgi olur). Diğer danışmanlar yalnızca yüklü olup olmadığını görür (`canSeeCv`). Sunucuya geçince `GET /api/users/:id/cv` de yalnızca bu ikisine açılır.
+- [x] Word CV'yi **yalnızca kendisi ve yönetici** görür / indirir (KVKK: CV'de telefon, adres gibi kişisel bilgi olur). Diğer danışmanlar başkasının profilini açamadığı için yüklü olup olmadığını da görmez (`canSeeCv`). Sunucuya geçince `GET /api/users/:id/cv` de yalnızca bu ikisine açılır.
 
 ## Masraflar
 - [x] Kategoriler: Ulaşım (uçak, tren, otobüs) · Taksi · Konaklama · Yemek · Otopark / otoyol · Diğer (`EXPENSE_CATEGORIES`, `js/data.js`)
