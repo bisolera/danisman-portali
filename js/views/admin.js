@@ -268,7 +268,7 @@ const AdminView = {
       const money = v => (v ? fmtMoney(v) : '<span class="faint">—</span>');
       panel.innerHTML = `<section class="card">
         <div class="card-head">
-          <div><h2>Prim & yan haklar · ${monthTitle(payMonth)}</h2><p class="sub">Prim: faturalanabilir saat ÷ 8 (kesirli gün: 203 sa = 25,375 gün), eşiği aşan gün × günlük prim. Araba parası: araç yerine para alanlara aylık sabit tutar.</p></div>
+          <div><h2>Prim & yan haklar · ${monthTitle(payMonth)}</h2><p class="sub">Prim: faturalanabilir saat ÷ 8 (kesirli gün: 203 sa = 25,375 gün), eşiği aşan gün × günlük prim. Araba parası: araç yerine para alanlara aylık tutar; ay ortasında girene ya da ayrılana kıst (çalışılan gün ÷ ayın günü).</p></div>
           <div class="week-nav">
             <button class="btn ghost sm" data-pay-rates>${icon('pencil', 15)} Tutarlar</button>
             <button class="btn ghost sm" data-pay-export${r.rows.length && r.rate ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
@@ -289,12 +289,13 @@ const AdminView = {
         ${r.rows.length ? `<div class="table-wrap"><table class="table pay-table">
           <thead><tr><th>Danışman</th><th class="num">Faturalanabilir</th><th class="num">Gün (÷ 8)</th><th class="num">Eşik üstü</th><th class="num">Prim</th><th class="num">Araba parası</th><th class="num">Toplam</th><th>Durum</th></tr></thead>
           <tbody>${r.rows.map(x => `<tr data-pay-row="${x.user.id}">
-            <td><span class="cell-user">${avatar(x.user, 30)}<span><strong>${esc(x.user.name)}</strong><small>${[x.user.bonusEligible && 'Prime tabi', x.user.carAllowance && 'Araba parası'].filter(Boolean).join(' · ')}</small></span></span></td>
+            <td><span class="cell-user">${avatar(x.user, 30)}<span><strong>${esc(x.user.name)}</strong><small>${[x.user.bonusEligible && 'Prime tabi', x.user.carAllowance && 'Araba parası',
+              x.user.endDate && x.user.endDate <= monthEnd(payMonth) && `${fmtShort(x.user.endDate)} ayrıldı`].filter(Boolean).join(' · ')}</small></span></span></td>
             <td class="num nowrap">${fmtNum(x.billable)} sa</td>
             <td class="num">${fmtDays(x.days)}</td>
             <td class="num">${x.user.bonusEligible ? fmtDays(x.over) : '<span class="faint">—</span>'}</td>
             <td class="num nowrap">${money(x.bonus)}</td>
-            <td class="num nowrap">${money(x.car)}</td>
+            <td class="num nowrap">${money(x.car)}${x.car && x.prorated ? `<small class="muted block-sm">kıst ${x.carDays}/${x.monthDays} gün</small>` : ''}</td>
             <td class="num nowrap"><strong>${fmtMoney(x.total)}</strong></td>
             <td>${x.final ? pill('Kesin', 'ok') : pill('Taslak', 'warn')}</td>
           </tr>`).join('')}</tbody>
@@ -586,6 +587,7 @@ function userModal(u, onSave) {
           <select class="input" name="role"${self ? ' disabled' : ''}><option value="consultant">Danışman</option><option value="admin"${u?.role === 'admin' ? ' selected' : ''}>Yönetici</option></select></label>
         <label class="field"><span class="field-label">Yıllık hak ediş (gün) <span class="faint" data-legal></span></span><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? legalAnnualLeave(todayISO())}"></label>
         <label class="field"><span class="field-label">İşe giriş tarihi</span><input class="input" name="startDate" type="date" value="${u?.startDate || todayISO()}"></label>
+        <label class="field"><span class="field-label">İşten çıkış tarihi <span class="faint">(varsa)</span></span><input class="input" name="endDate" type="date" value="${u?.endDate || ''}"></label>
         <label class="field"><span class="field-label">Açılış bakiyesi · ${fmtDate(LEAVE_START)} (gün) <span class="faint">portal öncesinden kalan; eksi olabilir</span></span><input class="input" name="carryIn" type="number" step="0.5" min="-40" max="60" value="${u?.carryIn ?? 0}"></label>
       </div>
       <p class="muted small-text">İzin, işe girişten 1 yıl sonra ve her yıl işe giriş gününde eklenir. Kıdem arttıkça yasal asgari (14 / 20 / 26 gün) kendiliğinden uygulanır; şirket daha fazla veriyorsa buraya yaz.</p>
@@ -621,8 +623,9 @@ function userModal(u, onSave) {
         if (!(annualLeave >= 0 && annualLeave <= 40)) return formError(f, 'İzin hakkı 0–40 gün arasında olmalı.', el.annualLeave);
         const carryIn = Number(el.carryIn.value || 0);
         if (!(carryIn >= -40 && carryIn <= 60)) return formError(f, 'Açılış bakiyesi −40 ile 60 gün arasında olmalı.', el.carryIn);
+        if (el.endDate.value && el.endDate.value < el.startDate.value) return formError(f, 'İşten çıkış tarihi işe girişten önce olamaz.', el.endDate);
         const data = { name, email, title: el.title.value.trim() || 'Danışman', annualLeave, startDate: el.startDate.value, carryIn,
-          bonusEligible: el.bonusEligible.checked, carAllowance: el.carAllowance.checked };
+          endDate: el.endDate.value || null, bonusEligible: el.bonusEligible.checked, carAllowance: el.carAllowance.checked };
         // Hak değişirse geçmiş hak edişler eski değerle kalır; yoksa bakiye geriye dönük değişirdi
         if (u && u.annualLeave !== annualLeave) {
           data.entitlements = { ...(u.entitlements || { [LEAVE_START_YEAR]: u.annualLeave }), [parseISO(todayISO()).getFullYear()]: annualLeave };

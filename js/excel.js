@@ -665,13 +665,14 @@ async function exportPayroll(iso) {
   const r = payrollMonth(iso);
   if (!r.rate || !r.rows.length) { toast(`${monthTitle(iso)} için hesaplanacak kimse ya da tutar yok`, { tone: 'info' }); return; }
   const XLSX = await loadXLSX();
-  const rows = [['Danışman', 'Prime tabi', 'Araba parası alır', 'Faturalanabilir saat', 'Gün (÷8)', 'Eşik (gün)', 'Eşik üstü gün', 'Günlük prim', 'Prim', 'Araba parası', 'Toplam', 'Durum'],
+  const rows = [['Danışman', 'Prime tabi', 'Araba parası alır', 'Faturalanabilir saat', 'Gün (÷8)', 'Eşik (gün)', 'Eşik üstü gün', 'Günlük prim', 'Prim', 'Araba parası', 'Toplam', 'Durum', 'Araba parası günü'],
     ...r.rows.map(x => [x.user.name, x.user.bonusEligible ? 'Evet' : 'Hayır', x.user.carAllowance ? 'Evet' : 'Hayır', x.billable, x.days, r.rate.bonusThreshold,
-      x.user.bonusEligible ? x.over : '', r.rate.bonusDaily, x.bonus, x.car, x.total, x.final ? 'Kesin (ay onaylı)' : 'Taslak']),
+      x.user.bonusEligible ? x.over : '', r.rate.bonusDaily, x.bonus, x.car, x.total, x.final ? 'Kesin (ay onaylı)' : 'Taslak',
+      x.user.carAllowance ? `${x.carDays}/${x.monthDays}${x.prorated ? ' (kıst)' : ''}` : '']),
     [], ['Toplam', '', '', '', '', '', '', '', r.bonus, r.car, r.total],
     ['Dönem', monthTitle(iso)], ['Tutarların geçerlilik tarihi', r.rate.from]];
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [24, 11, 16, 18, 10, 11, 13, 12, 12, 13, 12, 16].map(wch => ({ wch }));
+  ws['!cols'] = [24, 11, 16, 18, 10, 11, 13, 12, 12, 13, 12, 16, 16].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Prim ve yan haklar');
   XLSX.writeFile(wb, `bisolera-prim-${iso.slice(0, 7)}.xlsx`);

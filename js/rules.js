@@ -554,22 +554,28 @@ function payRateFor(iso) {
 }
 
 // Kişinin ay hesabı. Prim: faturalanabilir saat ÷ 8, kesirli gün (203 sa = 25,375 gün); eşiği aşan gün × günlük prim, kuruşa yuvarlanır.
-// Araba parası: araç yerine para alana ay başına sabit tutar (ay içinde işe girene tam ay). Kesinlik: ay kapanışı onaylıysa.
+// Araba parası: araç yerine para alana aylık tutar; ay ortasında işe giren ya da ayrılana kıst (çalışılan takvim günü ÷ ayın günü).
+// Kesinlik: ay kapanışı onaylıysa.
 function payFor(user, iso, rate = payRateFor(iso)) {
   const from = monthStart(iso), to = monthEnd(iso);
   const billable = sum(Store.activities({ userId: user.id, from, to }).filter(a => Store.project(a.projectId)?.billable), a => a.hours);
   const days = billable / DAILY_HOURS;
   const over = rate ? Math.max(0, days - rate.bonusThreshold) : 0;
   const bonus = user.bonusEligible && rate ? Math.round(over * rate.bonusDaily * 100) / 100 : 0;
-  const employed = !user.startDate || user.startDate <= to;
-  const car = user.carAllowance && rate && employed ? rate.carMonthly : 0;
-  return { user, billable, days, over, bonus, car, total: bonus + car, final: periodStatus(user.id, iso) === 'onaylandi' };
+  const monthDays = daysBetween(from, to) + 1;
+  const workFrom = user.startDate && user.startDate > from ? user.startDate : from, workTo = user.endDate && user.endDate < to ? user.endDate : to;
+  const carDays = workTo < workFrom ? 0 : daysBetween(workFrom, workTo) + 1;
+  const car = user.carAllowance && rate && carDays ? Math.round((rate.carMonthly * carDays / monthDays) * 100) / 100 : 0;
+  return { user, billable, days, over, bonus, car, carDays, monthDays, prorated: carDays < monthDays, total: bonus + car, final: periodStatus(user.id, iso) === 'onaylandi' };
 }
 
-// Ayın listesi: prime tabi ya da araba parası alan aktif kişiler
+// O ay şirkette olan kişi: işe girişi ay sonundan önce, çıkışı (varsa) ay başından sonra. Ayrılmış (pasif) kişi ayrıldığı ay listede kalır.
+const employedIn = (u, iso) => (!u.startDate || u.startDate <= monthEnd(iso)) && (u.endDate ? u.endDate >= monthStart(iso) : u.active);
+
+// Ayın listesi: o ay şirkette olan, prime tabi ya da araba parası alan kişiler
 function payrollMonth(iso) {
-  const rate = payRateFor(iso), to = monthEnd(iso);
-  const rows = Store.users().filter(u => u.active && (u.bonusEligible || u.carAllowance) && (!u.startDate || u.startDate <= to))
+  const rate = payRateFor(iso);
+  const rows = Store.users().filter(u => (u.bonusEligible || u.carAllowance) && employedIn(u, iso))
     .map(u => payFor(u, iso, rate)).sort((a, b) => b.total - a.total || a.user.name.localeCompare(b.user.name, 'tr'));
   return { rate, rows, bonus: sum(rows, r => r.bonus), car: sum(rows, r => r.car), total: sum(rows, r => r.total) };
 }

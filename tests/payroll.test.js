@@ -24,7 +24,16 @@
   ok('prim_hesabi', x.billable === 203 && x.days === 25.375 && x.over === 7.375 && x.bonus === 7375 && x.car === 0 && !x.final, x);
   ok('kesirli_gun_gosterimi', fmtDays(25.375) === '25,375' && fmtDays(25) === '25');
   ok('ic_isler_sayilmaz', x.billable === 203);
-  ok('araba_parasi', payFor(q, '2025-03-01').car === 10000 && payFor(q, '2025-03-01').bonus === 0);
+  ok('araba_parasi', payFor(q, '2025-03-01').car === 10000 && payFor(q, '2025-03-01').bonus === 0 && !payFor(q, '2025-03-01').prorated);
+
+  // Kıst: ay ortasında giren (16 Mart: 31 günün 16'sı) ve ayrılan (10 Mart'ta çıkmış, hesabı pasif)
+  const joiner = person('Ortada Giren', { carAllowance: true, startDate: '2025-03-16' });
+  const leaver = person('Ortada Ayrilan', { carAllowance: true, endDate: '2025-03-10', active: false });
+  const j = payFor(joiner, '2025-03-01'), l = payFor(leaver, '2025-03-01');
+  ok('kist_giren', j.car === 5161.29 && j.carDays === 16 && j.monthDays === 31 && j.prorated, j);
+  ok('kist_ayrilan', l.car === 3225.81 && l.carDays === 10, l);
+  ok('ayrilan_ayrildigi_ay_listede', payrollMonth('2025-03-01').rows.some(r => r.user.id === leaver.id)
+    && !payrollMonth('2025-04-01').rows.some(r => r.user.id === leaver.id) && payFor(joiner, '2025-04-01').car === 10000);
   ok('esik_alti_prim_yok', payFor(p, '2025-02-01').bonus === 0);
   ok('yururluk_tarihi', payRateFor('2025-05-15').bonusDaily === 1000 && payRateFor('2025-06-01').bonusDaily === 1200 && payRateFor('2024-12-01') === null);
   const month = payrollMonth('2025-03-01');
@@ -40,6 +49,8 @@
   const row = panel().querySelector(`tr[data-pay-row="${p.id}"]`);
   ok('ekran', panel().querySelector('h2').textContent.includes('Mart 2025') && row?.textContent.includes('7.375,00 ₺') && row.textContent.includes('25,375') && row.textContent.includes('Kesin')
     && panel().querySelector(`tr[data-pay-row="${q.id}"]`)?.textContent.includes('Taslak') && panel().querySelector('.pay-rate').textContent.includes('1.000,00 ₺'), row?.textContent);
+  ok('kist_ekranda', panel().querySelector(`tr[data-pay-row="${joiner.id}"]`)?.textContent.includes('kıst 16/31 gün')
+    && panel().querySelector(`tr[data-pay-row="${leaver.id}"]`)?.textContent.includes('ayrıldı'));
   go('#/yonetim?tab=prim&ay=2024-11');
   ok('tutar_yok_uyarisi', panel().textContent.includes('tutar girilmemiş'));
 
@@ -75,9 +86,13 @@
   panel().querySelector('[data-edit-user="u3"]').click();
   m = lastModal(); f = m.querySelector('form');
   f.elements.bonusEligible.checked = true;
+  f.elements.endDate.value = '2020-01-01';   // işe girişten önce: kabul edilmez
+  f.dispatchEvent(new Event('submit', { cancelable: true }));
+  ok('cikis_tarihi_kontrolu', !m.querySelector('.form-error').hidden && !Store.user('u3').endDate);
+  f.elements.endDate.value = '2030-06-30';
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   await wait(250);
-  ok('form_isaretleri', Store.user('u3').bonusEligible === true && Store.user('u3').carAllowance === false);
+  ok('form_isaretleri', Store.user('u3').bonusEligible === true && Store.user('u3').carAllowance === false && Store.user('u3').endDate === '2030-06-30');
 
   // Danışman göremez
   App.login(Store.user('u2'));

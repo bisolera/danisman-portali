@@ -71,7 +71,8 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Prim: kullanıcı formunda "Prime tabi (kıdemli)" işaretli olanlara. Ayın **faturalanabilir** saati ÷ 8 = gün; eşiği aşan her gün × günlük prim (`payFor`, `js/rules.js`)
 - [x] Gün sayısı **kesirli** (203 sa → 25,375 gün); prim kuruşa yuvarlanır
 - [x] Araba parası: "Araç yerine araba parası alır" işaretli olanlara her ay sabit tutar
-- [ ] Ay içinde işe girene / ayrılana araba parası tam ay ödenir (kıst hesap yok). Doğru mu?
+- [x] Ay ortasında işe girene / ayrılana araba parası **kıst**: tutar × çalışılan takvim günü ÷ ayın gün sayısı (16 Ekim'de giren: 16/31), kuruşa yuvarlanır. Ayrılan kişi, kullanıcı formundaki "İşten çıkış tarihi"yle ayrıldığı ay listede kalır
+- [ ] Kıst hesap ayın gerçek gün sayısıyla yapılıyor; bordrodaki gibi "ay 30 gün" esası mı kullanılsın?
 - [x] Eşik, günlük prim ve araba parası Yönetim → Prim & yan haklar → Tutarlar'dan **yürürlük tarihiyle** girilir; her ay o tarihte geçerli tutarla hesaplanır, eski aylar değişmez
 - [x] Ay kapanışı onaylı ayda tutar kesin, değilse "taslak"
 - [x] Gerçek tutarlar repoya yazılmaz (public); yalnızca portalda ve yedek dosyasında durur
