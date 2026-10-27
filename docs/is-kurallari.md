@@ -40,7 +40,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Doluluk = **faturalanır saat ÷ hedef saat**; **%75 altı uyarı** (tam %75 uyarı değil) (`utilization`, `UTILIZATION_TARGET`, `js/rules.js`)
 - [x] Hedef saat: iş günleri × 8; izin, tatil ve köprü seçimi düşülür; işe girişten önceki günler sayılmaz. Payda hedef olduğu için eksik giriş oranı düşürür.
 - [x] İçinde bulunulan ay, ay başından **düne kadar** hesaplanır
-- [ ] Şimdilik yalnızca yönetici görür (Yönetim → Doluluk). Danışman kendi oranını Özet'te görsün mü?
+- [x] **Yalnızca yönetici görür** (Yönetim → Doluluk); danışman kendi oranını görmez. Sunucuya geçince `GET /api/reports/:month/utilization` yalnızca yöneticiye açılır.
 - [ ] Yönetici rolündekiler de listede. Faturalanır iş beklenmeyen kişiler (ör. yalnızca yönetim) listeden çıkarılsın mı?
 
 ## Müşteri ve proje
