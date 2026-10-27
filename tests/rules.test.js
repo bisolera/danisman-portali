@@ -72,5 +72,31 @@
   const pasted = buildImportDrafts([{ name: 'Yapıştırılan', rows: parseDelimited('04.02.2030\tKZY-BW\t1,5\tDestek\tYapıştırma testi') }], 'u2', { defaultType: 'gelistirme', mapping: {} }).drafts;
   ok('yapistirma', pasted.length === 1 && pasted[0].status === 'ok' && pasted[0].hours === 1.5 && pasted[0].projectId === 'p14', pasted[0]);
 
+  // Yıl sınırındaki izin günlerine göre iki yıla bölünür (28–31 Aralık: 4 gün; 1 Ocak tatil, 4–5 Ocak: 2 gün)
+  localStorage.clear();
+  Store.init();
+  const u2 = Store.user('u2'), used26 = leaveBalance(u2, 2026).used, used27 = leaveBalance(u2, 2027).used;
+  Store.addLeave({ userId: 'u2', type: 'yillik', start: '2026-12-28', end: '2027-01-05', status: 'onaylandi' });
+  ok('izin_yil_sinirinda_bolunur', leaveBalance(u2, 2026).used - used26 === 4 && leaveBalance(u2, 2027).used - used27 === 2,
+    { y2026: leaveBalance(u2, 2026).used - used26, y2027: leaveBalance(u2, 2027).used - used27 });
+
+  // İki sekme: diğer sekme veriyi değiştirince bu sekme yenilenir ve onun kaydını silmez
+  const other = JSON.parse(localStorage.getItem('bisolera-portal-v1'));
+  other.activities.push({ id: 'diger-sekme', userId: 'u2', projectId: 'p14', date: '2030-05-06', hours: 2, type: 'destek', note: 'Diğer sekme', createdAt: '2030-05-06T10:00' });
+  const json = JSON.stringify(other);
+  localStorage.setItem('bisolera-portal-v1', json);   // gerçekte diğer sekme yazar; olay bu sekmeye gelir
+  window.dispatchEvent(new StorageEvent('storage', { key: 'bisolera-portal-v1', newValue: json }));
+  ok('iki_sekme_yenilenir', !!Store.activity('diger-sekme'));
+  Store.addActivity({ userId: 'u2', projectId: 'p14', date: '2030-05-07', hours: 1, type: 'destek', note: 'Bu sekme' });
+  ok('iki_sekme_kayit_kaybolmaz', JSON.parse(localStorage.getItem('bisolera-portal-v1')).activities.some(a => a.id === 'diger-sekme'));
+
+  // Depo doluysa sessiz kalmaz, kullanıcıya açık uyarı verir
+  const realSet = Storage.prototype.setItem;
+  Storage.prototype.setItem = function () { throw new DOMException('dolu', 'QuotaExceededError'); };
+  Store.addActivity({ userId: 'u2', projectId: 'p14', date: '2030-05-08', hours: 1, type: 'destek', note: 'Sığmayan' });
+  Storage.prototype.setItem = realSet;
+  ok('depo_dolu_uyarisi', [...document.querySelectorAll('.toast')].some(t => t.textContent.includes('KAYDEDİLEMEDİ')));
+  ok('kullanim_olculur', Backup.usage() > 1000, Backup.usage());
+
   window.__result = R;
 })().catch(e => { window.__result = { CRASH: `FAIL ${e.stack}` }; });

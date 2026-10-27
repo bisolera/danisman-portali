@@ -3,12 +3,29 @@
 
 const Store = (() => {
   const KEY = 'bisolera-portal-v1';
-  let db = null;
+  let db = null, lastSaveError = 0;
+  const externalListeners = [];
 
+  // Kayıt yazılamazsa (depo dolu vb.) kullanıcıya açıkça söylenir; yoksa "eklendi" görüp kaydın durduğunu sanır
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify(db)); }
-    catch (e) { console.warn('Veri kaydedilemedi', e); }
+    try { localStorage.setItem(KEY, JSON.stringify(db)); return true; }
+    catch (e) {
+      console.warn('Veri kaydedilemedi', e);
+      if (Date.now() - lastSaveError > 60000 && typeof toast === 'function') {
+        toast('Değişiklik KAYDEDİLEMEDİ: tarayıcı depolama alanı dolu. Profilim → Yedek indir, sonra yöneticine haber ver.', { tone: 'danger', duration: 12000 });
+      }
+      lastSaveError = Date.now();
+      return false;
+    }
   }
+
+  // Portal başka bir sekmede de açıksa: o sekme veriyi değiştirince bellekteki kopya yenilenir.
+  // Aksi halde bu sekme eski kopyasını yazıp diğer sekmede girilen kayıtları silerdi.
+  window.addEventListener('storage', e => {
+    if (e.key !== KEY || !e.newValue) return;
+    try { db = JSON.parse(e.newValue); } catch { return; }
+    externalListeners.forEach(fn => fn());
+  });
 
   // Yeni sürüme geçerken kullanıcının girdiği/içe aktardığı kayıtlar korunur, yalnızca eksik alanlar eklenir.
   // v3 öncesi yalnızca demo verisi içerdiği için yeniden oluşturulur.
@@ -35,6 +52,7 @@ const Store = (() => {
   return {
     init,
     reset() { db = buildSeed(); persist(); },
+    onExternalChange: fn => externalListeners.push(fn),
 
     // Kullanıcılar
     users: () => db.users,
@@ -148,6 +166,11 @@ const Backup = {
   restore(backup) {
     Backup.keys().forEach(k => localStorage.removeItem(k));
     Object.entries(backup.data).forEach(([k, v]) => localStorage.setItem(k, v));
+  },
+
+  // Portalın tarayıcıda kapladığı yer (bayt, yaklaşık). Tarayıcılar site başına ~5 MB izin verir.
+  usage() {
+    return sum(Backup.keys().concat(Backup.META), k => ((localStorage.getItem(k) || '').length + k.length) * 2);
   },
 
   markDone() { try { localStorage.setItem(Backup.META, JSON.stringify({ lastBackupAt: new Date().toISOString() })); } catch { /* yok say */ } },

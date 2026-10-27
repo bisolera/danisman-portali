@@ -26,6 +26,14 @@ const App = {
     const u = id && Store.user(id);
     App.user = u && u.active ? u : null;
     window.addEventListener('hashchange', () => App.route());
+    // Başka sekmede değişiklik olunca ekranı yenile (açık bir pencere varsa içindekini silmemek için dokunma)
+    Store.onExternalChange(() => {
+      if (!App.user) return;
+      App.user = Store.user(App.user.id) || App.user;
+      if (document.querySelector('.modal-wrap')) return;
+      App.route();
+      toast('Başka bir sekmede yapılan değişiklikler yüklendi', { tone: 'info' });
+    });
     App.route();
   },
 
@@ -131,9 +139,10 @@ function openProfile() {
       // Yedekleme
       const info = m.querySelector('[data-backup-info]'), err = m.querySelector('[data-backup-error]'), confirmBox = m.querySelector('[data-restore-confirm]');
       const showInfo = () => {
-        const last = Backup.lastAt();
-        info.textContent = last ? `Son yedek: ${daysAgoText(last)} (${fmtStamp(last)}). Tarayıcı verisi silinirse kayıtların gider; düzenli yedek al.`
-          : 'Henüz yedek almadın. Tarayıcı verisi silinirse kayıtların gider; düzenli yedek al.';
+        const last = Backup.lastAt(), mb = Backup.usage() / 1048576;
+        const space = `Kullanılan alan: ${fmtNum(Math.round(mb * 10) / 10 || 0.1)} MB / yaklaşık 5 MB${mb > 4 ? ' — dolmak üzere, yedek al ve yöneticine haber ver' : ''}.`;
+        info.textContent = `${last ? `Son yedek: ${daysAgoText(last)} (${fmtStamp(last)}).` : 'Henüz yedek almadın.'} Tarayıcı verisi silinirse kayıtların gider; düzenli yedek al. ${space}`;
+        info.classList.toggle('warn-text', mb > 4);
       };
       const fileName = suffix => `bisolera-portal-yedek-${todayISO()}${suffix}.json`;
       showInfo();

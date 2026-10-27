@@ -60,11 +60,13 @@ function leaveDays(leave) {
   return leave.halfDay ? Math.min(0.5, days) : days;
 }
 
-// Yıllık izin bakiyesi (izinler başlangıç tarihinin yılına sayılır)
+// Yıllık izin bakiyesi. Yıl sınırını aşan izin (28 Aralık – 5 Ocak) günlerine göre iki yıla bölünür.
 function leaveBalance(user, year = parseISO(todayISO()).getFullYear()) {
-  const yearly = Store.leaves({ userId: user.id }).filter(l => l.type === 'yillik' && l.start.startsWith(String(year)));
-  const used = sum(yearly.filter(l => l.status === 'onaylandi'), leaveDays);
-  const pending = sum(yearly.filter(l => l.status === 'beklemede'), leaveDays);
+  const y0 = `${year}-01-01`, y1 = `${year}-12-31`;
+  const yearly = Store.leaves({ userId: user.id }).filter(l => l.type === 'yillik' && l.start <= y1 && l.end >= y0);
+  const inYear = l => leaveDays({ ...l, start: l.start < y0 ? y0 : l.start, end: l.end > y1 ? y1 : l.end });
+  const used = sum(yearly.filter(l => l.status === 'onaylandi'), inYear);
+  const pending = sum(yearly.filter(l => l.status === 'beklemede'), inYear);
   return { total: user.annualLeave, used, pending, remaining: user.annualLeave - used };
 }
 
