@@ -500,6 +500,39 @@ function monthStatsHtml(s) {
   </div>`;
 }
 
+/* ---------- Köprü izni seçimi ----------
+   Köprü gününde şirket kapalıdır ve çalışmayanın yıllık izninden düşer. Danışman o güne kadar "Bu gün çalışacağım"
+   diyebilir: o gün onun için normal iş günü olur, izninden düşmez. Satırlar data-bridge, butonlar data-bridge-work taşır. */
+const upcomingBridges = (to = null) => Store.holidays({ from: todayISO(), to }).filter(h => h.kind === 'kopru' && !isWeekend(h.date));
+
+function bridgeChoiceHtml(h, userId) {
+  const working = isBridgeWorker(h, userId), cost = fmtNum(h.half ? 0.5 : 1);
+  const action = canChooseBridge(h, userId)
+    ? `<button class="btn ${working ? 'ghost' : 'primary'} sm" data-bridge-work="${working ? '0' : '1'}">${working ? 'Vazgeç, izin kullanacağım' : 'Bu gün çalışacağım'}</button>`
+    : `<span class="muted small-text nowrap">${icon('lock', 13)} ${isLocked(userId, h.date) ? 'Ay kapanışa gönderildi' : 'Seçim süresi geçti; yöneticine söyle'}</span>`;
+  return `<div class="bridge${working ? ' is-working' : ''}" data-bridge="${h.id}">
+    <span class="bridge-ic">${icon(working ? 'clock' : 'sun', 16)}</span>
+    <div class="bridge-main"><strong>${fmtDate(h.date, { weekday: true, year: false })} · ${esc(h.name)}</strong>
+      <small>${working ? 'Çalışıyorsun: normal iş günü, yıllık izninden düşmez.' : `Şirket kapalı; yıllık izninden ${cost} gün düşer. Çalışacaksan söyle, düşmesin.`}</small></div>
+    ${action}
+  </div>`;
+}
+
+// Seçimi kaydeder; tıklama bir köprü butonuysa true döner
+function handleBridgeClick(e, userId, onChange) {
+  const b = e.target.closest('[data-bridge-work]');
+  if (!b) return false;
+  const h = Store.holidays().find(x => x.id === b.closest('[data-bridge]').dataset.bridge);
+  if (!h || !canChooseBridge(h, userId)) return true;
+  const working = b.dataset.bridgeWork === '1', workers = new Set(h.workers || []);
+  if (working) workers.add(userId); else workers.delete(userId);
+  Store.updateHoliday(h.id, { workers: [...workers] });
+  onChange();
+  toast(working ? `${fmtShort(h.date)} çalışıyorsun; yıllık izninden düşmeyecek`
+    : `${fmtShort(h.date)} köprü izni kullanacaksın; yıllık izninden ${fmtNum(h.half ? 0.5 : 1)} gün düşer`, { tone: 'info' });
+  return true;
+}
+
 /* ---------- İzin satırı ----------
    showDetails: false → ekip görünümü; başkasının izin türü ve notu gösterilmez. */
 function leaveRow(l, { user = null, showDetails = true, actions = '' } = {}) {

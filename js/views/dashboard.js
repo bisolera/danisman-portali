@@ -19,6 +19,7 @@ const DashboardView = {
         <a class="btn ghost" href="#/izinler">${icon('sun', 16)} İzin talebi oluştur</a>
       </header>
       <div id="reminder"></div>
+      <div id="bridges"></div>
       <section class="grid kpis" id="kpis"></section>
       <section class="card section-gap" id="month"></section>
       <div class="grid two-col section-gap">
@@ -64,6 +65,13 @@ const DashboardView = {
         <div class="month-layout">${monthCalendar(me.id, calMonth)}<aside>${monthStatsHtml(monthSummary(me.id, calMonth))}${periodPanelHtml(me, calMonth)}</aside></div>`;
     }
 
+    // Önümüzdeki 30 gündeki köprü izinleri: çalışacaksa buradan söyler
+    function renderBridges() {
+      const list = upcomingBridges(addDays(today, 30));
+      el.querySelector('#bridges').innerHTML = list.length ? `<div class="card bridge-card">${list.map(h => bridgeChoiceHtml(h, me.id)).join('')}</div>` : '';
+    }
+    el.querySelector('#bridges').addEventListener('click', e => handleBridgeClick(e, me.id, () => refresh()));
+
     // Geçen ay kapatılmadıysa ya da iade edildiyse en üstte hatırlat
     function renderReminder() {
       const prev = addMonths(today, -1), p = Store.period(me.id, prev.slice(0, 7)), status = p?.status || 'acik';
@@ -93,7 +101,7 @@ const DashboardView = {
       const week = weekSummary(me.id, weekStart(today));
       const missing = missingDays(me.id, monthStart(today), addDays(today, -1));
       const bal = leaveBalance(me);
-      const weekHolidays = week.days.map(getHoliday).filter(h => h && !h.half);
+      const weekHolidays = week.days.map(d => holidayFor(me.id, d)).filter(h => h && !h.half);
       const pct = (a, b) => (b ? Math.min(100, (a / b) * 100) : 0);
 
       const todaySub = tTarget === 0 ? esc(dayOffReason(me.id, today) || 'Bugün çalışma günü değil')
@@ -141,7 +149,8 @@ const DashboardView = {
       const end = addDays(today, 45);
       const items = [
         ...Store.holidays({ from: today, to: end })
-          .map(h => ({ date: h.date, title: h.name, sub: h.half ? 'Yarım gün tatil' : HOLIDAY_KINDS[h.kind]?.label || 'Tatil' })),
+          .map(h => ({ date: h.date, title: h.name, sub: h.kind === 'kopru' ? (isBridgeWorker(h, me.id) ? 'Köprü · çalışıyorsun' : 'Köprü izni · yıllık izinden düşer')
+            : h.half ? 'Yarım gün tatil' : HOLIDAY_KINDS[h.kind]?.label || 'Tatil' })),
         ...Store.leaves()
           .filter(l => l.end >= today && l.start <= end && (l.status === 'onaylandi' || (l.status === 'beklemede' && l.userId === me.id)))
           .map(l => {
@@ -170,7 +179,7 @@ const DashboardView = {
         ? `<a class="link" href="#/aktiviteler?d=${today}&v=gun">${icon('calendar', 14)} Takviminde ${open.length} toplantı önerisi</a>` : '';
     }
 
-    function refresh() { renderReminder(); renderKpis(); renderMonth(); renderRecent(); renderDist(); renderUpcoming(); renderCalHint(); form.refresh(); }
+    function refresh() { renderReminder(); renderBridges(); renderKpis(); renderMonth(); renderRecent(); renderDist(); renderUpcoming(); renderCalHint(); form.refresh(); }
     refresh();
   },
 };

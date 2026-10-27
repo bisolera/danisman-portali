@@ -258,7 +258,9 @@ const AdminView = {
           <thead><tr><th>Tarih</th><th>Tatil</th><th>Tür</th><th>Süre</th><th></th></tr></thead>
           <tbody>${list.map(h => `<tr data-hol="${h.id}" class="${h.date < today ? 'is-past' : ''}">
             <td class="nowrap">${fmtDate(h.date, { weekday: true })}${isWeekend(h.date) ? ' <span class="faint">· hafta sonu</span>' : ''}</td>
-            <td><strong>${esc(h.name)}</strong></td>
+            <td><strong>${esc(h.name)}</strong>${h.kind === 'kopru' ? `<small class="muted block-sm">${h.workers?.length
+              ? `Çalışacak: ${esc(h.workers.map(id => firstName(Store.user(id)?.name || '?')).join(', '))} · diğerlerinin izninden düşer`
+              : 'Herkesin yıllık izninden düşer'}</small>` : ''}</td>
             <td>${pill(HOLIDAY_KINDS[h.kind]?.label || h.kind, HOLIDAY_KINDS[h.kind]?.tone || 'muted')}</td>
             <td class="nowrap">${h.half ? 'Yarım gün' : 'Tam gün'}</td>
             <td class="num nowrap">
@@ -459,6 +461,10 @@ function holidayModal(h, year, onSave) {
       <label class="toggle" data-half-wrap><input type="checkbox" name="half"${h?.half ? ' checked' : ''}> Yarım gün (öğleden sonra tatil)</label>
       ${h ? '' : '<label class="toggle"><input type="checkbox" name="eve"> Önceki gün arife olarak eklensin (yarım gün)</label>'}
       <p class="muted small-text" data-kind-hint></p>
+      <div class="field" data-workers-wrap><span class="field-label">Çalışacaklar <span class="faint">(izinlerinden düşmez; danışman kendisi de seçebilir)</span></span>
+        <div class="print-pick">${Store.users().filter(x => x.active).sort((a, b) => a.name.localeCompare(b.name, 'tr')).map(x =>
+          `<label class="toggle"><input type="checkbox" name="workers" value="${x.id}"${h?.workers?.includes(x.id) ? ' checked' : ''}> ${esc(x.name)}</label>`).join('')}</div>
+      </div>
       <p class="form-error" hidden></p>
     </form>`,
     footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" type="submit" form="holForm">${h ? 'Kaydet' : 'Ekle'}</button>`,
@@ -473,9 +479,12 @@ function holidayModal(h, year, onSave) {
         const multi = dates().length > 1;
         m.querySelector('[data-half-wrap]').hidden = multi;
         if (multi) el.half.checked = false;
-        m.querySelector('[data-kind-hint]').textContent = el.kind.value === 'sirket'
-          ? 'Şirket tatilinde (köprü günü) hedef saat düşer ve yıllık izinden düşülmez; danışmanın izin talebi açmasına gerek kalmaz.'
-          : 'Resmi tatilde hedef saat düşer; o günlere denk gelen izin bakiyeden düşülmez.';
+        m.querySelector('[data-kind-hint]').textContent = {
+          resmi: 'Resmi tatilde hedef saat düşer; o günlere denk gelen izin bakiyeden düşülmez.',
+          sirket: 'Şirket tatilinde hedef saat düşer ve kimsenin yıllık izninden düşülmez.',
+          kopru: 'Köprü izninde şirket kapalıdır ve herkesin yıllık izninden düşer. Çalışacak olanları aşağıdan işaretle ya da danışman portaldan "Bu gün çalışacağım" desin; onların izninden düşmez, o gün normal iş günüdür.',
+        }[el.kind.value];
+        m.querySelector('[data-workers-wrap]').hidden = el.kind.value !== 'kopru';
       };
       f.addEventListener('input', sync);
       f.addEventListener('change', sync);
@@ -485,6 +494,7 @@ function holidayModal(h, year, onSave) {
       f.addEventListener('submit', e => {
         e.preventDefault();
         const name = el.name.value.trim(), kind = el.kind.value, days = dates();
+        const workers = kind === 'kopru' ? [...f.querySelectorAll('[name=workers]:checked')].map(x => x.value) : [];
         if (!name) return formError(f, 'Tatilin adını yaz.', el.name);
         if (!days.length) return formError(f, 'Tarihleri kontrol et: bitiş başlangıçtan önce olamaz.', el.start);
         if (days.length > 15) return formError(f, 'Tek seferde en fazla 15 gün girilebilir.', el.end);
@@ -492,15 +502,15 @@ function holidayModal(h, year, onSave) {
         if (clash) return formError(f, `${fmtDate(clash.date)} tarihinde zaten “${clash.name}” var.`, el.start);
 
         if (h) {
-          Store.updateHoliday(h.id, { name, kind, date: days[0], half: el.half.checked });
+          Store.updateHoliday(h.id, { name, kind, date: days[0], half: el.half.checked, workers });
           close();
           onSave();
           return toast(`${name} güncellendi${closedPeriodsNote([h.date, days[0]])}`);
         }
         const added = [];
         const eve = addDays(days[0], -1);
-        if (el.eve.checked && !Store.holiday(eve)) added.push(Store.addHoliday({ date: eve, name: `${name} Arifesi`, kind, half: true }));
-        days.forEach(date => added.push(Store.addHoliday({ date, name, kind, half: days.length === 1 && el.half.checked })));
+        if (el.eve.checked && !Store.holiday(eve)) added.push(Store.addHoliday({ date: eve, name: `${name} Arifesi`, kind, half: true, workers }));
+        days.forEach(date => added.push(Store.addHoliday({ date, name, kind, half: days.length === 1 && el.half.checked, workers })));
         close();
         onSave();
         toast(`${name} eklendi · ${added.length} gün${closedPeriodsNote(added.map(x => x.date))}`, {

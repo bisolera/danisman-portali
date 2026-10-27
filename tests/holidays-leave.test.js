@@ -124,6 +124,67 @@
   ok('kullanici_devir_ve_hak_gecmisi', u3.carryIn === 2.5 && entitlementFor(u3, y) === 20 && (y === LEAVE_START_YEAR || entitlementFor(u3, LEAVE_START_YEAR) === 14)
     && panel().querySelector('[data-edit-user="u3"]').closest('tr').textContent.includes('devir'), u3.entitlements);
 
+  // Köprü izni: Perşembe resmi tatil, şirket Cuma'yı köprü yapar. Çalışmayanın yıllık izninden düşer, "çalışacağım" diyeninkinden düşmez.
+  localStorage.clear();
+  Store.init();
+  Store.addHoliday({ date: '2030-05-02', name: 'Deneme resmi tatil' });
+  const br = Store.addHoliday({ date: '2030-05-03', name: 'Köprü izni', kind: 'kopru' });
+  const [ka, kb] = ['kopru.a', 'kopru.b'].map(e => Store.addUser({ name: `Köprü ${e.slice(-1).toUpperCase()}`, email: `${e}@bisolera.com`, title: 'Danışman', role: 'consultant', annualLeave: 14, startDate: '2024-01-01' }));
+  ok('kopru_varsayilan_izinden_duser', leaveBalance(ka, 2030).used === 1 && leaveBalance(ka, 2030).bridge === 1 && dailyTarget(ka.id, '2030-05-03') === 0
+    && dayOffReason(ka.id, '2030-05-03') === 'Köprü izni', leaveBalance(ka, 2030));
+
+  App.login(ka);
+  go('#/izinler');
+  ok('kopru_secim_karti', !document.querySelector('#bridges').hidden && !!document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="1"]`));
+  document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="1"]`).click();
+  ok('kopru_calisan_dusmez', Store.holiday('2030-05-03').workers.includes(ka.id) && leaveBalance(ka, 2030).used === 0 && dailyTarget(ka.id, '2030-05-03') === 8
+    && leaveBalance(kb, 2030).used === 1 && dailyTarget(kb.id, '2030-05-03') === 0);
+  ok('kopru_calisan_ekrani', document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('Çalışıyorsun') && !!document.querySelector('#bridges [data-bridge-work="0"]'));
+  go('#/aktiviteler?d=2030-05-03&v=gun');
+  ok('kopru_gunluk_gorunum', document.querySelector('#dayList [data-bridge]')?.textContent.includes('Çalışıyorsun') && document.querySelector('#dayHead').textContent.includes('8'));
+
+  // Pzt–Cuma izin, Perşembe resmi tatil: köprü günü çift düşmez (çalışmayan 3 + köprü 1 = 4; çalışan 4 + 0 = 4)
+  const lb = Store.addLeave({ userId: kb.id, type: 'yillik', start: '2030-04-29', end: '2030-05-03', status: 'onaylandi' });
+  const la = Store.addLeave({ userId: ka.id, type: 'yillik', start: '2030-04-29', end: '2030-05-03', status: 'onaylandi' });
+  ok('kopru_izinle_cift_dusmez', leaveDays(lb) === 3 && leaveBalance(kb, 2030).used === 4 && leaveDays(la) === 4 && leaveBalance(ka, 2030).used === 4,
+    { lb: leaveDays(lb), kb: leaveBalance(kb, 2030).used, la: leaveDays(la), ka: leaveBalance(ka, 2030).used });
+  Store.updateLeave(lb.id, { status: 'iptal' });
+  Store.updateLeave(la.id, { status: 'iptal' });
+
+  // Raporluysa köprü yıllık izinden düşmez; ay kapanışa gönderildiyse seçim değişmez
+  const sick = Store.addLeave({ userId: kb.id, type: 'hastalik', start: '2030-05-03', end: '2030-05-03', status: 'onaylandi' });
+  ok('kopru_raporluya_dusmez', leaveBalance(kb, 2030).used === 0);
+  Store.updateLeave(sick.id, { status: 'iptal' });
+  Store.setPeriod(ka.id, '2030-05', { status: 'gonderildi' });
+  go('#/izinler');
+  ok('kopru_kilitli_ayda_secilmez', !document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work]`)
+    && document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('kapanışa'));
+  Store.setPeriod(ka.id, '2030-05', { status: 'acik' });
+  go('#/izinler');
+  document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="0"]`).click();
+  ok('kopru_vazgec', !Store.holiday('2030-05-03').workers.includes(ka.id) && leaveBalance(ka, 2030).used === 1);
+
+  // Yönetici: Tatiller'de kimin çalışacağını görür ve işaretler
+  App.login(Store.user('u1'));
+  go('#/yonetim?tab=tatiller');
+  for (let i = parseISO(todayISO()).getFullYear(); i < 2030; i++) panel().querySelector('[data-hol-year="1"]').click();
+  ok('kopru_tatiller_listesi', panel().textContent.includes('Herkesin yıllık izninden düşer'), panel().querySelector('h2').textContent);
+  panel().querySelector(`tr[data-hol="${br.id}"] [data-hol-edit]`).click();
+  m = lastModal(); f = m.querySelector('form');
+  ok('kopru_calisacaklar_listesi', !m.querySelector('[data-workers-wrap]').hidden);
+  f.querySelector(`[name=workers][value="${kb.id}"]`).checked = true;
+  f.dispatchEvent(new Event('submit', { cancelable: true }));
+  await wait(250);
+  ok('kopru_yonetici_isaretler', Store.holiday('2030-05-03').workers.join() === kb.id && leaveBalance(kb, 2030).used === 0
+    && panel().querySelector(`tr[data-hol="${br.id}"]`).textContent.includes('Çalışacak: Köprü'));
+
+  // Özet: 30 gün içindeki köprü günü en üstte sorulur
+  const soon = dateRange(addDays(todayISO(), 2), addDays(todayISO(), 20)).find(d => !isWeekend(d) && !getHoliday(d));
+  Store.addHoliday({ date: soon, name: 'Yakın köprü', kind: 'kopru' });
+  App.login(ka);
+  go('#/ozet');
+  ok('kopru_ozette_sorulur', document.querySelector('#bridges')?.textContent.includes('Yakın köprü') && !!document.querySelector('#bridges [data-bridge-work="1"]'));
+
   // Aylık form yazdırma: müşteri başına sayfa, aynı gün tek satır, imza alanı, PDF dosya adı
   localStorage.clear();
   Store.init();

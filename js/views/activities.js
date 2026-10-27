@@ -129,12 +129,12 @@ const ActivitiesView = {
       el.querySelector('#days').innerHTML = week.days.map(d => {
         const { target, logged, status } = dayStatus(me.id, d, today);
         const off = target === 0 ? dayOffReason(me.id, d) : null;
-        const half = getHoliday(d)?.half;
+        const holiday = holidayFor(me.id, d), half = holiday?.half;
         const cls = { full: 'is-complete', partial: 'is-partial', planned: 'is-partial', missing: 'is-missing', off: 'is-off', extra: 'is-off' }[status] || '';
         const pct = target ? Math.min(100, (logged / target) * 100) : logged ? 100 : 0;
         const tag = isLocked(me.id, d) ? `<span class="day-tag lock" title="Kilitli">${icon('lock', 11)}</span>`
           : d === today ? '<span class="day-tag">Bugün</span>' : half ? '<span class="day-tag half">½ gün</span>' : '';
-        return `<button class="day ${cls}${d === selected ? ' is-selected' : ''}${d === today ? ' is-today' : ''}" data-day="${d}" title="${esc(off || getHoliday(d)?.name || fmtDate(d, { weekday: true }))}">
+        return `<button class="day ${cls}${d === selected ? ' is-selected' : ''}${d === today ? ' is-today' : ''}" data-day="${d}" title="${esc(off || holiday?.name || fmtDate(d, { weekday: true }))}">
           <span class="day-top"><span class="day-name">${dayName(d, true)}</span>${tag}</span>
           <span class="day-date">${parseISO(d).getDate()} <small>${TR_MONTHS_SHORT[parseISO(d).getMonth()]}</small></span>
           <span class="meter"><span style="width:${pct}%"></span></span>
@@ -144,7 +144,7 @@ const ActivitiesView = {
     }
 
     function statusText(target, logged) {
-      const off = dayOffReason(me.id, selected), holiday = getHoliday(selected);
+      const off = dayOffReason(me.id, selected), holiday = holidayFor(me.id, selected);
       if (target === 0) return off || 'Çalışma günü değil';
       const prefix = holiday?.half ? `${holiday.name} · ` : '';
       if (logged >= target) return `${prefix}Gün tamamlandı ✓`;
@@ -161,10 +161,12 @@ const ActivitiesView = {
           <div class="min0"><h2>${fmtDate(selected, { weekday: true, year: false })}</h2><p class="sub">${esc(statusText(target, logged))}</p></div>
           <span class="day-total ${tone}">${fmtNum(logged)}${target ? `<small> / ${fmtNum(target)} sa</small>` : '<small> sa</small>'}</span>
         </div>`;
-      el.querySelector('#dayList').innerHTML = items.length
+      // Köprü gününde çalışıp çalışmayacağı seçimi günün üstünde durur
+      const bridge = getHoliday(selected)?.kind === 'kopru' ? bridgeChoiceHtml(getHoliday(selected), me.id) : '';
+      el.querySelector('#dayList').innerHTML = bridge + (items.length
         ? `<div class="list">${items.map(a => activityRow(a)).join('')}</div>`
         : `<div class="day-empty">${icon('inbox', 16)}<span>${target ? 'Bu gün için henüz kayıt yok.' : 'Bu gün çalışma günü değil.'}</span>
-            ${source ? `<button class="btn ghost sm" data-copy-day>${icon('copy', 15)} ${dayName(source.date, true)} ${fmtShort(source.date)} gününü kopyala <span class="muted">(${fmtHours(source.total)})</span></button>` : ''}</div>`;
+            ${source ? `<button class="btn ghost sm" data-copy-day>${icon('copy', 15)} ${dayName(source.date, true)} ${fmtShort(source.date)} gününü kopyala <span class="muted">(${fmtHours(source.total)})</span></button>` : ''}</div>`);
     }
 
     function copyPreviousDay() {
@@ -207,9 +209,9 @@ const ActivitiesView = {
     // Sütun başlığındaki kısa etiket: hedef saat, ½ gün, tatil, izin ya da kilit
     function dayColumnNote(d) {
       if (isLocked(me.id, d)) return icon('lock', 11);
-      const t = dailyTarget(me.id, d), holiday = getHoliday(d);
+      const t = dailyTarget(me.id, d), holiday = holidayFor(me.id, d);
       if (t > 0) return holiday?.half ? '½ gün' : `${fmtNum(t)} sa`;
-      if (holiday) return 'Tatil';
+      if (holiday) return holiday.kind === 'kopru' ? 'Köprü' : 'Tatil';
       return isWeekend(d) ? '—' : 'İzin';
     }
 
@@ -463,6 +465,7 @@ const ActivitiesView = {
     /* ---------- Olaylar ---------- */
 
     el.addEventListener('click', e => {
+      if (handleBridgeClick(e, me.id, renderAll)) return;
       const t = e.target.closest('[data-nav], [data-mode], [data-day], [data-copy-day], [data-import], [data-export]');
       if (!t) return;
       if (t.dataset.nav) return t.dataset.nav === 'today' ? select(todayISO()) : step(t.dataset.nav === 'next' ? 1 : -1);

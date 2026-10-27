@@ -5,6 +5,25 @@ const DAILY_HOURS = 8;
 
 function getHoliday(iso) { return Store.holiday(iso); }
 
+// Kişiye göre tatil: köprü izninde "çalışacağım" diyen için o gün normal iş günüdür (null)
+const isBridgeWorker = (h, userId) => h?.kind === 'kopru' && !!h.workers?.includes(userId);
+function holidayFor(userId, iso) {
+  const h = Store.holiday(iso);
+  return isBridgeWorker(h, userId) ? null : h;
+}
+
+// Köprü izninde çalışmayanın yıllık izninden düşen gün (yarım gün köprüde 0,5).
+// O gün başka türde onaylı izni varsa (rapor vb.) ya da henüz işe girmemişse düşülmez.
+function bridgeDays(user, year) {
+  const other = Store.leaves({ userId: user.id, status: 'onaylandi' }).filter(l => l.type !== 'yillik');
+  return sum(Store.holidays({ from: `${year}-01-01`, to: `${year}-12-31` }).filter(h => h.kind === 'kopru' && !isWeekend(h.date)
+    && !isBridgeWorker(h, user.id) && (!user.startDate || user.startDate <= h.date)
+    && !other.some(l => l.start <= h.date && h.date <= l.end)), h => (h.half ? 0.5 : 1));
+}
+
+// Danışman köprü gününde çalışıp çalışmayacağını o güne kadar seçer; ay kapanışa gönderildiyse seçim değişmez
+const canChooseBridge = (h, userId, today = todayISO()) => h.kind === 'kopru' && h.date >= today && !isLocked(userId, h.date);
+
 // Seçilen yılın sabit tarihli resmi tatilleri (dini bayramlar her yıl değiştiği için elle girilir)
 function fixedHolidays(year) {
   return FIXED_HOLIDAYS.map(([md, name, half]) => ({ date: `${year}-${md}`, name, kind: 'resmi', half: !!half }));
@@ -18,7 +37,7 @@ function approvedLeaveOn(userId, iso) {
 // O gün için beklenen çalışma saati: hafta sonu ve tatil 0, arife yarım, izinli gün düşülür
 function dailyTarget(userId, iso) {
   if (isWeekend(iso)) return 0;
-  const holiday = getHoliday(iso);
+  const holiday = holidayFor(userId, iso);
   if (holiday && !holiday.half) return 0;
   let target = holiday ? DAILY_HOURS / 2 : DAILY_HOURS;
   const leave = approvedLeaveOn(userId, iso);
@@ -32,7 +51,7 @@ function hoursOn(userId, iso) {
 
 // Hedefi 0 olan günün nedeni; gün kutularında etiket olarak gösterilir
 function dayOffReason(userId, iso) {
-  const holiday = getHoliday(iso);
+  const holiday = holidayFor(userId, iso);
   if (holiday && !holiday.half) return holiday.name;
   const leave = approvedLeaveOn(userId, iso);
   if (leave && !leave.halfDay) return leaveTypeName(leave.type);
@@ -42,10 +61,11 @@ function dayOffReason(userId, iso) {
 
 // İzin talebinde bakiyeden düşülecek gün sayısı (başlangıç ve bitiş dahil):
 // hafta sonu ve resmi tatil düşülmez; arife öğleden sonra tatil olduğu için yarım gün düşülür.
-function countLeaveDays(startISO, endISO) {
+// Köprü günü, çalışmayan için zaten köprüden düştüğü için izinde ayrıca sayılmaz (userId verilirse kişiye göre).
+function countLeaveDays(startISO, endISO, userId = null) {
   return sum(dateRange(startISO, endISO), d => {
     if (isWeekend(d)) return 0;
-    const holiday = getHoliday(d);
+    const holiday = userId ? holidayFor(userId, d) : getHoliday(d);
     if (holiday) return holiday.half ? 0.5 : 0;
     return 1;
   });
@@ -61,7 +81,7 @@ function legalAnnualLeave(startISO, today = todayISO()) {
 }
 
 function leaveDays(leave) {
-  const days = countLeaveDays(leave.start, leave.end);
+  const days = countLeaveDays(leave.start, leave.end, leave.userId);
   return leave.halfDay ? Math.min(0.5, days) : days;
 }
 
@@ -92,10 +112,11 @@ function leaveBalance(user, year = parseISO(todayISO()).getFullYear()) {
   const y0 = `${year}-01-01`, y1 = `${year}-12-31`;
   const yearly = Store.leaves({ userId: user.id }).filter(l => l.type === 'yillik' && l.start <= y1 && l.end >= y0);
   const inYear = l => leaveDays({ ...l, start: l.start < y0 ? y0 : l.start, end: l.end > y1 ? y1 : l.end });
-  const used = sum(yearly.filter(l => l.status === 'onaylandi'), inYear);
+  const bridge = bridgeDays(user, year);
+  const used = sum(yearly.filter(l => l.status === 'onaylandi'), inYear) + bridge;
   const pending = sum(yearly.filter(l => l.status === 'beklemede'), inYear);
   const total = entitlementFor(user, year), carried = carriedLeave(user, year);
-  return { total, carried, used, pending, remaining: carried + total - used };
+  return { total, carried, used, bridge, pending, remaining: carried + total - used };
 }
 
 // Hedefin altında kalan günler (genelde ay başından düne kadar sorulur)

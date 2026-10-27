@@ -8,6 +8,7 @@ const LeaveView = {
       <section class="grid balance" id="balance"></section>
       <div class="grid two-col section-gap">
         <div class="stack">
+          <section class="card" id="bridges" hidden></section>
           <section class="card" id="mine"></section>
           <section class="card" id="team"></section>
         </div>
@@ -19,13 +20,22 @@ const LeaveView = {
       const cards = [
         ['Yıllık izin hakkı', fmtNum(b.total + b.carried), b.carried
           ? `${year} hakkı ${fmtNum(b.total)} ${b.carried > 0 ? '+' : '−'} ${fmtNum(Math.abs(b.carried))} devreden` : `${year} yılı`],
-        ['Kullanılan', fmtNum(b.used), 'Onaylanmış yıllık izin'],
+        ['Kullanılan', fmtNum(b.used), b.bridge ? `Onaylı yıllık izin · ${fmtNum(b.bridge)} gün köprü dahil` : 'Onaylanmış yıllık izin'],
         ['Onay bekleyen', fmtNum(b.pending), b.pending ? 'Yöneticinde bekliyor' : 'Bekleyen talep yok'],
         ['Kalan', fmtNum(b.remaining), b.pending ? `Onaylar sonrası ${fmtNum(b.remaining - b.pending)} gün` : 'Kullanılabilir', true],
       ];
       el.querySelector('#balance').innerHTML = cards.map(([label, val, sub, main]) =>
         `<div class="card bal${main ? ' is-main' : ''}"><span class="bal-label">${label}</span><span class="bal-val">${val}<small> gün</small></span><span class="bal-sub">${esc(sub)}</span></div>`).join('');
     }
+
+    // Yaklaşan köprü izinleri: çalışacaksa danışman burada söyler, yıllık izninden düşmez
+    function renderBridges() {
+      const list = upcomingBridges(), box = el.querySelector('#bridges');
+      box.hidden = !list.length;
+      box.innerHTML = list.length ? `<div class="card-head"><h2>Köprü izinleri</h2><span class="muted">Şirket kapalı</span></div>
+        ${list.map(h => bridgeChoiceHtml(h, me.id)).join('')}` : '';
+    }
+    el.querySelector('#bridges').addEventListener('click', e => handleBridgeClick(e, me.id, refresh));
 
     // Bekleyen talep doğrudan iptal edilir; onaylanmış izin için yöneticiye iptal talebi gider
     function actionsFor(l) {
@@ -77,7 +87,7 @@ const LeaveView = {
         ${others.length ? others.map(l => leaveRow(l, { user: Store.user(l.userId), showDetails: App.isAdmin() })).join('')
           : emptyState('users', 'Yakın zamanda ekipte izin yok')}
         <div class="sub-head">Yaklaşan tatiller</div>
-        <div class="hol-list">${holidays.map(h => `<span class="hol"><b>${fmtShort(h.date)}</b> ${esc(h.name)}${h.half ? ' <em>(yarım gün)</em>' : ''}${h.kind === 'sirket' ? ' <em>(şirket)</em>' : ''}</span>`).join('')}</div>`;
+        <div class="hol-list">${holidays.map(h => `<span class="hol"><b>${fmtShort(h.date)}</b> ${esc(h.name)}${h.half ? ' <em>(yarım gün)</em>' : ''}${h.kind === 'sirket' ? ' <em>(şirket)</em>' : h.kind === 'kopru' ? ' <em>(köprü)</em>' : ''}</span>`).join('')}</div>`;
     }
 
     // ---- Talep formu ----
@@ -109,7 +119,7 @@ const LeaveView = {
       if (!single) f.elements.half.checked = false;
       if (!start || !end) return { error: 'Başlangıç ve bitiş tarihini seç.' };
       if (end < start) return { error: 'Bitiş tarihi başlangıçtan önce olamaz.' };
-      const draft = { type, start, end, halfDay: f.elements.half.checked };
+      const draft = { userId: me.id, type, start, end, halfDay: f.elements.half.checked };
       const days = leaveDays(draft);
       const result = { ...draft, days };
       if (!(days > 0)) return { ...result, error: 'Seçtiğin aralıkta iş günü yok.' };
@@ -180,7 +190,7 @@ const LeaveView = {
       toast('Talep iptal edildi', { tone: 'info', action: { label: 'Geri al', fn: () => { Store.updateLeave(id, { status: 'beklemede' }); refresh(); App.refreshBadges(); } } });
     });
 
-    function refresh() { renderBalance(); renderMine(); renderTeam(); renderCalc(); }
+    function refresh() { renderBalance(); renderBridges(); renderMine(); renderTeam(); renderCalc(); }
     refresh();
   },
 };

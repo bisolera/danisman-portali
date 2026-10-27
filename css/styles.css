@@ -652,6 +652,16 @@ tr.is-inactive .grid-proj { opacity: .55; }
 .print-pick .toggle { font-weight: 500; }
 .print-pick .faint { font-weight: 400; }
 #print-root { display: none; }
+.bridge { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line-2); }
+.card-head + .bridge, .bridge:first-child { border-top: 0; }
+.bridge-ic { flex: none; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--warn-bg); color: var(--warn); }
+.bridge.is-working .bridge-ic { background: var(--brand-50); color: var(--brand-700); }
+.bridge-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bridge-main small { color: var(--muted); font-size: 12.5px; }
+.bridge-card { margin-bottom: 18px; padding-top: 6px; padding-bottom: 6px; }
+#dayList > .bridge { margin-bottom: 8px; border-bottom: 1px solid var(--line-2); }
+.block-sm { display: block; font-size: 12px; margin-top: 2px; }
+@media (max-width: 560px) { .bridge { flex-wrap: wrap; } .bridge > .btn, .bridge > span.muted { margin-left: 44px; } }
 .install-box { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .install-box p { margin: 0; color: var(--muted); }
 

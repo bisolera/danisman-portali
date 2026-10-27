@@ -59,10 +59,15 @@ const PROJECT_STATUS = {
   tamamlandi: { label: 'Tamamlandı', tone: 'muted' },
 };
 
-// Tatil türleri. Şirket tatili (köprü günü) resmi tatil gibi işler: hedef saat düşer, izinden düşülmez.
+// Tatil türleri:
+//  resmi  → herkes için hedef saat düşer, izinden düşülmez
+//  sirket → şirketin verdiği tatil: resmi tatil gibi, kimsenin izninden düşmez
+//  kopru  → köprü izni: şirket kapalı, çalışmayanın yıllık izninden düşer; "çalışacağım" diyen (workers)
+//           için normal iş günüdür ve izninden düşmez
 const HOLIDAY_KINDS = {
   resmi: { label: 'Resmi tatil', tone: 'info' },
   sirket: { label: 'Şirket tatili', tone: 'ok' },
+  kopru: { label: 'Köprü izni', tone: 'warn' },
 };
 
 // Her yıl aynı tarihe gelen resmi tatiller: Yönetim → Tatiller'de tek tıkla eklenir

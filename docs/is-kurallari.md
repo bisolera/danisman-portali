@@ -5,7 +5,9 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 ## Çalışma süresi
 - [ ] Günlük hedef **8 saat** (`DAILY_HOURS`, `js/rules.js`)
 - [ ] Arife günü hedef **4 saat**, resmi tatilde **0** (`dailyTarget`)
-- [ ] **Şirket tatili (köprü günü)** resmi tatil gibi işler: hedef 0, izinden düşmez. Köprü günü yıllık izinden mi düşülmeli? Düşülecekse Tatiller'e girilmez, herkes izin talebi açar. (Yönetim → Tatiller)
+- [ ] Şirketin kapattığı günler için iki tür var (Yönetim → Tatiller):
+  - **Şirket tatili:** resmi tatil gibi; kimsenin izninden düşmez.
+  - **Köprü izni:** şirket kapalı, çalışmayanın **yıllık izninden düşer** (yarım günse 0,5). "Bu gün çalışacağım" diyen danışman için normal iş günüdür (hedef 8 saat), izninden düşmez. Seçimi danışman o güne kadar kendisi yapar (Özet, İzinler, Aktiviteler); ay kapanışa gönderildiyse ya da gün geçtiyse yalnızca yönetici değiştirir. O gün raporlu/başka türde izinliyse ya da henüz işe girmemişse düşmez. Aynı günü kapsayan izin talebinde köprü günü ikinci kez sayılmaz. (`bridgeDays`, `holidayFor`)
 - [ ] Aynı güne birden fazla müşteriye saat yazılabilir. Gün toplamı 12 saati geçince uyarı verilir, engellenmez (aylık formlarda bir günde 20–30 saat görülüyor).
 - [ ] Hafta sonu çalışması girilebilir, hedefe sayılmaz
 - [ ] Süreler çeyrek saate yuvarlanır (1,3 → 1,25)
