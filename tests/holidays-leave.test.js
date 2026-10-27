@@ -112,6 +112,18 @@
   ok('iptal_reddedildi', Store.leave(L.id).status === 'onaylandi' && Store.leave(L.id).cancel.status === 'reddedildi' && pendingApprovals() === pending0 - 1);
   ok('baslamis_izin_iptal_istenemez', !canRequestCancel({ status: 'onaylandi', start: addDays(todayISO(), -1) }) && canRequestCancel({ status: 'onaylandi', start: todayISO() }));
 
+  // Kullanıcı formu: devreden izin girilir; hak değişince eski yıllar eski hakla kalır
+  go('#/yonetim?tab=kullanicilar');
+  panel().querySelector('[data-edit-user="u3"]').click();
+  m = lastModal(); f = m.querySelector('form');
+  f.elements.annualLeave.value = '20';
+  f.elements.carryIn.value = '2.5';
+  f.dispatchEvent(new Event('submit', { cancelable: true }));
+  await wait(250);
+  const u3 = Store.user('u3'), y = parseISO(todayISO()).getFullYear();
+  ok('kullanici_devir_ve_hak_gecmisi', u3.carryIn === 2.5 && entitlementFor(u3, y) === 20 && (y === LEAVE_START_YEAR || entitlementFor(u3, LEAVE_START_YEAR) === 14)
+    && panel().querySelector('[data-edit-user="u3"]').closest('tr').textContent.includes('devir'), u3.entitlements);
+
   // Aylık form yazdırma: müşteri başına sayfa, aynı gün tek satır, imza alanı, PDF dosya adı
   localStorage.clear();
   Store.init();

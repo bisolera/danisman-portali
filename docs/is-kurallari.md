@@ -17,7 +17,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 
 ## İzin
 - [ ] Yeni kullanıcıda yıllık izin, kıdeme göre yasal asgariyle dolar: 1–5 yıl 14, 5–15 yıl 20, 15+ yıl 26 gün. Şirket daha fazla veriyor mu? (`legalAnnualLeave`)
-- [ ] Bakiye **takvim yılına** göre hesaplanır; devreden izin yok. Devreden izin nasıl işleyecek?
+- [x] Bakiye **takvim yılına** göre hesaplanır; **kullanılmayan izin ertesi yıla olduğu gibi devreder**, eksi bakiye (avans izin) de devreder ve ertesi yılın hakkından düşer, üst sınır yok (`carriedLeave`). Portal öncesinden kalan izin, kullanıcı formunda "Devreden izin · 2026 başı" alanına girilir. İzin hakkı değişince (kıdem) eski yıllar eski hakla kalır.
 - [ ] Hafta sonu ve resmi tatil izinden düşülmez, **arife yarım gün** düşülür (`countLeaveDays`)
 - [ ] Yarım gün izin alınabilir
 - [ ] Yalnızca **yıllık izin** bakiyeden düşer; mazeret, hastalık ve ücretsiz izin düşmez

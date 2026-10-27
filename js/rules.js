@@ -65,6 +65,28 @@ function leaveDays(leave) {
   return leave.halfDay ? Math.min(0.5, days) : days;
 }
 
+// O yılın izin hakkı. Hak değişince (kıdem 5 yılı geçti vb.) eski yıllar eski değerle kalsın diye
+// user.entitlements = { '2026': 14, '2028': 20 } tutulur; yılın değeri, o yıla kadarki son kayıttır.
+function entitlementFor(user, year) {
+  const years = Object.keys(user.entitlements || {}).filter(y => Number(y) <= year).sort();
+  return years.length ? user.entitlements[years.pop()] : user.annualLeave;
+}
+
+// Önceki yıldan bu yıla devreden yıllık izin (gün).
+//  · İlk yıl: LEAVE_START_YEAR ya da kişinin işe girdiği yıl (hangisi sonraysa). Portal öncesinden kalan izin
+//    yöneticinin girdiği user.carryIn'dir (işe portaldan sonra girende yoktur).
+//  · Sonraki yıllar: bir önceki yılın kalanı, leaveBalance(user, year - 1).remaining
+//  · İlk yıldan önceki yıllar: 0
+// Kural: kalan olduğu gibi devreder; eksi bakiye (avans izin) de devreder ve ertesi yılın hakkından düşer; üst sınır yok
+// (İş Kanunu md. 53–59: kullanılmayan yıllık izin yanmaz).
+function carriedLeave(user, year) {
+  const hired = user.startDate ? parseISO(user.startDate).getFullYear() : LEAVE_START_YEAR;
+  const first = Math.max(LEAVE_START_YEAR, hired);
+  if (year < first) return 0;
+  if (year === first) return first === LEAVE_START_YEAR ? Number(user.carryIn) || 0 : 0;
+  return leaveBalance(user, year - 1).remaining;   // ilk yıla inince durur
+}
+
 // Yıllık izin bakiyesi. Yıl sınırını aşan izin (28 Aralık – 5 Ocak) günlerine göre iki yıla bölünür.
 function leaveBalance(user, year = parseISO(todayISO()).getFullYear()) {
   const y0 = `${year}-01-01`, y1 = `${year}-12-31`;
@@ -72,7 +94,8 @@ function leaveBalance(user, year = parseISO(todayISO()).getFullYear()) {
   const inYear = l => leaveDays({ ...l, start: l.start < y0 ? y0 : l.start, end: l.end > y1 ? y1 : l.end });
   const used = sum(yearly.filter(l => l.status === 'onaylandi'), inYear);
   const pending = sum(yearly.filter(l => l.status === 'beklemede'), inYear);
-  return { total: user.annualLeave, used, pending, remaining: user.annualLeave - used };
+  const total = entitlementFor(user, year), carried = carriedLeave(user, year);
+  return { total, carried, used, pending, remaining: carried + total - used };
 }
 
 // Hedefin altında kalan günler (genelde ay başından düne kadar sorulur)

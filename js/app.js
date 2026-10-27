@@ -144,7 +144,7 @@ function openProfile() {
         <div><dt>E-posta</dt><dd>${esc(u.email)}</dd></div>
         <div><dt>Rol</dt><dd>${u.role === 'admin' ? 'Yönetici' : 'Danışman'}</dd></div>
         <div><dt>İşe giriş</dt><dd>${u.startDate ? fmtDate(u.startDate) : '—'}</dd></div>
-        <div><dt>Yıllık izin</dt><dd>${u.annualLeave} gün hak · ${fmtNum(bal.remaining)} gün kalan</dd></div>
+        <div><dt>Yıllık izin</dt><dd>${fmtNum(bal.total)} gün hak${bal.carried ? ` · ${fmtNum(bal.carried)} gün devreden` : ''} · ${fmtNum(bal.remaining)} gün kalan</dd></div>
       </dl>
       <div class="backup-box">
         <div class="backup-head">${icon('download', 16)}<div><strong>Verilerin bu tarayıcıda duruyor</strong>

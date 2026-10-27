@@ -31,7 +31,8 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 ## Veritabanı şeması
 | Tablo | Alanlar | Not |
 |---|---|---|
-| `users` | id, name, email (tekil), title, role (`consultant`/`admin`), annual_leave, start_date, active | email = Microsoft hesabı |
+| `users` | id, name, email (tekil), title, role (`consultant`/`admin`), annual_leave, start_date, carry_in, active | email = Microsoft hesabı; carry_in = portal öncesinden devreden izin |
+| `leave_entitlements` | user_id, year, days | izin hakkı değiştiği yıllar; eski yılların devri değişmesin |
 | `customers` | id, name, sector, color, internal | |
 | `projects` | id, customer_id → customers, name, code (tekil), status, billable, monthly_budget | |
 | `activities` | id, user_id → users, project_id → projects, date, hours (4,2), type, note, source_kind, source_key, created_at, updated_at | indeks: (user_id, date), (project_id, date) |

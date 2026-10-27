@@ -282,7 +282,7 @@ const AdminView = {
             <td><span class="cell-user">${avatar(u, 30)}<span><strong>${esc(u.name)}</strong><small>${esc(u.email)}</small></span></span></td>
             <td>${esc(u.title)}</td>
             <td>${u.role === 'admin' ? pill('Yönetici', 'info') : 'Danışman'}</td>
-            <td class="num">${u.annualLeave} gün</td>
+            <td class="num nowrap">${u.annualLeave} gün${(c => c ? ` <small class="faint">${c > 0 ? '+' : '−'}${fmtNum(Math.abs(c))} devir</small>` : '')(leaveBalance(u).carried)}</td>
             <td>${u.active ? pill('Aktif', 'ok') : pill('Pasif', 'muted')}</td>
             <td class="num"><button class="icon-btn sm" data-edit-user="${u.id}" title="Düzenle" aria-label="Düzenle">${icon('pencil', 15)}</button></td>
           </tr>`).join('')}</tbody>
@@ -389,6 +389,7 @@ function userModal(u, onSave) {
           <select class="input" name="role"${self ? ' disabled' : ''}><option value="consultant">Danışman</option><option value="admin"${u?.role === 'admin' ? ' selected' : ''}>Yönetici</option></select></label>
         <label class="field"><span class="field-label">Yıllık izin hakkı (gün) <span class="faint" data-legal></span></span><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? legalAnnualLeave(todayISO())}"></label>
         <label class="field"><span class="field-label">İşe giriş tarihi</span><input class="input" name="startDate" type="date" value="${u?.startDate || todayISO()}"></label>
+        <label class="field"><span class="field-label">Devreden izin · ${LEAVE_START_YEAR} başı (gün) <span class="faint">portal öncesinden</span></span><input class="input" name="carryIn" type="number" step="0.5" min="-40" max="60" value="${u?.carryIn ?? 0}"></label>
       </div>
       ${u ? `<label class="toggle"><input type="checkbox" name="active"${u.active ? ' checked' : ''}${self ? ' disabled' : ''}> Hesap aktif${self ? ' <span class="faint">(kendi hesabın)</span>' : ''}</label>` : ''}
       <p class="form-error" hidden></p>
@@ -416,7 +417,13 @@ function userModal(u, onSave) {
         const owner = Store.userByEmail(email);
         if (owner && owner.id !== u?.id) return formError(f, 'Bu e-posta başka bir kullanıcıda kayıtlı.', el.email);
         if (!(annualLeave >= 0 && annualLeave <= 40)) return formError(f, 'İzin hakkı 0–40 gün arasında olmalı.', el.annualLeave);
-        const data = { name, email, title: el.title.value.trim() || 'Danışman', annualLeave, startDate: el.startDate.value };
+        const carryIn = Number(el.carryIn.value || 0);
+        if (!(carryIn >= -40 && carryIn <= 60)) return formError(f, 'Devreden izin −40 ile 60 gün arasında olmalı.', el.carryIn);
+        const data = { name, email, title: el.title.value.trim() || 'Danışman', annualLeave, startDate: el.startDate.value, carryIn };
+        // Hak değişirse geçmiş yıllar eski hakla kalır; yoksa devreden izin geriye dönük değişirdi
+        if (u && u.annualLeave !== annualLeave) {
+          data.entitlements = { ...(u.entitlements || { [LEAVE_START_YEAR]: u.annualLeave }), [parseISO(todayISO()).getFullYear()]: annualLeave };
+        }
         if (!self) data.role = el.role.value;
         if (u && !self) data.active = el.active.checked;
         if (u) Store.updateUser(u.id, data); else Store.addUser(data);

@@ -15,9 +15,10 @@ const LeaveView = {
       </div>`;
 
     function renderBalance() {
-      const b = leaveBalance(me);
+      const b = leaveBalance(me), year = parseISO(today).getFullYear();
       const cards = [
-        ['Yıllık izin hakkı', b.total, `${parseISO(today).getFullYear()} yılı`],
+        ['Yıllık izin hakkı', fmtNum(b.total + b.carried), b.carried
+          ? `${year} hakkı ${fmtNum(b.total)} ${b.carried > 0 ? '+' : '−'} ${fmtNum(Math.abs(b.carried))} devreden` : `${year} yılı`],
         ['Kullanılan', fmtNum(b.used), 'Onaylanmış yıllık izin'],
         ['Onay bekleyen', fmtNum(b.pending), b.pending ? 'Yöneticinde bekliyor' : 'Bekleyen talep yok'],
         ['Kalan', fmtNum(b.remaining), b.pending ? `Onaylar sonrası ${fmtNum(b.remaining - b.pending)} gün` : 'Kullanılabilir', true],

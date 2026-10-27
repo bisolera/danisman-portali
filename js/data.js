@@ -30,6 +30,10 @@ const LEAVE_TYPES = [
 ];
 const leaveTypeName = id => (LEAVE_TYPES.find(t => t.id === id) || { name: id }).name;
 
+// Portalda izin takibinin başladığı yıl. Bu yıla kadar kullanılmamış izin, kullanıcıya "devreden izin" olarak elle girilir;
+// sonraki yıllarda devir portaldaki kayıtlardan hesaplanır.
+const LEAVE_START_YEAR = 2026;
+
 const LEAVE_STATUS = {
   beklemede: { label: 'Onay bekliyor', tone: 'warn' },
   onaylandi: { label: 'Onaylandı', tone: 'ok' },
@@ -140,10 +144,10 @@ const SEED_ROUTINE = { u1: ['p1', 'p12', 'p13'], u2: ['p14', 'p15', 'p16', 'p17'
 function buildSeed() {
   const users = [
     { id: 'u1', name: 'Ayşe Yılmaz', email: 'ayse.yilmaz@bisolera.com', title: 'Kıdemli Proje Yöneticisi', role: 'admin', annualLeave: 20, startDate: '2022-03-01', active: true },
-    { id: 'u2', name: 'Emre Aydın', email: 'emre.aydin@bisolera.com', title: 'SAP BW Danışmanı', role: 'consultant', annualLeave: 14, startDate: '2023-02-13', active: true },
+    { id: 'u2', name: 'Emre Aydın', email: 'emre.aydin@bisolera.com', title: 'SAP BW Danışmanı', role: 'consultant', annualLeave: 14, startDate: '2023-02-13', active: true, carryIn: 3 },
     { id: 'u3', name: 'Zeynep Kaya', email: 'zeynep.kaya@bisolera.com', title: 'SAP Analytics Cloud Danışmanı', role: 'consultant', annualLeave: 14, startDate: '2023-09-04', active: true },
     { id: 'u4', name: 'Can Öztürk', email: 'can.ozturk@bisolera.com', title: 'Datasphere Danışmanı', role: 'consultant', annualLeave: 14, startDate: '2024-06-03', active: true },
-    { id: 'u5', name: 'Elif Şahin', email: 'elif.sahin@bisolera.com', title: 'SAP BPC / PaPM Danışmanı', role: 'consultant', annualLeave: 20, startDate: '2022-05-16', active: true },
+    { id: 'u5', name: 'Elif Şahin', email: 'elif.sahin@bisolera.com', title: 'SAP BPC / PaPM Danışmanı', role: 'consultant', annualLeave: 20, startDate: '2022-05-16', active: true, carryIn: 6 },
   ];
 
   const customers = [

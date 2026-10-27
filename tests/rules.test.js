@@ -80,6 +80,20 @@
   ok('izin_yil_sinirinda_bolunur', leaveBalance(u2, 2026).used - used26 === 4 && leaveBalance(u2, 2027).used - used27 === 2,
     { y2026: leaveBalance(u2, 2026).used - used26, y2027: leaveBalance(u2, 2027).used - used27 });
 
+  // Devreden izin: kalan olduğu gibi devreder, eksi de devreder, sınır yok; hak değişince eski yıllar eski hakla kalır
+  const c = Store.addUser({ name: 'Devir Deneme', email: 'devir.deneme@bisolera.com', title: 'Danışman', role: 'consultant', annualLeave: 14, startDate: '2020-01-01', carryIn: 5 });
+  Store.addLeave({ userId: c.id, type: 'yillik', start: '2026-11-02', end: '2026-11-13', status: 'onaylandi' });   // 10 iş günü
+  ok('devir_ilk_yil_elle', leaveBalance(c, 2026).carried === 5 && leaveBalance(c, 2026).remaining === 9, leaveBalance(c, 2026));
+  ok('devir_kalan_devreder', leaveBalance(c, 2027).carried === 9 && leaveBalance(c, 2027).remaining === 23, leaveBalance(c, 2027));
+  Store.addLeave({ userId: c.id, type: 'yillik', start: '2027-02-01', end: '2027-03-05', status: 'onaylandi' });   // 25 iş günü (avans)
+  ok('devir_eksi_devreder', leaveBalance(c, 2027).remaining === -2 && leaveBalance(c, 2028).carried === -2, leaveBalance(c, 2028));
+  ok('devir_bekleyen_dusmez', (Store.addLeave({ userId: c.id, type: 'yillik', start: '2026-12-01', end: '2026-12-01' }), leaveBalance(c, 2027).carried === 9));
+  Store.updateUser(c.id, { annualLeave: 20, entitlements: { 2026: 14, 2028: 20 } });
+  ok('devir_hak_gecmisi', leaveBalance(c, 2027).total === 14 && leaveBalance(c, 2028).total === 20 && leaveBalance(c, 2028).remaining === 18, leaveBalance(c, 2028));
+  ok('devir_once_sifir', carriedLeave(c, 2025) === 0);
+  const late = Store.addUser({ name: 'Yeni Giren', email: 'yeni.giren@bisolera.com', title: 'Danışman', role: 'consultant', annualLeave: 14, startDate: '2027-03-01', carryIn: 4 });
+  ok('devir_sonradan_giren', carriedLeave(late, 2026) === 0 && carriedLeave(late, 2027) === 0 && leaveBalance(late, 2028).carried === 14);
+
   // İki sekme: diğer sekme veriyi değiştirince bu sekme yenilenir ve onun kaydını silmez
   const other = JSON.parse(localStorage.getItem('bisolera-portal-v1'));
   other.activities.push({ id: 'diger-sekme', userId: 'u2', projectId: 'p14', date: '2030-05-06', hours: 2, type: 'destek', note: 'Diğer sekme', createdAt: '2030-05-06T10:00' });
