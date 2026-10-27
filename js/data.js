@@ -2,7 +2,7 @@
    Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
 
 const COMPANY_DOMAIN = 'bisolera.com';
-const DATA_VERSION = 9;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
+const DATA_VERSION = 10;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
 const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor
 
 const BRAND = {
@@ -317,7 +317,13 @@ function buildSeed() {
     { id: 'k-atl2', customerId: 'c1', name: 'BW/4HANA Migrasyon – 2. faz', start: monthStart(today), end: addDays(addMonths(monthStart(today), 6), -1), hours: 900, projectIds: ['p1'], noticeDays: 60, renewal: 'manuel', note: '' },
   ];
 
-  return { version: DATA_VERSION, users, customers, projects, leaves, periods, certs, expenses, contracts, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
+  // Prim ve araba parası (demo): tutarlar UYDURMADIR. Şirketin gerçek tutarları repoya yazılmaz, Yönetim'den girilir.
+  Object.assign(users.find(u => u.id === 'u1'), { bonusEligible: true });
+  Object.assign(users.find(u => u.id === 'u5'), { bonusEligible: true, carAllowance: true });
+  Object.assign(users.find(u => u.id === 'u2'), { carAllowance: true });
+  const payRates = [{ id: 'r1', from: `${today.slice(0, 4)}-01-01`, bonusThreshold: 18, bonusDaily: 1000, carMonthly: 10000 }];
+
+  return { version: DATA_VERSION, users, customers, projects, leaves, periods, certs, expenses, contracts, payRates, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
 }
 
 // Son 5 haftanın aktivitelerini üretir: hafta sonu, tatil ve izin günleri atlanır

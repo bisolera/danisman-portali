@@ -31,7 +31,8 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 ## Veritabanı şeması
 | Tablo | Alanlar | Not |
 |---|---|---|
-| `users` | id, name, email (tekil), title, role (`consultant`/`admin`), annual_leave, start_date, carry_in, active | email = Microsoft hesabı; carry_in = portal öncesinden devreden izin |
+| `users` | id, name, email (tekil), title, role (`consultant`/`admin`), annual_leave, start_date, carry_in, bonus_eligible, car_allowance, active | email = Microsoft hesabı; carry_in = 1 Ocak 2026 açılış izin bakiyesi |
+| `pay_rates` | id, valid_from (tekil), bonus_threshold, bonus_daily, car_monthly | prim ve araba parası tutarları; yalnızca yönetici okur |
 | `leave_entitlements` | user_id, year, days | izin hakkı değiştiği yıllar; eski yılların devri değişmesin |
 | `customers` | id, name, sector, color, internal | |
 | `projects` | id, customer_id → customers, name, code (tekil), status, billable, monthly_budget | |
@@ -68,6 +69,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET/POST/PATCH /api/users` | kullanıcılar | yönetici |
 | `GET /api/reports/:month` | `monthReport` | yönetici |
 | `GET /api/reports/:month/utilization` | `teamUtilization`, `internalBreakdown` | yönetici |
+| `GET /api/payroll/:month`, `GET/POST/DELETE /api/pay-rates` | prim ve araba parası | yalnızca yönetici; danışmana hiçbir uç nokta tutar döndürmez |
 | `GET /api/skills`, `PUT /api/users/:id/skills`, `GET/POST/PATCH/DELETE /api/certifications` | yetkinlik ve sertifikalar | okuma: herkes; yazma: kendisi ya da yönetici |
 | `GET /api/consultants/search?skills&minLevel&cert&available` | `findConsultants` | herkes; `available` (doluluk) yalnızca yönetici |
 | `GET/POST/PATCH/DELETE /api/contracts`, `POST /api/contracts/:id/renew` | sözleşmeler ve yenileme; kullanım ve uyarılar sunucuda hesaplanır | yönetici |

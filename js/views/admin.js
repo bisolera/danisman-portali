@@ -2,8 +2,10 @@
 
 const AdminView = {
   mount(el, { query }) {
-    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['doluluk', 'Doluluk'], ['sozlesmeler', 'Sözleşmeler'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
+    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['doluluk', 'Doluluk'], ['sozlesmeler', 'Sözleşmeler'], ['prim', 'Prim & yan haklar'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
     let contractFilter = 'aktif';
+    // Prim genelde biten ay için hesaplanır
+    let payMonth = query.tab === 'prim' && /^\d{4}-\d{2}$/.test(query.ay || '') ? `${query.ay}-01` : monthStart(addMonths(todayISO(), -1));
     let tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'onaylar';
     // Doluluk: bağlantıyla ay seçilebilir (#/yonetim?tab=doluluk&ay=2026-09); ay yeni başladıysa geçen ay açılır
     let utilMonth = /^\d{4}-\d{2}$/.test(query.ay || '') ? `${query.ay}-01` : todayISO();
@@ -28,7 +30,7 @@ const AdminView = {
       };
       tabsEl.innerHTML = TABS.map(([k, label]) =>
         `<button class="${k === tab ? 'is-active' : ''}" data-tab="${k}">${label}${counts[k] ? ` <span class="count">${counts[k]}</span>` : ''}</button>`).join('');
-      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, doluluk: renderUtilization, sozlesmeler: renderContracts, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
+      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, doluluk: renderUtilization, sozlesmeler: renderContracts, prim: renderPayroll, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
       App.refreshBadges();
     }
 
@@ -260,6 +262,47 @@ const AdminView = {
       </section>`;
     }
 
+    // Prim & yan haklar: faturalanabilir saat ÷ 8 (tam gün), eşiği aşan gün × günlük prim; araç yerine araba parası
+    function renderPayroll() {
+      const r = payrollMonth(payMonth), draft = r.rows.filter(x => !x.final).length;
+      const money = v => (v ? fmtMoney(v) : '<span class="faint">—</span>');
+      panel.innerHTML = `<section class="card">
+        <div class="card-head">
+          <div><h2>Prim & yan haklar · ${monthTitle(payMonth)}</h2><p class="sub">Prim: faturalanabilir saat ÷ 8 (tam güne aşağı yuvarlanır), eşiği aşan her gün × günlük prim. Araba parası: araç yerine para alanlara aylık sabit tutar.</p></div>
+          <div class="week-nav">
+            <button class="btn ghost sm" data-pay-rates>${icon('pencil', 15)} Tutarlar</button>
+            <button class="btn ghost sm" data-pay-export${r.rows.length && r.rate ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
+            <button class="icon-btn bordered" data-pay-month="-1" aria-label="Önceki ay">${icon('chevron-left')}</button>
+            <button class="btn ghost sm" data-pay-month="0">Geçen ay</button>
+            <button class="icon-btn bordered" data-pay-month="1" aria-label="Sonraki ay"${monthStart(payMonth) >= monthStart(todayISO()) ? ' disabled' : ''}>${icon('chevron-right')}</button>
+          </div>
+        </div>
+        ${r.rate ? `<p class="pay-rate">${icon('info', 14)} ${fmtDate(r.rate.from)} tarihinden geçerli: eşik <b>${fmtNum(r.rate.bonusThreshold)} gün</b> · günlük prim <b>${fmtMoney(r.rate.bonusDaily)}</b> · araba parası <b>${fmtMoney(r.rate.carMonthly)}</b> / ay</p>`
+          : `<div class="callout warn">${icon('alert', 16)}<div><strong>${monthTitle(payMonth)} için tutar girilmemiş.</strong> “Tutarlar”dan eşik gün, günlük prim ve araba parasını yürürlük tarihiyle gir.</div></div>`}
+        <div class="close-stats report-stats money-stats">
+          <div><b>${fmtMoney(r.bonus)}</b><span>prim</span></div>
+          <div><b>${fmtMoney(r.car)}</b><span>araba parası</span></div>
+          <div class="is-good"><b>${fmtMoney(r.total)}</b><span>toplam</span></div>
+          <div><b>${r.rows.filter(x => x.bonus > 0).length}</b><span>kişi prim alıyor</span></div>
+        </div>
+        ${draft ? `<div class="callout info">${icon('info', 16)}<div>${draft} kişinin ay kapanışı onaylanmadı; tutarları <strong>taslak</strong>, kayıtlar değişebilir.</div></div>` : ''}
+        ${r.rows.length ? `<div class="table-wrap"><table class="table pay-table">
+          <thead><tr><th>Danışman</th><th class="num">Faturalanabilir</th><th class="num">Gün (÷ 8)</th><th class="num">Eşik üstü</th><th class="num">Prim</th><th class="num">Araba parası</th><th class="num">Toplam</th><th>Durum</th></tr></thead>
+          <tbody>${r.rows.map(x => `<tr data-pay-row="${x.user.id}">
+            <td><span class="cell-user">${avatar(x.user, 30)}<span><strong>${esc(x.user.name)}</strong><small>${[x.user.bonusEligible && 'Prime tabi', x.user.carAllowance && 'Araba parası'].filter(Boolean).join(' · ')}</small></span></span></td>
+            <td class="num nowrap">${fmtNum(x.billable)} sa</td>
+            <td class="num">${x.days}</td>
+            <td class="num">${x.user.bonusEligible ? x.over : '<span class="faint">—</span>'}</td>
+            <td class="num nowrap">${money(x.bonus)}</td>
+            <td class="num nowrap">${money(x.car)}</td>
+            <td class="num nowrap"><strong>${fmtMoney(x.total)}</strong></td>
+            <td>${x.final ? pill('Kesin', 'ok') : pill('Taslak', 'warn')}</td>
+          </tr>`).join('')}</tbody>
+          <tfoot><tr><td>Toplam</td><td colspan="3"></td><td class="num nowrap">${fmtMoney(r.bonus)}</td><td class="num nowrap">${fmtMoney(r.car)}</td><td class="num nowrap"><strong>${fmtMoney(r.total)}</strong></td><td></td></tr></tfoot>
+        </table></div>` : emptyState('users', 'Prime tabi ya da araba parası alan kimse yok', 'Kullanıcılar sekmesinde kişiyi düzenleyip “Prime tabi” ya da “Araç yerine araba parası” işaretle.')}
+      </section>`;
+    }
+
     // Ay kapanışı: kim gönderdi, kim onay bekliyor; incele → onayla / iade et / kilidi aç
     function renderClosing() {
       const month = closeMonth.slice(0, 7);
@@ -443,6 +486,14 @@ const AdminView = {
       if (userRow && e.target.closest('[data-review]')) return openReviewDialog(Store.user(userRow.dataset.user), closeMonth, render);
       if (userRow && e.target.closest('[data-dl]')) return exportMonthlyForm(Store.user(userRow.dataset.user), closeMonth).catch(err => toast(err.message, { tone: 'danger' }));
       if (userRow && e.target.closest('[data-print-form]')) return openPrintDialog(Store.user(userRow.dataset.user), closeMonth);
+      const payNav = e.target.closest('[data-pay-month]');
+      if (payNav) {
+        payMonth = payNav.dataset.payMonth === '0' ? monthStart(addMonths(todayISO(), -1)) : addMonths(payMonth, Number(payNav.dataset.payMonth));
+        history.replaceState(null, '', `#/yonetim?tab=prim&ay=${payMonth.slice(0, 7)}`);
+        return renderPayroll();
+      }
+      if (e.target.closest('[data-pay-rates]')) return payRatesModal(render);
+      if (e.target.closest('[data-pay-export]')) return exportPayroll(payMonth).catch(err => toast(err.message, { tone: 'danger' }));
       const cFilter = e.target.closest('[data-contract-filter]');
       if (cFilter) { contractFilter = cFilter.dataset.contractFilter; return renderContracts(); }
       if (e.target.closest('[data-add-contract]')) return contractModal(null, render);
@@ -538,6 +589,10 @@ function userModal(u, onSave) {
         <label class="field"><span class="field-label">Açılış bakiyesi · ${fmtDate(LEAVE_START)} (gün) <span class="faint">portal öncesinden kalan; eksi olabilir</span></span><input class="input" name="carryIn" type="number" step="0.5" min="-40" max="60" value="${u?.carryIn ?? 0}"></label>
       </div>
       <p class="muted small-text">İzin, işe girişten 1 yıl sonra ve her yıl işe giriş gününde eklenir. Kıdem arttıkça yasal asgari (14 / 20 / 26 gün) kendiliğinden uygulanır; şirket daha fazla veriyorsa buraya yaz.</p>
+      <div class="row-gap">
+        <label class="toggle"><input type="checkbox" name="bonusEligible"${u?.bonusEligible ? ' checked' : ''}> Prime tabi (kıdemli danışman)</label>
+        <label class="toggle"><input type="checkbox" name="carAllowance"${u?.carAllowance ? ' checked' : ''}> Araç yerine araba parası alır</label>
+      </div>
       ${u ? `<label class="toggle"><input type="checkbox" name="active"${u.active ? ' checked' : ''}${self ? ' disabled' : ''}> Hesap aktif${self ? ' <span class="faint">(kendi hesabın)</span>' : ''}</label>` : ''}
       <p class="form-error" hidden></p>
     </form>`,
@@ -566,7 +621,8 @@ function userModal(u, onSave) {
         if (!(annualLeave >= 0 && annualLeave <= 40)) return formError(f, 'İzin hakkı 0–40 gün arasında olmalı.', el.annualLeave);
         const carryIn = Number(el.carryIn.value || 0);
         if (!(carryIn >= -40 && carryIn <= 60)) return formError(f, 'Açılış bakiyesi −40 ile 60 gün arasında olmalı.', el.carryIn);
-        const data = { name, email, title: el.title.value.trim() || 'Danışman', annualLeave, startDate: el.startDate.value, carryIn };
+        const data = { name, email, title: el.title.value.trim() || 'Danışman', annualLeave, startDate: el.startDate.value, carryIn,
+          bonusEligible: el.bonusEligible.checked, carAllowance: el.carAllowance.checked };
         // Hak değişirse geçmiş hak edişler eski değerle kalır; yoksa bakiye geriye dönük değişirdi
         if (u && u.annualLeave !== annualLeave) {
           data.entitlements = { ...(u.entitlements || { [LEAVE_START_YEAR]: u.annualLeave }), [parseISO(todayISO()).getFullYear()]: annualLeave };
@@ -577,6 +633,64 @@ function userModal(u, onSave) {
         close();
         onSave();
         toast(u ? 'Kullanıcı güncellendi' : `${name} eklendi · artık ${email} ile giriş yapabilir`);
+      });
+    },
+  });
+}
+
+// Prim ve araba parası tutarları: yürürlük tarihiyle eklenir; her ay o tarihte geçerli tutarla hesaplanır, eski aylar değişmez
+function payRatesModal(onSave) {
+  openModal({
+    title: 'Prim ve araba parası tutarları',
+    body: `<div class="form-stack">
+      <div data-rate-list></div>
+      <form class="form-stack rate-form" id="rateForm" novalidate>
+        <div class="sub-head">Yeni tutar ekle</div>
+        <div class="form-grid">
+          <label class="field"><span class="field-label">Yürürlük tarihi</span><input class="input" type="date" name="from" value="${monthStart(todayISO())}"></label>
+          <label class="field"><span class="field-label">Eşik (gün)</span><input class="input" name="threshold" type="number" min="0" max="31" step="1" placeholder="Örn. 17"></label>
+          <label class="field"><span class="field-label">Günlük prim (TL)</span><input class="input" name="daily" inputmode="decimal" placeholder="0,00"></label>
+          <label class="field"><span class="field-label">Araba parası (TL / ay)</span><input class="input" name="car" inputmode="decimal" placeholder="0,00"></label>
+        </div>
+        <p class="muted small-text">Tutarlar yalnızca bu portalda (ve yedek dosyasında) tutulur; GitHub'a gitmez.</p>
+        <p class="form-error" hidden></p>
+        <button class="btn primary" type="submit">${icon('plus', 15)} Ekle</button>
+      </form>
+    </div>`,
+    footer: '<span class="grow"></span><button class="btn ghost" data-close>Kapat</button>',
+    onMount(m) {
+      const list = m.querySelector('[data-rate-list]'), f = m.querySelector('form'), el = f.elements;
+      const renderList = () => {
+        const rates = Store.payRates();
+        list.innerHTML = rates.length ? `<table class="table"><thead><tr><th>Geçerli</th><th class="num">Eşik</th><th class="num">Günlük prim</th><th class="num">Araba parası</th><th></th></tr></thead>
+          <tbody>${rates.slice().reverse().map(r => `<tr data-rate="${r.id}">
+            <td class="nowrap">${fmtDate(r.from)}’den</td><td class="num">${fmtNum(r.bonusThreshold)} gün</td><td class="num nowrap">${fmtMoney(r.bonusDaily)}</td><td class="num nowrap">${fmtMoney(r.carMonthly)}</td>
+            <td class="num"><button class="icon-btn sm" type="button" data-del-rate title="Sil" aria-label="Sil">${icon('trash', 15)}</button></td>
+          </tr>`).join('')}</tbody></table>` : emptyState('wallet', 'Henüz tutar girilmemiş', 'Aşağıdan eşik, günlük prim ve araba parasını yürürlük tarihiyle ekle.');
+      };
+      renderList();
+      list.addEventListener('click', e => {
+        const row = e.target.closest('[data-rate]');
+        if (!row || !e.target.closest('[data-del-rate]')) return;
+        Store.deletePayRate(row.dataset.rate);
+        renderList();
+        onSave();
+      });
+      f.addEventListener('submit', e => {
+        e.preventDefault();
+        const threshold = Number(el.threshold.value), daily = parseAmount(el.daily.value), car = parseAmount(el.car.value || '0');
+        if (!el.from.value) return formError(f, 'Yürürlük tarihini seç.', el.from);
+        if (Store.payRates().some(r => r.from === el.from.value)) return formError(f, 'Bu tarihte zaten bir tutar var; önce onu sil.', el.from);
+        if (el.threshold.value === '' || !(threshold >= 0 && threshold <= 31)) return formError(f, 'Eşik 0–31 gün arasında olmalı.', el.threshold);
+        if (!(daily >= 0 && daily <= 1000000)) return formError(f, 'Günlük prim tutarını yaz (ör. 1.500,00).', el.daily);
+        if (!(car >= 0 && car <= 1000000)) return formError(f, 'Araba parası tutarını yaz ya da boş bırak.', el.car);
+        Store.addPayRate({ from: el.from.value, bonusThreshold: threshold, bonusDaily: daily, carMonthly: car });
+        f.reset();
+        el.from.value = monthStart(todayISO());
+        f.querySelector('.form-error').hidden = true;
+        renderList();
+        onSave();
+        toast('Tutar eklendi');
       });
     },
   });

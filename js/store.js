@@ -51,6 +51,7 @@ const Store = (() => {
     }
     if (d.version < 8) d.expenses = d.expenses || [];                   // masraflar
     if (d.version < 9) d.contracts = d.contracts || [];                 // müşteri sözleşmeleri
+    if (d.version < 10) d.payRates = d.payRates || [];                  // prim ve araba parası tutarları (Yönetim'den girilir)
     d.version = DATA_VERSION;
     return d;
   }
@@ -164,6 +165,18 @@ const Store = (() => {
       return removed;
     },
     restoreExpense(x) { db.expenses.push(x); persist(); return x; },
+
+    // Prim ve araba parası tutarları, yürürlük tarihiyle: { from, bonusThreshold, bonusDaily, carMonthly }
+    payRates: () => db.payRates.slice().sort((a, b) => a.from.localeCompare(b.from)),
+    addPayRate(r) { const rate = { id: uid(), ...r }; db.payRates.push(rate); persist(); return rate; },
+    updatePayRate: (id, changes) => patch(db.payRates, id, changes),
+    deletePayRate(id) {
+      const i = db.payRates.findIndex(r => r.id === id);
+      if (i < 0) return null;
+      const [removed] = db.payRates.splice(i, 1);
+      persist();
+      return removed;
+    },
 
     // Sözleşmeler: { customerId, name, start, end, hours?, projectIds, noticeDays, renewal, note, renewedTo? }
     contracts: ({ customerId } = {}) => db.contracts.filter(c => !customerId || c.customerId === customerId),

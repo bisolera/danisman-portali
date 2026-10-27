@@ -67,6 +67,15 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Danışman kendi masraflarını, yönetici herkesinkini görür
 - [x] Aynı gün, aynı kategori ve tutarda ikinci masrafta uyarı çıkar (iki kez girilmiş olabilir); ikinci gönderimde kaydedilir
 
+## Prim ve araba parası (yalnızca yönetici)
+- [x] Prim: kullanıcı formunda "Prime tabi (kıdemli)" işaretli olanlara. Ayın **faturalanabilir** saati ÷ 8 = gün; eşiği aşan her gün × günlük prim (`payFor`, `js/rules.js`)
+- [ ] Gün sayısı **tam güne aşağı yuvarlanır** (203 sa → 25 gün). Kesirli gün de sayılsın mı?
+- [x] Araba parası: "Araç yerine araba parası alır" işaretli olanlara her ay sabit tutar
+- [ ] Ay içinde işe girene / ayrılana araba parası tam ay ödenir (kıst hesap yok). Doğru mu?
+- [x] Eşik, günlük prim ve araba parası Yönetim → Prim & yan haklar → Tutarlar'dan **yürürlük tarihiyle** girilir; her ay o tarihte geçerli tutarla hesaplanır, eski aylar değişmez
+- [x] Ay kapanışı onaylı ayda tutar kesin, değilse "taslak"
+- [x] Gerçek tutarlar repoya yazılmaz (public); yalnızca portalda ve yedek dosyasında durur
+
 ## Sözleşmeler
 - [x] Sözleşme: müşteri, ad, başlangıç–bitiş, isteğe bağlı saat havuzu, bağlı projeler, hatırlatma süresi (varsayılan 60 gün), yenileme (manuel / otomatik), not. Bedel tutulmaz
 - [x] Kullanılan saat: bağlı projelere sözleşme döneminde yazılan tüm saatler (`contractUsage`)

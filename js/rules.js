@@ -545,6 +545,35 @@ function currentContract(customerId, today = todayISO()) {
   return list.find(c => c.end >= today) || null;
 }
 
+/* ---------- Prim ve araba parası (yalnızca yönetici) ---------- */
+
+// Ayın başında yürürlükte olan tutarlar (yoksa null)
+function payRateFor(iso) {
+  const m = monthStart(iso);
+  return Store.payRates().filter(r => r.from <= m).pop() || null;
+}
+
+// Kişinin ay hesabı. Prim: faturalanabilir saat ÷ 8, tam güne aşağı yuvarlanır; eşiği aşan her gün × günlük prim.
+// Araba parası: araç yerine para alana ay başına sabit tutar (ay içinde işe girene tam ay). Kesinlik: ay kapanışı onaylıysa.
+function payFor(user, iso, rate = payRateFor(iso)) {
+  const from = monthStart(iso), to = monthEnd(iso);
+  const billable = sum(Store.activities({ userId: user.id, from, to }).filter(a => Store.project(a.projectId)?.billable), a => a.hours);
+  const days = Math.floor(billable / DAILY_HOURS);
+  const over = rate ? Math.max(0, days - rate.bonusThreshold) : 0;
+  const bonus = user.bonusEligible && rate ? over * rate.bonusDaily : 0;
+  const employed = !user.startDate || user.startDate <= to;
+  const car = user.carAllowance && rate && employed ? rate.carMonthly : 0;
+  return { user, billable, days, over, bonus, car, total: bonus + car, final: periodStatus(user.id, iso) === 'onaylandi' };
+}
+
+// Ayın listesi: prime tabi ya da araba parası alan aktif kişiler
+function payrollMonth(iso) {
+  const rate = payRateFor(iso), to = monthEnd(iso);
+  const rows = Store.users().filter(u => u.active && (u.bonusEligible || u.carAllowance) && (!u.startDate || u.startDate <= to))
+    .map(u => payFor(u, iso, rate)).sort((a, b) => b.total - a.total || a.user.name.localeCompare(b.user.name, 'tr'));
+  return { rate, rows, bonus: sum(rows, r => r.bonus), car: sum(rows, r => r.car), total: sum(rows, r => r.total) };
+}
+
 /* ---------- Ay kapanışı ---------- */
 
 function periodStatus(userId, iso) { return Store.period(userId, iso.slice(0, 7))?.status || 'acik'; }
