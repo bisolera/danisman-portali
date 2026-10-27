@@ -513,7 +513,7 @@ function bridgeChoiceHtml(h, userId) {
   return `<div class="bridge${working ? ' is-working' : ''}" data-bridge="${h.id}">
     <span class="bridge-ic">${icon(working ? 'clock' : 'sun', 16)}</span>
     <div class="bridge-main"><strong>${fmtDate(h.date, { weekday: true, year: false })} · ${esc(h.name)}</strong>
-      <small>${working ? 'Çalışıyorsun: normal iş günü, yıllık izninden düşmez.' : `Şirket kapalı; yıllık izninden ${cost} gün düşer. Çalışacaksan söyle, düşmesin.`}</small></div>
+      <small>${working ? 'Çalışıyorsun: o süre normal mesai, yıllık izninden düşmez.' : `Şirket kapalı${h.half ? ' (yarım gün)' : ''}; yıllık izninden ${cost} gün düşer. Çalışacaksan söyle, düşmesin.`}</small></div>
     ${action}
   </div>`;
 }

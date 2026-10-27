@@ -4,9 +4,14 @@
 const Store = (() => {
   const KEY = 'bisolera-portal-v1';
   let db = null, lastSaveError = 0;
-  let holidayIndex = null;   // tarih → tatil; gün hesapları çok sık sorduğu için bir kez kurulur
+  let holidayIndex = null;   // tarih → o günün tatilleri; gün hesapları çok sık sorduğu için bir kez kurulur
   const externalListeners = [];
-  const holidaysByDate = () => holidayIndex || (holidayIndex = Object.fromEntries(db.holidays.map(h => [h.date, h])));
+  const holidaysByDate = () => holidayIndex || (holidayIndex = db.holidays.reduce((m, h) => ((m[h.date] = m[h.date] || []).push(h), m), {}));
+  // Bir güne ya tek tatil ya da iki yarım tatil düşer (ör. arife öğleden sonra resmi + sabah köprü izni)
+  const fits = (date, half, selfId = null) => {
+    const others = (holidaysByDate()[date] || []).filter(x => x.id !== selfId);
+    return !others.length || (others.length === 1 && others[0].half && half);
+  };
   const holidaysChanged = () => { holidayIndex = null; persist(); };
 
   // Kayıt yazılamazsa (depo dolu vb.) kullanıcıya açıkça söylenir; yoksa "eklendi" görüp kaydın durduğunu sanır
@@ -132,18 +137,19 @@ const Store = (() => {
       return p;
     },
 
-    // Tatiller (resmi + şirket/köprü). Bir tarihte en fazla bir tatil olur.
+    // Tatiller (resmi, şirket, köprü). Bir tarihte tek tatil ya da iki yarım tatil olur.
     holidays: ({ from, to } = {}) =>
       db.holidays.filter(h => (!from || h.date >= from) && (!to || h.date <= to)).sort((a, b) => a.date.localeCompare(b.date)),
-    holiday: date => holidaysByDate()[date] || null,
+    holidaysOn: date => holidaysByDate()[date] || [],
+    holiday: date => (holidaysByDate()[date] || [])[0] || null,
     addHoliday(h) {
-      if (holidaysByDate()[h.date]) return null;
       const holiday = { id: uid(), kind: 'resmi', half: false, ...h };
+      if (!fits(holiday.date, holiday.half)) return null;
       db.holidays.push(holiday); holidaysChanged(); return holiday;
     },
     updateHoliday(id, changes) {
-      const h = byId(db.holidays, id), other = changes.date && holidaysByDate()[changes.date];
-      if (!h || (other && other.id !== id)) return null;
+      const h = byId(db.holidays, id);
+      if (!h || !fits(changes.date ?? h.date, changes.half ?? h.half, id)) return null;
       Object.assign(h, changes); holidaysChanged(); return h;
     },
     deleteHoliday(id) {

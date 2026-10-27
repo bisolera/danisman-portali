@@ -8,6 +8,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [ ] Şirketin kapattığı günler için iki tür var (Yönetim → Tatiller):
   - **Şirket tatili:** resmi tatil gibi; kimsenin izninden düşmez.
   - **Köprü izni:** şirket kapalı, çalışmayanın **yıllık izninden düşer** (yarım günse 0,5). "Bu gün çalışacağım" diyen danışman için normal iş günüdür (hedef 8 saat), izninden düşmez. Seçimi danışman o güne kadar kendisi yapar (Özet, İzinler, Aktiviteler); ay kapanışa gönderildiyse ya da gün geçtiyse yalnızca yönetici değiştirir. O gün raporlu/başka türde izinliyse ya da henüz işe girmemişse düşmez. Aynı günü kapsayan izin talebinde köprü günü ikinci kez sayılmaz. (`bridgeDays`, `holidayFor`)
+  - Köprü **tam gün** ya da **yarım gün** olabilir. Arife gibi zaten yarım gün tatil olan bir güne eklenen köprü, günün diğer yarısını kapsar: ikisi birlikte tam gün tatil olur, çalışmayandan 0,5 gün düşer, çalışan o yarım günü çalışır. Bir güne en fazla iki yarım tatil girilir.
 - [ ] Aynı güne birden fazla müşteriye saat yazılabilir. Gün toplamı 12 saati geçince uyarı verilir, engellenmez (aylık formlarda bir günde 20–30 saat görülüyor).
 - [ ] Hafta sonu çalışması girilebilir, hedefe sayılmaz
 - [ ] Süreler çeyrek saate yuvarlanır (1,3 → 1,25)

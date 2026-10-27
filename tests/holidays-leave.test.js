@@ -185,6 +185,47 @@
   go('#/ozet');
   ok('kopru_ozette_sorulur', document.querySelector('#bridges')?.textContent.includes('Yakın köprü') && !!document.querySelector('#bridges [data-bridge-work="1"]'));
 
+  // Arife öğleden sonra resmi tatil + şirket sabahı köprü yapar → tam gün. Tam gün köprü de girilebilir.
+  localStorage.clear();
+  Store.init();
+  Store.addHoliday({ date: '2030-05-02', name: 'Deneme Arifesi', half: true });
+  const kc = Store.addUser({ name: 'Arife Deneme', email: 'arife.deneme@bisolera.com', title: 'Danışman', role: 'consultant', annualLeave: 14, startDate: '2024-01-01' });
+  App.login(Store.user('u1'));
+  go('#/yonetim?tab=tatiller');
+  for (let i = parseISO(todayISO()).getFullYear(); i < 2030; i++) panel().querySelector('[data-hol-year="1"]').click();
+  panel().querySelector('[data-hol-add]').click();
+  m = lastModal(); f = m.querySelector('form');
+  f.elements.name.value = 'Köprü (sabah)';
+  f.elements.kind.value = 'kopru';
+  f.elements.start.value = '2030-05-02';
+  f.elements.end.value = '2030-05-02';
+  f.dispatchEvent(new Event('input'));
+  ok('arife_eslesme_uyarisi', !m.querySelector('[data-pair]').hidden && m.querySelector('[data-pair]').textContent.includes('Deneme Arifesi')
+    && m.querySelector('[data-half-wrap]').hidden && f.elements.dur.value === 'half');
+  f.dispatchEvent(new Event('submit', { cancelable: true }));
+  await wait(250);
+  ok('arife_kopru_tam_gun', Store.holidaysOn('2030-05-02').length === 2 && getHoliday('2030-05-02').half === false
+    && dailyTarget(kc.id, '2030-05-02') === 0 && leaveBalance(kc, 2030).bridge === 0.5 && countLeaveDays('2030-05-02', '2030-05-02', kc.id) === 0);
+  ok('arife_kopru_tabloda', panel().textContent.includes('birlikte tam gün'));
+  const morning = Store.holidaysOn('2030-05-02').find(x => x.kind === 'kopru');
+  Store.updateHoliday(morning.id, { workers: [kc.id] });
+  ok('arife_kopru_calisan_sabah_calisir', dailyTarget(kc.id, '2030-05-02') === 4 && leaveBalance(kc, 2030).bridge === 0
+    && countLeaveDays('2030-05-02', '2030-05-02', kc.id) === 0.5);
+  ok('ucuncu_tatil_eklenmez', Store.addHoliday({ date: '2030-05-02', name: 'Fazla', half: true }) === null
+    && Store.addHoliday({ date: '2030-05-02', name: 'Fazla tam' }) === null);
+
+  panel().querySelector('[data-hol-add]').click();
+  m = lastModal(); f = m.querySelector('form');
+  f.elements.name.value = 'Köprü (tam gün)';
+  f.elements.kind.value = 'kopru';
+  f.elements.start.value = '2030-05-10';
+  f.elements.end.value = '2030-05-10';
+  f.dispatchEvent(new Event('input'));
+  ok('kopru_sure_secimi_gorunur', !m.querySelector('[data-half-wrap]').hidden && f.elements.dur.value === 'full');
+  f.dispatchEvent(new Event('submit', { cancelable: true }));
+  await wait(250);
+  ok('kopru_tam_gun', Store.holiday('2030-05-10')?.half === false && leaveBalance(kc, 2030).bridge === 1 && dailyTarget(kc.id, '2030-05-10') === 0);
+
   // Aylık form yazdırma: müşteri başına sayfa, aynı gün tek satır, imza alanı, PDF dosya adı
   localStorage.clear();
   Store.init();

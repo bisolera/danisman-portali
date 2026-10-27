@@ -162,7 +162,8 @@ const ActivitiesView = {
           <span class="day-total ${tone}">${fmtNum(logged)}${target ? `<small> / ${fmtNum(target)} sa</small>` : '<small> sa</small>'}</span>
         </div>`;
       // Köprü gününde çalışıp çalışmayacağı seçimi günün üstünde durur
-      const bridge = getHoliday(selected)?.kind === 'kopru' ? bridgeChoiceHtml(getHoliday(selected), me.id) : '';
+      const bridgeDay = Store.holidaysOn(selected).find(h => h.kind === 'kopru');
+      const bridge = bridgeDay ? bridgeChoiceHtml(bridgeDay, me.id) : '';
       el.querySelector('#dayList').innerHTML = bridge + (items.length
         ? `<div class="list">${items.map(a => activityRow(a)).join('')}</div>`
         : `<div class="day-empty">${icon('inbox', 16)}<span>${target ? 'Bu gün için henüz kayıt yok.' : 'Bu gün çalışma günü değil.'}</span>

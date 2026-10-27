@@ -3,13 +3,17 @@
 
 const DAILY_HOURS = 8;
 
-function getHoliday(iso) { return Store.holiday(iso); }
+// Günün tatili. İki yarım tatil (ör. arife öğleden sonra resmi + sabah köprü izni) birlikte tam gün sayılır.
+function mergeHolidays(list) {
+  if (list.length <= 1) return list[0] || null;
+  return { ...list[0], name: list.map(h => h.name).join(' + '), half: false, parts: list };
+}
+function getHoliday(iso) { return mergeHolidays(Store.holidaysOn(iso)); }
 
-// Kişiye göre tatil: köprü izninde "çalışacağım" diyen için o gün normal iş günüdür (null)
+// Kişiye göre tatil: köprü izninde "çalışacağım" diyen için köprü kısmı yok sayılır (o kısım normal iş)
 const isBridgeWorker = (h, userId) => h?.kind === 'kopru' && !!h.workers?.includes(userId);
 function holidayFor(userId, iso) {
-  const h = Store.holiday(iso);
-  return isBridgeWorker(h, userId) ? null : h;
+  return mergeHolidays(Store.holidaysOn(iso).filter(h => !isBridgeWorker(h, userId)));
 }
 
 // Köprü izninde çalışmayanın yıllık izninden düşen gün (yarım gün köprüde 0,5).
