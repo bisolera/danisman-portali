@@ -43,7 +43,7 @@ const CustomersView = {
           ${projects.length ? projects.map(p => `<div class="proj-row">
               <div class="min0">
                 <div class="proj-name">${esc(p.name)}</div>
-                <div class="proj-meta"><span class="code">${esc(p.code)}</span>${p.billable ? '' : '<span class="tag">İç proje</span>'}<span>${admin ? 'Ekip' : 'Sen'}: ${fmtHours(hours[p.id] || 0)}</span></div>
+                <div class="proj-meta"><span class="code">${esc(p.code)}</span>${p.billable ? '' : '<span class="tag">İç proje</span>'}<span>${admin ? 'Ekip' : 'Sen'}: ${fmtHours(hours[p.id] || 0)}</span>${p.skills?.length ? `<span class="faint">${esc(p.skills.map(id => SKILLS.find(s => s.id === id)?.short || id).join(' · '))}</span>` : ''}</div>
                 ${budgetBar(p)}
               </div>
               ${projectStatusPill(p.status)}
@@ -120,6 +120,8 @@ function projectModal(p, onSave) {
       <label class="toggle"><input type="checkbox" name="billable"${p?.billable === false ? '' : ' checked'}> Müşteriye faturalanır</label>
       <label class="field"><span class="field-label">Aylık sözleşme saati <span class="faint">(isteğe bağlı; destek paketi gibi)</span></span>
         <input class="input" name="monthlyBudget" type="number" min="0" max="2000" step="1" value="${p?.monthlyBudget || ''}" placeholder="Örn. 80"></label>
+      <div class="field"><span class="field-label">Yetkinlikler <span class="faint">(bu projede çalışılan saat, danışmanın deneyimine sayılır)</span></span>
+        <div class="chips">${SKILLS.map(s => `<label class="chip"><input type="checkbox" name="skills" value="${s.id}"${p?.skills?.includes(s.id) ? ' checked' : ''}><span>${esc(s.name)}</span></label>`).join('')}</div></div>
       <p class="form-error" hidden></p>
     </form>`,
     footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" type="submit" form="projectForm">Kaydet</button>`,
@@ -135,7 +137,8 @@ function projectModal(p, onSave) {
         if (Store.projects().some(x => x.id !== p?.id && x.code.toLowerCase() === code.toLowerCase())) return formError(f, 'Bu kod başka bir projede kullanılıyor.', f.elements.code);
         const budget = Number(f.elements.monthlyBudget.value);
         if (f.elements.monthlyBudget.value && !(budget > 0 && budget <= 2000)) return formError(f, 'Sözleşme saati 1–2000 arasında olmalı ya da boş bırakılmalı.', f.elements.monthlyBudget);
-        const data = { customerId: f.elements.customerId.value, name, code, status: f.elements.status.value, billable: f.elements.billable.checked, monthlyBudget: budget || null };
+        const skills = [...f.querySelectorAll('[name=skills]:checked')].map(x => x.value);
+        const data = { customerId: f.elements.customerId.value, name, code, status: f.elements.status.value, billable: f.elements.billable.checked, monthlyBudget: budget || null, skills };
         if (p) Store.updateProject(p.id, data); else Store.addProject(data);
         close();
         onSave();

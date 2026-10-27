@@ -43,6 +43,15 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] **Yalnızca yönetici görür** (Yönetim → Doluluk); danışman kendi oranını görmez. Sunucuya geçince `GET /api/reports/:month/utilization` yalnızca yöneticiye açılır.
 - [ ] Yönetici rolündekiler de listede. Faturalanır iş beklenmeyen kişiler (ör. yalnızca yönetim) listeden çıkarılsın mı?
 
+## Yetkinlikler
+- [ ] Yetkinlik listesi: BW 7.x, BW/4HANA, ABAP/AMDP, HANA·CDS, Datasphere, SAC raporlama, SAC planlama, BPC, PaPM, Embedded Analytics, Fabric, Power BI, Proje yönetimi. Eksik ya da fazla var mı? (`SKILLS`, `js/data.js`)
+- [ ] Seviye: Temel / Orta (bağımsız çalışır) / Uzman (proje yönetir, öğretir). Danışman kendisi girer; yönetici herkesinkini düzenler. Yönetici onayı gereksin mi?
+- [x] Deneyim: son 12 ayda o yetkinlikle etiketli projelere yazılan saat (kendiliğinden); etiketleri yönetici proje formunda verir
+- [x] Sertifika: bitişe **90 gün** kala "yakında doluyor" (Özet'te ve Yetkinlikler'de uyarı), bitince "süresi doldu" ve CV'ye girmez (`certStatus`, `CERT_WARN_DAYS`)
+- [x] Uygun danışman: seçilen yetkinliklerin hepsinde en az istenen seviye; sıralama seviye toplamı, sonra deneyim. "Bu ay müsait" (doluluk %75 altı) filtresi yalnızca yöneticide
+- [x] Herkes ekibin yetkinliklerini ve CV'sini görür; düzenleme kendisi ve yönetici
+- [x] CV: son 24 ayın müşteri projeleri (iç projeler hariç); "müşteri adlarını gizle" seçilince müşteri yerine sektör yazar
+
 ## Müşteri ve proje
 - [ ] Faturalanır / faturalanmaz ayrımı **proje bazında**
 - [ ] Aylık sözleşme saati: %80'de uyarı, %100'de aşım (`budgetState`)

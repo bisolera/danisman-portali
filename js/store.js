@@ -45,6 +45,10 @@ const Store = (() => {
       if (h.workers?.length) h.work = Object.fromEntries(h.workers.map(id => [id, 'full']));
       delete h.workers;
     });
+    if (d.version < 7) {                                                // yetkinlikler ve sertifikalar
+      d.certs = d.certs || [];
+      d.projects.forEach(p => { if (!p.skills) p.skills = SEED_PROJECT_SKILLS[p.id] || []; });
+    }
     d.version = DATA_VERSION;
     return d;
   }
@@ -139,6 +143,18 @@ const Store = (() => {
       if (entry) p.history.push({ at: new Date().toISOString(), ...entry });
       persist();
       return p;
+    },
+
+    // Sertifikalar: { userId, name, code?, skillId?, issued?, expires? }
+    certs: ({ userId } = {}) => db.certs.filter(c => !userId || c.userId === userId),
+    addCert(c) { const cert = { id: uid(), ...c }; db.certs.push(cert); persist(); return cert; },
+    updateCert: (id, changes) => patch(db.certs, id, changes),
+    deleteCert(id) {
+      const i = db.certs.findIndex(c => c.id === id);
+      if (i < 0) return null;
+      const [removed] = db.certs.splice(i, 1);
+      persist();
+      return removed;
     },
 
     // Tatiller (resmi, şirket, köprü). Bir tarihte tek tatil ya da iki yarım tatil olur.

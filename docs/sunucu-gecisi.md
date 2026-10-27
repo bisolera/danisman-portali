@@ -41,6 +41,9 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `period_history` | id, period_id → periods, at, by_user, action, note | kim, ne zaman, ne yaptı |
 | `holidays` | id, date (tekil), name, kind (`resmi`/`sirket`/`kopru`), half | Yönetim → Tatiller'den yönetilir |
 | `holiday_work` | holiday_id → holidays, user_id → users, mode (`half`/`full`), chosen_by, chosen_at | köprü izninde kim ne kadar çalışıyor; satırı olmayan izinli sayılır |
+| `user_skills` | user_id, skill_id, level (1–3), updated_at | yetkinlik seviyeleri; özet metni `users.summary` |
+| `certifications` | id, user_id, name, code, skill_id, issued, expires | bitişe 90 gün kala e-posta hatırlatması da buradan |
+| `project_skills` | project_id, skill_id | deneyim saati bu etiketlerden hesaplanır |
 | `user_prefs` | user_id, key, value (JSON) | son proje, Excel/takvim eşleştirmeleri |
 | `notifications` | id, user_id, kind, ref, sent_at | aynı e-posta iki kez gitmesin (aşağıya bak) |
 
@@ -62,6 +65,8 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET/POST/PATCH /api/users` | kullanıcılar | yönetici |
 | `GET /api/reports/:month` | `monthReport` | yönetici |
 | `GET /api/reports/:month/utilization` | `teamUtilization`, `internalBreakdown` | yönetici |
+| `GET /api/skills`, `PUT /api/users/:id/skills`, `GET/POST/PATCH/DELETE /api/certifications` | yetkinlik ve sertifikalar | okuma: herkes; yazma: kendisi ya da yönetici |
+| `GET /api/consultants/search?skills&minLevel&cert&available` | `findConsultants` | herkes; `available` (doluluk) yalnızca yönetici |
 
 ## Microsoft 365 girişi (Entra ID)
 Şirketin Microsoft 365 yöneticisi yapar:
@@ -85,6 +90,7 @@ Tarayıcıdaki prototip e-posta gönderemez; sunucuyla birlikte eklenir. Gönder
 | Geçen ay hâlâ açık | Danışman, yöneticiye özet | yeni ayın 2. ve 5. iş günü |
 | Geçen hafta eksik giriş | Danışman | Pazartesi 09:00, eksik gün varsa |
 | Onay bekleyenler özeti | Yönetici | her iş günü 09:00, bekleyen varsa |
+| Sertifika dolmak üzere | Danışman, yöneticiye özet | bitişe 90 ve 30 gün kala |
 
 - Zamanlanmış gönderimler: Azure Functions *timer trigger* (A) ya da hosting cron (B).
 - Tatil ve izin dikkate alınır (`rules.js` → `nextWorkday`, `missingDays`): izinli kişiye "eksik giriş" gitmez, tatile denk gelen hatırlatma bir sonraki iş gününe kayar.

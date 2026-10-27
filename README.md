@@ -19,7 +19,8 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 | Özet | Bugün/hafta saatleri, **aylık takvim** (girilen / girilmeyen günler), kalan izin, hızlı giriş, aylık formu indirme ve **yazdırma / PDF** |
 | Aktiviteler | Üç görünüm: **Günlük** (klavyeyle hızlı giriş, önceki günü kopyala), **Haftalık tablo** (CATS tarzı; hücreye saat yaz, Excel'den yapıştır), **Aylık** takvim ve ay kapanışı. Excel'den yükle, Excel'e aktar |
 | İzinler | Bakiye (**devreden izin** dahil), talep formu (hafta sonu/tatil düşülmez, arife yarım gün), taleplerim, onaylı izin için **iptal talebi**, ekipte kim izinli |
-| Müşteriler & Projeler | Danışman için rehber, projelerde bu ayın sözleşme saati kullanımı; yönetici müşteri/proje ekler, durum ve sözleşme saati belirler |
+| Müşteriler & Projeler | Danışman için rehber, projelerde bu ayın sözleşme saati kullanımı; yönetici müşteri/proje ekler, durum, sözleşme saati ve **yetkinlik etiketlerini** belirler |
+| Yetkinlikler | **Profil** (seviye: Temel / Orta / Uzman, son 12 ayın deneyim saati, sertifikalar ve bitiş uyarısı), **ekip matrisi** (kim neyi biliyor, hangi yetkinlikte açık var), **uygun danışman** arama (seviye, sertifika şartı; yöneticide "bu ay müsait"), **teklif için CV** (yazdır / PDF, müşteri adlarını gizleme) |
 | Yönetim (yönetici) | İzin ve iptal talebi onayı, **ay kapanışı onayı**, **raporlar** (faturalanır/iç saat, müşteri → proje → danışman, sözleşme kullanımı, talep bazında saat, Excel), **doluluk** (faturalanır saat ÷ hedef saat, %75 altı uyarı, son 6 ay, faturalanmayan saatlerin dökümü, Excel), ekibin haftalık ve aylık durumu, **tatiller** (resmi tatil ve şirketin köprü günleri), kullanıcılar |
 
 ## Tatiller
@@ -74,7 +75,7 @@ js/store.js      veri katmanı — sunucuya geçerken değişecek tek dosya
 js/rules.js      iş kuralları: hedef saat, izin günü, bakiye, eksik gün, iptal talebi
 js/ui.js         ortak bileşenler: proje seçici, aktivite formu, aylık takvim, pencere, menü, bildirim
 js/excel.js      Excel/CSV içe aktarma, aylık form, şablon ve dışa aktarma
-js/print.js      aylık formun yazdırılabilir / PDF hali
+js/print.js      aylık form ve danışman CV'sinin yazdırılabilir / PDF hali
 js/closing.js    ay kapanışı: gönderme, onay/iade, kilit, geçmiş
 js/calendar.js   Outlook takvimi (.ics) okuma, tekrarlar, toplantı → proje önerileri
 js/views/*.js    ekranlar

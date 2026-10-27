@@ -7,6 +7,7 @@ const ROUTES = {
   aktiviteler: { title: 'Aktiviteler', icon: 'clock', view: ActivitiesView },
   izinler: { title: 'İzinler', icon: 'sun', view: LeaveView },
   musteriler: { title: 'Müşteriler & Projeler', short: 'Projeler', icon: 'building', view: CustomersView },
+  yetkinlik: { title: 'Yetkinlikler', short: 'Yetkinlik', icon: 'award', view: SkillsView },
   yonetim: { title: 'Yönetim', icon: 'shield', view: AdminView, admin: true },
 };
 

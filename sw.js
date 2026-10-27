@@ -3,7 +3,7 @@
    Böylece yeni sürüm yayınlandığında kimse eski kodda kalmaz. Yeni dosya eklenince SHELL listesine de ekle
    (npm test eksik dosyayı yakalar). */
 
-const CACHE = 'bisolera-portal-v1';
+const CACHE = 'bisolera-portal-v2';
 const SHELL = [
   './',
   'index.html',
@@ -24,6 +24,7 @@ const SHELL = [
   'js/views/activities.js',
   'js/views/leave.js',
   'js/views/customers.js',
+  'js/views/skills.js',
   'js/views/admin.js',
   'js/app.js',
   'vendor/fonts/inter-latin.woff2',

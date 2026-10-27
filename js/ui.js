@@ -35,6 +35,7 @@ const ICONS = {
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
   printer: '<path d="M6 9V3h12v6"/><rect width="20" height="9" x="2" y="9" rx="2"/><path d="M6 14h12v7H6z"/>',
   phone: '<rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/>',
+  award: '<circle cx="12" cy="8" r="6"/><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"/>',
 };
 
 function icon(name, size = 18) {

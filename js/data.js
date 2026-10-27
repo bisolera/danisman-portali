@@ -2,7 +2,7 @@
    Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
 
 const COMPANY_DOMAIN = 'bisolera.com';
-const DATA_VERSION = 6;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
+const DATA_VERSION = 7;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
 const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor
 
 const BRAND = {
@@ -51,6 +51,37 @@ const PERIOD_STATUS = {
 const PERIOD_ACTIONS = {
   gonderildi: 'onaya gönderdi', geri_cekildi: 'gönderimi geri çekti', iade: 'iade etti',
   onaylandi: 'onayladı', onay_geri_alindi: 'onayı geri aldı', kilit_acildi: 'kilidi açtı',
+};
+
+// Yetkinlik kataloğu: danışman seviyesini girer, projeler bu kimliklerle etiketlenir (deneyim saati buradan hesaplanır)
+const SKILLS = [
+  { id: 'bw', name: 'SAP BW 7.x', short: 'BW', group: 'SAP BW' },
+  { id: 'bw4', name: 'SAP BW/4HANA', short: 'BW/4', group: 'SAP BW' },
+  { id: 'abap', name: 'ABAP / AMDP', short: 'ABAP', group: 'SAP BW' },
+  { id: 'hana', name: 'HANA modelleme · CDS', short: 'HANA', group: 'SAP BW' },
+  { id: 'dsp', name: 'SAP Datasphere', short: 'DSP', group: 'SAP bulut' },
+  { id: 'sac', name: 'SAC raporlama', short: 'SAC', group: 'SAP bulut' },
+  { id: 'sacp', name: 'SAC planlama', short: 'SAC-P', group: 'SAP bulut' },
+  { id: 'bpc', name: 'SAP BPC', short: 'BPC', group: 'Planlama' },
+  { id: 'papm', name: 'SAP PaPM', short: 'PaPM', group: 'Planlama' },
+  { id: 'ea', name: 'Embedded Analytics', short: 'EA', group: 'SAP bulut' },
+  { id: 'fabric', name: 'Microsoft Fabric', short: 'Fabric', group: 'Microsoft' },
+  { id: 'pbi', name: 'Power BI', short: 'PBI', group: 'Microsoft' },
+  { id: 'pm', name: 'Proje yönetimi', short: 'PM', group: 'Genel' },
+];
+const skillName = id => (SKILLS.find(s => s.id === id) || { name: id }).name;
+const SKILL_LEVELS = ['—', 'Temel', 'Orta', 'Uzman'];   // 0 yok · 1 temel · 2 bağımsız çalışır · 3 proje yönetir, öğretir
+const CERT_STATUS = {
+  suresiz: { label: 'Süresiz', tone: 'muted' },
+  gecerli: { label: 'Geçerli', tone: 'ok' },
+  yakinda: { label: 'Yakında doluyor', tone: 'warn' },
+  doldu: { label: 'Süresi doldu', tone: 'danger' },
+};
+
+// Demo projelerinin yetkinlik etiketleri (sürüm 7'ye geçerken mevcut veride de bu projelere eklenir)
+const SEED_PROJECT_SKILLS = {
+  p1: ['bw4', 'hana'], p2: ['bw'], p3: ['sacp'], p4: ['pbi'], p5: ['dsp'], p6: ['bw', 'hana'], p7: ['papm'], p8: ['bpc'],
+  p9: ['ea', 'hana'], p10: ['bw4', 'dsp'], p14: ['bw', 'bpc'], p15: ['bw'], p16: ['bw', 'fabric'], p17: ['bw', 'abap'],
 };
 
 const PROJECT_STATUS = {
@@ -214,7 +245,31 @@ function buildSeed() {
       history: [{ at: stamp(2, '10:30'), by: 'u5', action: 'gonderildi' }] },
   ];
 
-  return { version: DATA_VERSION, users, customers, projects, leaves, periods, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
+  projects.forEach(p => { p.skills = SEED_PROJECT_SKILLS[p.id] || []; });
+
+  // Yetkinlikler ve sertifikalar (demo): bitiş tarihleri bugüne göre, uyarılar görünsün
+  const skills = {
+    u1: { bw4: 3, bw: 3, dsp: 2, pm: 3, hana: 2 },
+    u2: { bw: 3, bw4: 2, bpc: 2, abap: 2, fabric: 1, hana: 2 },
+    u3: { sac: 3, sacp: 3, dsp: 1, ea: 2 },
+    u4: { dsp: 3, bw4: 2, hana: 2, sac: 1 },
+    u5: { bpc: 3, papm: 3, sacp: 2, bw: 1 },
+  };
+  const summaries = {
+    u2: 'SAP BW ve BPC destek ve geliştirme projelerinde deneyimli; BW verilerinin Microsoft Fabric’e taşınmasında çalışıyor.',
+    u4: 'SAP Datasphere kurulumu, veri modelleme ve replikasyon akışlarında uzman.',
+  };
+  users.forEach(u => { u.skills = skills[u.id] || {}; u.summary = summaries[u.id] || ''; });
+  const today = todayISO();
+  const certs = [
+    { id: 'k1', userId: 'u1', name: 'SAP BW/4HANA Associate', skillId: 'bw4', issued: '2023-05-10', expires: addDays(today, 300) },
+    { id: 'k2', userId: 'u2', name: 'SAP BW/4HANA Associate', skillId: 'bw4', issued: '2024-03-18', expires: addDays(today, 410) },
+    { id: 'k3', userId: 'u3', name: 'SAP Analytics Cloud Associate', skillId: 'sac', issued: '2023-11-02', expires: addDays(today, 40) },
+    { id: 'k4', userId: 'u4', name: 'SAP Datasphere Associate', skillId: 'dsp', issued: '2024-01-15', expires: addDays(today, -12) },
+    { id: 'k5', userId: 'u5', name: 'SAP BPC Associate', skillId: 'bpc', issued: '2021-09-20', expires: null },
+  ];
+
+  return { version: DATA_VERSION, users, customers, projects, leaves, periods, certs, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
 }
 
 // Son 5 haftanın aktivitelerini üretir: hafta sonu, tatil ve izin günleri atlanır

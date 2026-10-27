@@ -323,6 +323,60 @@ function internalBreakdown(iso, today = todayISO()) {
   return [...map.values()].sort((a, b) => b.hours - a.hours);
 }
 
+/* ---------- Yetkinlikler ve sertifikalar ---------- */
+
+const CERT_WARN_DAYS = 90;   // bitişe bu kadar gün ya da daha az kaldıysa "yakında doluyor"
+
+// suresiz · gecerli · yakinda (≤ 90 gün) · doldu
+function certStatus(cert, today = todayISO()) {
+  if (!cert.expires) return 'suresiz';
+  if (cert.expires < today) return 'doldu';
+  return daysBetween(today, cert.expires) <= CERT_WARN_DAYS ? 'yakinda' : 'gecerli';
+}
+const certValid = (cert, today) => certStatus(cert, today) !== 'doldu';
+
+// Son 12 ayda yetkinlik etiketli projelere yazılan saat: { skillId: saat }. Bir proje birden çok yetkinlik taşıyabilir.
+function skillHours(userId, today = todayISO()) {
+  const out = {};
+  Store.activities({ userId, from: addMonths(today, -12), to: today }).forEach(a => {
+    (Store.project(a.projectId)?.skills || []).forEach(s => { out[s] = (out[s] || 0) + a.hours; });
+  });
+  return out;
+}
+
+// Uygun danışman: seçilen yetkinliklerin hepsinde en az minLevel; certRequired ise her birinde geçerli sertifika.
+// Sıra: seviye toplamı, sonra deneyim saati. available (yalnızca yönetici): bu ayın doluluğu %75 altında olanlar.
+function findConsultants({ skills = [], minLevel = 1, certRequired = false, available = false } = {}, today = todayISO()) {
+  if (!skills.length) return [];
+  return Store.users().filter(u => u.active).map(u => {
+    const levels = skills.map(s => u.skills?.[s] || 0), hours = skillHours(u.id, today);
+    const certs = Store.certs({ userId: u.id }).filter(c => certValid(c, today));
+    return {
+      user: u, levels,
+      hours: sum(skills, s => hours[s] || 0),
+      certs: skills.map(s => certs.find(c => c.skillId === s) || null),
+      util: available ? utilization(u, today, today) : null,
+    };
+  }).filter(r => r.levels.every(l => l >= minLevel) && (!certRequired || r.certs.every(Boolean))
+    && (!available || (r.util.pct != null && r.util.pct < UTILIZATION_TARGET)))
+    .sort((a, b) => sum(b.levels) - sum(a.levels) || b.hours - a.hours || a.user.name.localeCompare(b.user.name, 'tr'));
+}
+
+// CV için müşteri projeleri (son 24 ay, iç projeler hariç): en son çalışılan önce
+function cvProjects(userId, today = todayISO()) {
+  const map = new Map();
+  Store.activities({ userId, from: addMonths(today, -24), to: today }).forEach(a => {
+    const project = Store.project(a.projectId), customer = project && Store.customer(project.customerId);
+    if (!project || customer?.internal) return;
+    const row = map.get(project.id) || { project, customer, from: a.date, to: a.date, hours: 0 };
+    row.hours += a.hours;
+    if (a.date < row.from) row.from = a.date;
+    if (a.date > row.to) row.to = a.date;
+    map.set(project.id, row);
+  });
+  return [...map.values()].sort((a, b) => b.to.localeCompare(a.to));
+}
+
 /* ---------- Ay kapanışı ---------- */
 
 function periodStatus(userId, iso) { return Store.period(userId, iso.slice(0, 7))?.status || 'acik'; }

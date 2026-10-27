@@ -56,25 +56,90 @@ function printFormHtml(user, iso, groups, { signature }) {
   }).join('');
 }
 
-// Form gizli bir alana çizilir ve yalnızca o alan yazdırılır. Belge adı, PDF dosyasının varsayılan adı olur.
-function printMonthlyForm(user, iso, { customerIds = null, signature = true } = {}) {
-  const groups = monthlyFormData(user.id, iso).filter(g => !customerIds || customerIds.includes(g.customer.id));
-  if (!groups.length) return false;
+// Sayfalar gizli bir alana çizilir ve yalnızca o alan yazdırılır. Belge adı, PDF dosyasının varsayılan adı olur.
+function printPages(html, fileTitle) {
   document.getElementById('print-root')?.remove();
   const root = document.createElement('div');
   root.id = 'print-root';
-  root.innerHTML = printFormHtml(user, iso, groups, { signature });
+  root.innerHTML = html;
   document.body.appendChild(root);
   document.body.classList.add('is-printing');
   const title = document.title;
-  document.title = fileSafe(`${FORM_TITLE}_${user.name}_${TR_MONTHS[parseISO(iso).getMonth()]}_${parseISO(iso).getFullYear()}`);
+  document.title = fileSafe(fileTitle);
   window.addEventListener('afterprint', () => {
     document.title = title;
-    // Bazı tarayıcılar afterprint'i çıktı hazırlanmadan gönderiyor; form biraz sonra kaldırılır
+    // Bazı tarayıcılar afterprint'i çıktı hazırlanmadan gönderiyor; sayfa biraz sonra kaldırılır
     setTimeout(() => { document.body.classList.remove('is-printing'); root.remove(); }, 1000);
   }, { once: true });
   window.print();
+}
+
+function printMonthlyForm(user, iso, { customerIds = null, signature = true } = {}) {
+  const groups = monthlyFormData(user.id, iso).filter(g => !customerIds || customerIds.includes(g.customer.id));
+  if (!groups.length) return false;
+  printPages(printFormHtml(user, iso, groups, { signature }), `${FORM_TITLE}_${user.name}_${TR_MONTHS[parseISO(iso).getMonth()]}_${parseISO(iso).getFullYear()}`);
   return true;
+}
+
+/* ---------- Teklif için danışman CV'si ---------- */
+
+const monthYear = iso => `${TR_MONTHS_SHORT[parseISO(iso).getMonth()]} ${parseISO(iso).getFullYear()}`;
+
+// Tek A4: kişi, özet, uzmanlıklar, geçerli sertifikalar, son 24 ayın müşteri projeleri.
+// hideCustomers: başka müşteriye giden teklifte müşteri adı yerine sektör yazılır.
+function cvHtml(user, { hideCustomers = false } = {}) {
+  const today = todayISO(), hours = skillHours(user.id, today);
+  const byLevel = [3, 2, 1].map(n => [n, SKILLS.filter(s => (user.skills?.[s.id] || 0) === n)]).filter(([, list]) => list.length);
+  const certs = Store.certs({ userId: user.id }).filter(c => certValid(c, today)).sort((a, b) => (b.issued || '').localeCompare(a.issued || ''));
+  const projects = cvProjects(user.id, today);
+  const who = r => (hideCustomers ? (r.customer.sector ? `${r.customer.sector} sektörü` : 'Müşteri') : r.customer.name);
+  return `<section class="print-page cv">
+    <header class="print-head">
+      <span class="print-brand">BISOLERA</span>
+      <div><h1>Danışman Profili</h1><p>${esc(fmtDate(today))}</p></div>
+    </header>
+    <div class="cv-person"><h2>${esc(user.name)}</h2><p>${esc(user.title)}${user.startDate ? ` · ${esc(tenureText(user, today))}` : ''}</p></div>
+    ${user.summary ? `<p class="cv-summary">${esc(user.summary)}</p>` : ''}
+    <h3>Uzmanlıklar</h3>
+    ${byLevel.length ? `<dl class="cv-skills">${byLevel.map(([n, list]) => `<div><dt>${SKILL_LEVELS[n]}</dt><dd>${list.map(s =>
+      `${esc(s.name)}${hours[s.id] ? ` <small>(${fmtNum(Math.round(hours[s.id]))} sa, 12 ay)</small>` : ''}`).join(' · ')}</dd></div>`).join('')}</dl>` : '<p class="cv-empty">Yetkinlik girilmemiş.</p>'}
+    ${certs.length ? `<h3>Sertifikalar</h3><ul class="cv-certs">${certs.map(c => `<li><strong>${esc(c.name)}</strong>${c.code ? ` (${esc(c.code)})` : ''}${c.issued ? ` · ${monthYear(c.issued)}` : ''}${c.expires ? ` · geçerlilik ${monthYear(c.expires)}` : ''}</li>`).join('')}</ul>` : ''}
+    <h3>Proje deneyimi <small>(son 24 ay)</small></h3>
+    ${projects.length ? `<table class="print-table">
+      <thead><tr><th>Dönem</th><th>Müşteri</th><th>Proje</th><th>Yetkinlikler</th><th class="num">Saat</th></tr></thead>
+      <tbody>${projects.map(r => `<tr>
+        <td class="nowrap">${monthYear(r.from)}${monthYear(r.from) !== monthYear(r.to) ? ` – ${monthYear(r.to)}` : ''}</td>
+        <td>${esc(who(r))}</td>
+        <td>${esc(r.project.name)}</td>
+        <td>${esc((r.project.skills || []).map(skillName).join(', '))}</td>
+        <td class="num">${fmtNum(Math.round(r.hours))}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<p class="cv-empty">Son 24 ayda müşteri projesi kaydı yok.</p>'}
+    <footer class="print-foot">Bisolera Danışman Portalı · ${esc(fmtStamp(new Date().toISOString()))}</footer>
+  </section>`;
+}
+
+function printCv(user, options = {}) {
+  printPages(cvHtml(user, options), `CV_${user.name}_${todayISO()}`);
+}
+
+function openCvDialog(user) {
+  openModal({
+    title: `${user.name} · CV yazdır / PDF`,
+    body: `<div class="form-stack">
+      <p class="muted">Tek sayfa: özet, uzmanlıklar, geçerli sertifikalar ve son 24 ayın müşteri projeleri. Süresi dolmuş sertifikalar ve iç projeler girmez.</p>
+      <label class="toggle"><input type="checkbox" data-hide-customers> Müşteri adlarını gizle, yerine sektör yaz</label>
+      <p class="muted small-text">Başka bir müşteriye giden teklifte işaretle. Proje adlarında müşteri adı geçiyorsa onları da kontrol et.</p>
+    </div>`,
+    footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" data-print>${icon('printer', 15)} Yazdır / PDF</button>`,
+    onMount(m, close) {
+      m.querySelector('[data-print]').addEventListener('click', () => {
+        const hideCustomers = m.querySelector('[data-hide-customers]').checked;
+        close();
+        printCv(user, { hideCustomers });
+      });
+    },
+  });
 }
 
 function openPrintDialog(user, iso) {

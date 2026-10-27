@@ -20,6 +20,7 @@ const DashboardView = {
       </header>
       <div id="reminder"></div>
       <div id="bridges"></div>
+      <div id="certReminder"></div>
       <section class="grid kpis" id="kpis"></section>
       <section class="card section-gap" id="month"></section>
       <div class="grid two-col section-gap">
@@ -71,6 +72,17 @@ const DashboardView = {
       el.querySelector('#bridges').innerHTML = list.length ? `<div class="card bridge-card">${list.map(h => bridgeChoiceHtml(h, me.id)).join('')}</div>` : '';
     }
     el.querySelector('#bridges').addEventListener('click', e => handleBridgeClick(e, me.id, () => refresh()));
+
+    // Sertifikası dolmak üzere ya da dolmuşsa hatırlat (bitişe 90 gün kala)
+    function renderCertReminder() {
+      const list = Store.certs({ userId: me.id }).filter(c => ['yakinda', 'doldu'].includes(certStatus(c))).sort((a, b) => a.expires.localeCompare(b.expires));
+      el.querySelector('#certReminder').innerHTML = list.length ? `<div class="reminder">
+        ${icon('award', 18)}
+        <div class="grow"><strong>${list.length === 1 ? 'Sertifikan yenilenmeli' : `${list.length} sertifikan yenilenmeli`}</strong>
+          <p>${list.map(c => `${esc(c.name)}: ${certStatus(c) === 'doldu' ? `${fmtDate(c.expires)} doldu` : `${daysBetween(today, c.expires)} gün kaldı (${fmtDate(c.expires)})`}`).join(' · ')}</p></div>
+        <a class="btn ghost sm" href="#/yetkinlik?v=ben">Sertifikalarım ${icon('arrow-right', 14)}</a>
+      </div>` : '';
+    }
 
     // Geçen ay kapatılmadıysa ya da iade edildiyse en üstte hatırlat
     function renderReminder() {
@@ -179,7 +191,7 @@ const DashboardView = {
         ? `<a class="link" href="#/aktiviteler?d=${today}&v=gun">${icon('calendar', 14)} Takviminde ${open.length} toplantı önerisi</a>` : '';
     }
 
-    function refresh() { renderReminder(); renderBridges(); renderKpis(); renderMonth(); renderRecent(); renderDist(); renderUpcoming(); renderCalHint(); form.refresh(); }
+    function refresh() { renderReminder(); renderBridges(); renderCertReminder(); renderKpis(); renderMonth(); renderRecent(); renderDist(); renderUpcoming(); renderCalHint(); form.refresh(); }
     refresh();
   },
 };
