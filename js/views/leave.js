@@ -16,13 +16,13 @@ const LeaveView = {
       </div>`;
 
     function renderBalance() {
-      const b = leaveBalance(me), year = parseISO(today).getFullYear();
+      const b = leaveBalance(me);
       const cards = [
-        ['Yıllık izin hakkı', fmtNum(b.total + b.carried), b.carried
-          ? `${year} hakkı ${fmtNum(b.total)} ${b.carried > 0 ? '+' : '−'} ${fmtNum(Math.abs(b.carried))} devreden` : `${year} yılı`],
-        ['Kullanılan', fmtNum(b.used), b.bridge ? `Onaylı yıllık izin · ${fmtNum(b.bridge)} gün köprü dahil` : 'Onaylanmış yıllık izin'],
+        ['Sonraki hak ediş', b.next ? `+${fmtNum(b.next.days)}` : '—', b.next ? `${fmtDate(b.next.date)} · ${b.next.n}. yıl` : 'İşe giriş tarihi girilmemiş'],
+        ['Kullanılan', fmtNum(b.termUsed), `${b.last ? `${fmtDate(b.last.date)} hak edişinden beri` : `${LEAVE_START_YEAR} başından beri`}${b.bridge ? ' · köprü dahil' : ''}`],
         ['Onay bekleyen', fmtNum(b.pending), b.pending ? 'Yöneticinde bekliyor' : 'Bekleyen talep yok'],
-        ['Kalan', fmtNum(b.remaining), b.pending ? `Onaylar sonrası ${fmtNum(b.remaining - b.pending)} gün` : 'Kullanılabilir', true],
+        ['Kalan', fmtNum(b.remaining), b.advance ? `Avans: ${b.next ? `${fmtDate(b.next.date)} hak edişinden düşülür` : 'sonraki hak edişten düşülür'}`
+          : b.pending ? `Onaylar sonrası ${fmtNum(b.remaining - b.pending)} gün` : 'Kullanılabilir', true],
       ];
       el.querySelector('#balance').innerHTML = cards.map(([label, val, sub, main]) =>
         `<div class="card bal${main ? ' is-main' : ''}"><span class="bal-label">${label}</span><span class="bal-val">${val}<small> gün</small></span><span class="bal-sub">${esc(sub)}</span></div>`).join('');
@@ -126,9 +126,13 @@ const LeaveView = {
       const clash = overlappingLeave(me.id, start, end);
       if (clash) return { ...result, error: `Bu tarihlerde zaten bir talebin var (${fmtRange(clash.start, clash.end)}).` };
       if (type === 'yillik') {
-        const b = leaveBalance(me), available = b.remaining - b.pending;
-        if (days > available) return { ...result, error: `Bakiyen yetersiz: kullanılabilir ${fmtNum(available)} gün.` };
-        result.info = `talep sonrası kalan ${fmtNum(available - days)} gün`;
+        // Talebin başladığı güne kadar gelecek hak ediş sayılır; eksiye (avans) en fazla bir sonraki hak ediş kadar inilir
+        const p = leaveProjection(me, start, days);
+        if (!p.ok) return { ...result, error: `Bakiyen yetersiz: avansla en fazla ${fmtNum(p.limit)} gün eksiye düşebilirsin; bu talepte ${fmtNum(p.after)} olurdu.` };
+        result.advance = p.advance;
+        result.info = p.advance
+          ? `avans izin: talep sonrası bakiye ${fmtNum(p.after)} gün${p.next ? `, ${fmtDate(p.next.date)} hak edişinden düşülür` : ''}`
+          : `talep sonrası kalan ${fmtNum(p.after)} gün`;
       }
       return result;
     }
@@ -139,7 +143,7 @@ const LeaveView = {
         calcEl.className = 'calc err';
         calcEl.innerHTML = `${icon('alert', 16)}<span>${esc(r.error)}</span>`;
       } else {
-        calcEl.className = 'calc';
+        calcEl.className = r.advance ? 'calc warn' : 'calc';
         calcEl.innerHTML = `${icon('calendar', 16)}<span><strong>${fmtNum(r.days)} iş günü</strong> · ${r.info ? esc(r.info) : 'bakiyeden düşmez'}</span>`;
       }
       return r;

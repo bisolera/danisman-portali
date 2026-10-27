@@ -30,11 +30,11 @@ function holidayFor(userId, iso) {
   }));
 }
 
-// Köprü izninde kişinin yıllık izninden düşen gün: izinli kalan kısım (1, 0,5 ya da 0).
+// Köprü izninde kişinin yıllık izninden düşen gün: izinli kalan kısım (1, 0,5 ya da 0), from tarihinden itibaren.
 // O gün başka türde onaylı izni varsa (rapor vb.) ya da henüz işe girmemişse düşülmez.
-function bridgeDays(user, year) {
+function bridgeDays(user, from = LEAVE_START) {
   const other = Store.leaves({ userId: user.id, status: 'onaylandi' }).filter(l => l.type !== 'yillik');
-  return sum(Store.holidays({ from: `${year}-01-01`, to: `${year}-12-31` }).filter(h => h.kind === 'kopru' && !isWeekend(h.date)
+  return sum(Store.holidays({ from }).filter(h => h.kind === 'kopru' && !isWeekend(h.date)
     && (!user.startDate || user.startDate <= h.date) && !other.some(l => l.start <= h.date && h.date <= l.end)), h => bridgeOff(h, user.id));
 }
 
@@ -88,13 +88,56 @@ function countLeaveDays(startISO, endISO, userId = null) {
   });
 }
 
-// Kıdeme göre yasal asgari yıllık izin (4857 sayılı İş Kanunu md. 53):
-// 1–5 yıl 14 gün, 5–15 yıl 20 gün, 15 yıl ve üzeri 26 gün. Yeni kullanıcıda varsayılan değer olarak kullanılır.
+/* ---------- Yıllık izin: işe giriş yıldönümünde hak ediş, yürüyen bakiye, avans ---------- */
+
+// Portalda izin takibinin başladığı gün. Kullanıcının açılış bakiyesi (user.carryIn) bu günün başındaki bakiyedir.
+const LEAVE_START = `${LEAVE_START_YEAR}-01-01`;
+
+// Yasal yıllık izin (4857 sayılı İş Kanunu md. 53): n. hizmet yılını dolduran kazanır.
+// 1–5. yıl (5 dahil) 14 gün, 6–14. yıl 20 gün, 15. yıl ve sonrası 26 gün.
+const legalAccrual = n => (n >= 15 ? 26 : n > 5 ? 20 : 14);
+
+// Tamamlanan hizmet yılı
+function serviceYears(startISO, dateISO) {
+  const s = parseISO(startISO), t = parseISO(dateISO);
+  return t.getFullYear() - s.getFullYear() - (t < new Date(t.getFullYear(), s.getMonth(), s.getDate()) ? 1 : 0);
+}
+
+// Bir sonraki hak edişin yasal tutarı; yeni kullanıcı formunda varsayılan değer
 function legalAnnualLeave(startISO, today = todayISO()) {
-  if (!startISO) return 14;
-  const s = parseISO(startISO), t = parseISO(today);
-  const years = t.getFullYear() - s.getFullYear() - (t < new Date(t.getFullYear(), s.getMonth(), s.getDate()) ? 1 : 0);
-  return years >= 15 ? 26 : years >= 5 ? 20 : 14;
+  return startISO ? legalAccrual(serviceYears(startISO, today) + 1) : 14;
+}
+
+// İşe girişin n. yıldönümü (29 Şubat'ta girenin yıldönümü artık olmayan yıllarda 28 Şubat)
+function anniversary(startISO, n) {
+  const s = parseISO(startISO), d = new Date(s.getFullYear() + n, s.getMonth(), s.getDate());
+  if (d.getMonth() !== s.getMonth()) d.setDate(0);
+  return toISO(d);
+}
+
+// n. yıldönümünde eklenen gün: şirketin verdiği hak (kullanıcı formu) yasal asgarinin altına inmez
+const accrualAmount = (user, n, dateISO) => Math.max(entitlementFor(user, parseISO(dateISO).getFullYear()), legalAccrual(n));
+
+// Portal başlangıcından toISO'ya kadarki hak edişler: [{ date, n, days }]
+function accruals(user, toISO) {
+  const out = [];
+  if (!user.startDate) return out;
+  for (let n = 1; n < 60; n++) {
+    const date = anniversary(user.startDate, n);
+    if (date > toISO) break;
+    if (date >= LEAVE_START) out.push({ date, n, days: accrualAmount(user, n, date) });
+  }
+  return out;
+}
+
+// afterISO'dan sonraki ilk hak ediş (işe giriş tarihi yoksa null)
+function nextAccrual(user, afterISO) {
+  if (!user.startDate) return null;
+  for (let n = 1; n < 60; n++) {
+    const date = anniversary(user.startDate, n);
+    if (date > afterISO) return { date, n, days: accrualAmount(user, n, date) };
+  }
+  return null;
 }
 
 function leaveDays(leave) {
@@ -109,31 +152,36 @@ function entitlementFor(user, year) {
   return years.length ? user.entitlements[years.pop()] : user.annualLeave;
 }
 
-// Önceki yıldan bu yıla devreden yıllık izin (gün).
-//  · İlk yıl: LEAVE_START_YEAR ya da kişinin işe girdiği yıl (hangisi sonraysa). Portal öncesinden kalan izin
-//    yöneticinin girdiği user.carryIn'dir (işe portaldan sonra girende yoktur).
-//  · Sonraki yıllar: bir önceki yılın kalanı, leaveBalance(user, year - 1).remaining
-//  · İlk yıldan önceki yıllar: 0
-// Kural: kalan olduğu gibi devreder; eksi bakiye (avans izin) de devreder ve ertesi yılın hakkından düşer; üst sınır yok
-// (İş Kanunu md. 53–59: kullanılmayan yıllık izin yanmaz).
-function carriedLeave(user, year) {
-  const hired = user.startDate ? parseISO(user.startDate).getFullYear() : LEAVE_START_YEAR;
-  const first = Math.max(LEAVE_START_YEAR, hired);
-  if (year < first) return 0;
-  if (year === first) return first === LEAVE_START_YEAR ? Number(user.carryIn) || 0 : 0;
-  return leaveBalance(user, year - 1).remaining;   // ilk yıla inince durur
+// Bakiyeden düşen yıllık izin günleri (portal başlangıcından ya da from'dan itibaren, tarihinden bağımsız)
+function annualLeaveDays(user, status, from = LEAVE_START) {
+  return sum(Store.leaves({ userId: user.id, status }).filter(l => l.type === 'yillik' && l.end >= from),
+    l => leaveDays({ ...l, start: l.start < from ? from : l.start }));
 }
 
-// Yıllık izin bakiyesi. Yıl sınırını aşan izin (28 Aralık – 5 Ocak) günlerine göre iki yıla bölünür.
-function leaveBalance(user, year = parseISO(todayISO()).getFullYear()) {
-  const y0 = `${year}-01-01`, y1 = `${year}-12-31`;
-  const yearly = Store.leaves({ userId: user.id }).filter(l => l.type === 'yillik' && l.start <= y1 && l.end >= y0);
-  const inYear = l => leaveDays({ ...l, start: l.start < y0 ? y0 : l.start, end: l.end > y1 ? y1 : l.end });
-  const bridge = bridgeDays(user, year);
-  const used = sum(yearly.filter(l => l.status === 'onaylandi'), inYear) + bridge;
-  const pending = sum(yearly.filter(l => l.status === 'beklemede'), inYear);
-  const total = entitlementFor(user, year), carried = carriedLeave(user, year);
-  return { total, carried, used, bridge, pending, remaining: carried + total - used };
+// Yürüyen bakiye: açılış + bugüne kadarki hak edişler − onaylı yıllık izinler − köprü izinleri.
+// Takvim yılı ayrımı yok; kalan kendiliğinden bir sonraki yıla geçer. Eksi bakiye avans izindir, sonraki hak edişten düşer
+// (−3 iken 14 gelirse 11). İş Kanunu md. 53–59: kullanılmayan yıllık izin yanmaz.
+function leaveBalance(user, today = todayISO()) {
+  const opening = user.startDate && user.startDate > LEAVE_START ? 0 : Number(user.carryIn) || 0;
+  const earned = accruals(user, today), last = earned[earned.length - 1] || null;
+  const bridge = bridgeDays(user), used = annualLeaveDays(user, 'onaylandi') + bridge;
+  const remaining = opening + sum(earned, a => a.days) - used;
+  const termFrom = last?.date || LEAVE_START;   // bu hak yılı: son hak edişten bu yana
+  return {
+    opening, accrued: sum(earned, a => a.days), used, bridge, pending: annualLeaveDays(user, 'beklemede'), remaining,
+    termUsed: annualLeaveDays(user, 'onaylandi', termFrom) + bridgeDays(user, termFrom), termFrom,
+    last, next: nextAccrual(user, today), advance: remaining < 0,
+  };
+}
+
+// Yeni yıllık izin talebi sonrası bakiye: talebin başladığı güne kadar hak edilecekler eklenir, onaylı ve bekleyen bütün
+// talepler düşülür. Eksiye (avans) en fazla bir sonraki hak ediş kadar inilebilir.
+function leaveProjection(user, start, days, today = todayISO()) {
+  const b = leaveBalance(user, today);
+  const coming = sum(accruals(user, start).filter(a => a.date > today), a => a.days);
+  const after = b.remaining + coming - b.pending - days;
+  const next = nextAccrual(user, start), limit = next ? next.days : legalAnnualLeave(user.startDate, start);
+  return { after, limit, next, ok: after >= -limit, advance: after < 0 };
 }
 
 // Hedefin altında kalan günler (genelde ay başından düne kadar sorulur)

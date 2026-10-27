@@ -72,27 +72,43 @@
   const pasted = buildImportDrafts([{ name: 'Yapıştırılan', rows: parseDelimited('04.02.2030\tKZY-BW\t1,5\tDestek\tYapıştırma testi') }], 'u2', { defaultType: 'gelistirme', mapping: {} }).drafts;
   ok('yapistirma', pasted.length === 1 && pasted[0].status === 'ok' && pasted[0].hours === 1.5 && pasted[0].projectId === 'p14', pasted[0]);
 
-  // Yıl sınırındaki izin günlerine göre iki yıla bölünür (28–31 Aralık: 4 gün; 1 Ocak tatil, 4–5 Ocak: 2 gün)
+  // Yıllık izin: işe girişten 1 yıl sonra ve her yıl işe giriş gününde eklenir; bakiye yürür, eksi bakiye avanstır
   localStorage.clear();
   Store.init();
-  const u2 = Store.user('u2'), used26 = leaveBalance(u2, 2026).used, used27 = leaveBalance(u2, 2027).used;
-  Store.addLeave({ userId: 'u2', type: 'yillik', start: '2026-12-28', end: '2027-01-05', status: 'onaylandi' });
-  ok('izin_yil_sinirinda_bolunur', leaveBalance(u2, 2026).used - used26 === 4 && leaveBalance(u2, 2027).used - used27 === 2,
-    { y2026: leaveBalance(u2, 2026).used - used26, y2027: leaveBalance(u2, 2027).used - used27 });
+  const addPerson = (name, startDate, extra = {}) => Store.addUser({ name, email: `${fold(name).replace(/\W+/g, '.')}@bisolera.com`, title: 'Danışman', role: 'consultant', annualLeave: 14, startDate, ...extra });
+  const h = addPerson('Hak Edis Deneme', '2026-03-10');
+  const b0 = leaveBalance(h, '2027-03-09');
+  ok('ilk_yil_hak_yok', b0.remaining === 0 && b0.next?.date === '2027-03-10' && b0.next.days === 14, b0);
+  ok('yildonumunde_eklenir', leaveBalance(h, '2027-03-10').remaining === 14 && leaveBalance(h, '2029-03-10').accrued === 42);
 
-  // Devreden izin: kalan olduğu gibi devreder, eksi de devreder, sınır yok; hak değişince eski yıllar eski hakla kalır
-  const c = Store.addUser({ name: 'Devir Deneme', email: 'devir.deneme@bisolera.com', title: 'Danışman', role: 'consultant', annualLeave: 14, startDate: '2020-01-01', carryIn: 5 });
-  Store.addLeave({ userId: c.id, type: 'yillik', start: '2026-11-02', end: '2026-11-13', status: 'onaylandi' });   // 10 iş günü
-  ok('devir_ilk_yil_elle', leaveBalance(c, 2026).carried === 5 && leaveBalance(c, 2026).remaining === 9, leaveBalance(c, 2026));
-  ok('devir_kalan_devreder', leaveBalance(c, 2027).carried === 9 && leaveBalance(c, 2027).remaining === 23, leaveBalance(c, 2027));
-  Store.addLeave({ userId: c.id, type: 'yillik', start: '2027-02-01', end: '2027-03-05', status: 'onaylandi' });   // 25 iş günü (avans)
-  ok('devir_eksi_devreder', leaveBalance(c, 2027).remaining === -2 && leaveBalance(c, 2028).carried === -2, leaveBalance(c, 2028));
-  ok('devir_bekleyen_dusmez', (Store.addLeave({ userId: c.id, type: 'yillik', start: '2026-12-01', end: '2026-12-01' }), leaveBalance(c, 2027).carried === 9));
-  Store.updateUser(c.id, { annualLeave: 20, entitlements: { 2026: 14, 2028: 20 } });
-  ok('devir_hak_gecmisi', leaveBalance(c, 2027).total === 14 && leaveBalance(c, 2028).total === 20 && leaveBalance(c, 2028).remaining === 18, leaveBalance(c, 2028));
-  ok('devir_once_sifir', carriedLeave(c, 2025) === 0);
-  const late = Store.addUser({ name: 'Yeni Giren', email: 'yeni.giren@bisolera.com', title: 'Danışman', role: 'consultant', annualLeave: 14, startDate: '2027-03-01', carryIn: 4 });
-  ok('devir_sonradan_giren', carriedLeave(late, 2026) === 0 && carriedLeave(late, 2027) === 0 && leaveBalance(late, 2028).carried === 14);
+  // Kullanıcının örneği: 14 günü varken 17 gün izin → −3 (avans); bir sonraki yıldönümünde 14 gelince 11
+  ok('haziran_17_is_gunu', countLeaveDays('2027-06-01', '2027-06-23', h.id) === 17);
+  Store.addLeave({ userId: h.id, type: 'yillik', start: '2027-06-01', end: '2027-06-23', status: 'onaylandi' });
+  ok('avans_eksi_3', leaveBalance(h, '2027-07-01').remaining === -3 && leaveBalance(h, '2027-07-01').advance);
+  ok('avans_sonraki_hak_edisten_duser', leaveBalance(h, '2028-03-10').remaining === 11 && !leaveBalance(h, '2028-03-10').advance);
+
+  // Talep: başladığı güne kadar gelecek hak ediş sayılır; eksiye en fazla bir sonraki hak ediş kadar inilir
+  const p1 = leaveProjection(h, '2028-04-03', 5, '2028-01-15');   // bugün −3; 10 Mart'ta +14 → 11 − 5 = 6
+  ok('ileri_tarihli_talep', p1.ok && !p1.advance && p1.after === 6, p1);
+  const p2 = leaveProjection(h, '2027-09-01', 10, '2027-08-01');  // −3 − 10 = −13, sınır −14
+  ok('avans_siniri_icinde', p2.ok && p2.advance && p2.after === -13 && p2.limit === 14, p2);
+  ok('avans_siniri_asilmaz', !leaveProjection(h, '2027-09-01', 12, '2027-08-01').ok);
+  Store.addLeave({ userId: h.id, type: 'yillik', start: '2027-10-04', end: '2027-10-05' });   // bekleyen 2 gün de düşülür
+  ok('bekleyen_dusulur', leaveProjection(h, '2027-09-01', 10, '2027-08-01').after === -15 && leaveBalance(h, '2027-08-01').pending === 2);
+
+  // Yasal kademe: 6. yıldan 20, 15. yıldan 26 gün; şirket daha fazla veriyorsa o geçerli, ama yasal asgarinin altına inmez
+  const k = addPerson('Kidem Deneme', '2020-03-10');
+  const acc = accruals(k, '2036-12-31');
+  ok('yasal_kademe', acc[0].date === '2026-03-10' && acc[0].n === 6 && acc[0].days === 20 && acc.find(a => a.n === 14).days === 20
+    && acc.find(a => a.n === 15).days === 26, acc.map(a => [a.n, a.days]));
+  Store.updateUser(k.id, { annualLeave: 22 });
+  ok('sirket_fazlasi', accruals(k, '2036-12-31')[0].days === 22 && accruals(k, '2036-12-31').find(a => a.n === 15).days === 26);
+
+  // Açılış bakiyesi portal öncesinden kalandır; portaldan sonra girende yok sayılır. 29 Şubat'ta giren 28 Şubat'ta kazanır.
+  const o = addPerson('Acilis Deneme', '2023-05-02', { carryIn: 5 });
+  ok('acilis_bakiyesi', leaveBalance(o, '2026-05-01').remaining === 5 && leaveBalance(o, '2026-05-02').remaining === 19);
+  ok('sonradan_girende_acilis_yok', leaveBalance(addPerson('Yeni Giren', '2026-06-01', { carryIn: 4 }), '2026-12-31').opening === 0);
+  ok('artik_gun', anniversary('2024-02-29', 1) === '2025-02-28' && anniversary('2024-02-29', 4) === '2028-02-29');
 
   // İki sekme: diğer sekme veriyi değiştirince bu sekme yenilenir ve onun kaydını silmez
   const other = JSON.parse(localStorage.getItem('bisolera-portal-v1'));

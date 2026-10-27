@@ -141,7 +141,8 @@ const DashboardView = {
         kpiCard({ ic: 'clock', label: 'Bugün', value: fmtNum(tLogged), of: tTarget ? `/ ${fmtNum(tTarget)} sa` : 'sa', meter: tTarget ? pct(tLogged, tTarget) : null, sub: todaySub }),
         kpiCard({ ic: 'calendar', label: 'Bu hafta', value: fmtNum(week.logged), of: `/ ${fmtNum(week.target)} sa`, meter: pct(week.logged, week.target), sub: weekSub }),
         kpiCard({ ic: missing.length ? 'alert' : 'check', label: `${monthName} eksik giriş`, value: missing.length, of: 'gün', sub: missSub, tone: missing.length ? 'alert' : '' }),
-        kpiCard({ ic: 'sun', label: 'Kalan yıllık izin', value: fmtNum(bal.remaining), of: 'gün', sub: `${fmtNum(bal.total + bal.carried)} günden${bal.carried ? ' (devreden dahil)' : ''} ${fmtNum(bal.used)} gün kullanıldı${bal.pending ? ` · ${fmtNum(bal.pending)} gün onayda` : ''}` }),
+        kpiCard({ ic: 'sun', label: 'Kalan yıllık izin', value: fmtNum(bal.remaining), of: 'gün', tone: bal.advance ? 'alert' : '',
+          sub: `${bal.advance ? 'Avans kullanıldı · ' : ''}${bal.next ? `${fmtShort(bal.next.date)} +${fmtNum(bal.next.days)} gün hak ediş` : 'İşe giriş tarihi yok'}${bal.pending ? ` · ${fmtNum(bal.pending)} gün onayda` : ''}` }),
       ].join('');
     }
 

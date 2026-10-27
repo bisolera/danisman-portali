@@ -341,6 +341,7 @@ textarea.input { height: auto; min-height: 64px; padding: 10px 12px; resize: ver
 .seg input:focus-visible + label { outline: 2px solid var(--brand); outline-offset: 2px; }
 .calc { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--brand-50); color: var(--brand-700); font-size: 13.5px; }
 .calc.err { background: var(--danger-bg); color: var(--danger); }
+.calc.warn { background: var(--warn-bg); color: var(--warn-ink); }
 .shake { animation: shake .35s; }
 @keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
 

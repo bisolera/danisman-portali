@@ -19,8 +19,11 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [ ] Talep numarası biçimi: `HARF-RAKAM`, en az 2 rakam (SM-2119038, CFR-102) (`ticketIds`)
 
 ## İzin
-- [ ] Yeni kullanıcıda yıllık izin, kıdeme göre yasal asgariyle dolar: 1–5 yıl 14, 5–15 yıl 20, 15+ yıl 26 gün. Şirket daha fazla veriyor mu? (`legalAnnualLeave`)
-- [x] Bakiye **takvim yılına** göre hesaplanır; **kullanılmayan izin ertesi yıla olduğu gibi devreder**, eksi bakiye (avans izin) de devreder ve ertesi yılın hakkından düşer, üst sınır yok (`carriedLeave`). Portal öncesinden kalan izin, kullanıcı formunda "Devreden izin · 2026 başı" alanına girilir. İzin hakkı değişince (kıdem) eski yıllar eski hakla kalır.
+- [x] **Hak ediş işe giriş yıldönümünde:** ilk izin işe girişten 1 yıl sonra kazanılır, sonra her yıl işe giriş gününde eklenir; ilk yıl dolmadan bakiye 0 (`accruals`, `js/rules.js`)
+- [x] Tutar İş Kanunu md. 53'e göre: 1–5. yıl (5 dahil) 14, 6–14. yıl 20, 15. yıl ve sonrası 26 gün; kıdemle kendiliğinden artar. Şirket daha fazla veriyorsa kullanıcı formundaki "Yıllık hak ediş" geçerli, ama yasal asgarinin altına inmez (`accrualAmount`). 18 yaş altı ve 50 yaş üstü için 20 gün alt sınırı doğum tarihi tutulmadığı için uygulanmıyor.
+- [x] **Yürüyen bakiye:** açılış bakiyesi (1 Ocak 2026, portal öncesinden kalan) + hak edişler − onaylı yıllık izinler − köprü izinleri; takvim yılı ayrımı yok, kalan kendiliğinden devreder (`leaveBalance`)
+- [x] **Avans (kredi) izin:** bakiye eksiye düşebilir ve sonraki hak edişten düşülür (−3 iken 14 gelince 11). Talep, başladığı güne kadar gelecek hak edişi hesaba katar (`leaveProjection`)
+- [ ] Avans sınırı: en fazla bir sonraki hak ediş kadar eksiye inilir (ör. −14); ilk yılını doldurmamış biri de bu sınıra kadar avans alabilir. Doğru mu?
 - [ ] Hafta sonu ve resmi tatil izinden düşülmez, **arife yarım gün** düşülür (`countLeaveDays`)
 - [ ] Yarım gün izin alınabilir
 - [ ] Yalnızca **yıllık izin** bakiyeden düşer; mazeret, hastalık ve ücretsiz izin düşmez

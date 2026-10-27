@@ -44,7 +44,9 @@ const AdminView = {
           <div><strong>${esc(u.name)}</strong> <span class="muted">· ${esc(u.title)}</span></div>
           <div class="approval-what">${esc(leaveTypeName(l.type))} · ${fmtRange(l.start, l.end)} · <strong>${fmtNum(days)} iş günü</strong>${l.halfDay ? ' (yarım gün)' : ''}</div>
           <div class="approval-meta">
-            ${b ? `<span>${icon('sun', 14)} Bakiye ${fmtNum(b.remaining)} → ${fmtNum(b.remaining - days)} gün</span>` : ''}
+            ${b ? (p => `<span class="${p.advance ? 'warn-text' : ''}">${icon('sun', 14)} Bakiye ${fmtNum(b.remaining)} → ${fmtNum(p.after)} gün${p.advance
+              ? ` · avans${p.next ? `, ${fmtShort(p.next.date)} hak edişinden düşülür` : ''}` : ''}</span>`)(leaveProjection(u, l.start, 0))   // bekleyenler (bu talep dahil) zaten düşülür
+              : ''}
             ${clashes.length ? `<span class="warn-text">${icon('users', 14)} Aynı tarihlerde izinli: ${esc(clashes.join(', '))}</span>` : ''}
             ${l.note ? `<span>“${esc(l.note)}”</span>` : ''}
           </div>
@@ -396,12 +398,13 @@ const AdminView = {
       panel.innerHTML = `<section class="card">
         <div class="card-head"><h2>Kullanıcılar</h2><button class="btn primary sm" data-add-user>${icon('plus', 15)} Kullanıcı ekle</button></div>
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>Ad Soyad</th><th>Unvan</th><th>Rol</th><th class="num">Yıllık izin</th><th>Durum</th><th></th></tr></thead>
+          <thead><tr><th>Ad Soyad</th><th>Unvan</th><th>Rol</th><th class="num">Kalan izin</th><th>Sonraki hak ediş</th><th>Durum</th><th></th></tr></thead>
           <tbody>${users.map(u => `<tr class="${u.active ? '' : 'is-inactive'}">
             <td><span class="cell-user">${avatar(u, 30)}<span><strong>${esc(u.name)}</strong><small>${esc(u.email)}</small></span></span></td>
             <td>${esc(u.title)}</td>
             <td>${u.role === 'admin' ? pill('Yönetici', 'info') : 'Danışman'}</td>
-            <td class="num nowrap">${u.annualLeave} gün${(c => c ? ` <small class="faint">${c > 0 ? '+' : '−'}${fmtNum(Math.abs(c))} devir</small>` : '')(leaveBalance(u).carried)}</td>
+            ${(b => `<td class="num nowrap${b.advance ? ' warn-text' : ''}">${fmtNum(b.remaining)} gün${b.advance ? ' <small>(avans)</small>' : ''}</td>
+              <td class="nowrap">${b.next ? `${fmtDate(b.next.date)} <span class="faint">+${fmtNum(b.next.days)}</span>` : '<span class="faint">—</span>'}</td>`)(leaveBalance(u))}
             <td>${u.active ? pill('Aktif', 'ok') : pill('Pasif', 'muted')}</td>
             <td class="num"><button class="icon-btn sm" data-edit-user="${u.id}" title="Düzenle" aria-label="Düzenle">${icon('pencil', 15)}</button></td>
           </tr>`).join('')}</tbody>
@@ -530,10 +533,11 @@ function userModal(u, onSave) {
         <label class="field full"><span class="field-label">Unvan</span><input class="input" name="title" value="${esc(u?.title || '')}" maxlength="60" placeholder="Örn. SAP BW Danışmanı"></label>
         <label class="field"><span class="field-label">Rol</span>
           <select class="input" name="role"${self ? ' disabled' : ''}><option value="consultant">Danışman</option><option value="admin"${u?.role === 'admin' ? ' selected' : ''}>Yönetici</option></select></label>
-        <label class="field"><span class="field-label">Yıllık izin hakkı (gün) <span class="faint" data-legal></span></span><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? legalAnnualLeave(todayISO())}"></label>
+        <label class="field"><span class="field-label">Yıllık hak ediş (gün) <span class="faint" data-legal></span></span><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? legalAnnualLeave(todayISO())}"></label>
         <label class="field"><span class="field-label">İşe giriş tarihi</span><input class="input" name="startDate" type="date" value="${u?.startDate || todayISO()}"></label>
-        <label class="field"><span class="field-label">Devreden izin · ${LEAVE_START_YEAR} başı (gün) <span class="faint">portal öncesinden</span></span><input class="input" name="carryIn" type="number" step="0.5" min="-40" max="60" value="${u?.carryIn ?? 0}"></label>
+        <label class="field"><span class="field-label">Açılış bakiyesi · ${fmtDate(LEAVE_START)} (gün) <span class="faint">portal öncesinden kalan; eksi olabilir</span></span><input class="input" name="carryIn" type="number" step="0.5" min="-40" max="60" value="${u?.carryIn ?? 0}"></label>
       </div>
+      <p class="muted small-text">İzin, işe girişten 1 yıl sonra ve her yıl işe giriş gününde eklenir. Kıdem arttıkça yasal asgari (14 / 20 / 26 gün) kendiliğinden uygulanır; şirket daha fazla veriyorsa buraya yaz.</p>
       ${u ? `<label class="toggle"><input type="checkbox" name="active"${u.active ? ' checked' : ''}${self ? ' disabled' : ''}> Hesap aktif${self ? ' <span class="faint">(kendi hesabın)</span>' : ''}</label>` : ''}
       <p class="form-error" hidden></p>
     </form>`,
@@ -543,7 +547,7 @@ function userModal(u, onSave) {
       el.name.focus();
       // Kıdeme göre yasal asgari izin; yeni kullanıcıda elle değiştirilmediyse tarihle birlikte güncellenir
       const legal = m.querySelector('[data-legal]');
-      const showLegal = () => { legal.textContent = `· yasal asgari ${legalAnnualLeave(el.startDate.value)}`; };
+      const showLegal = () => { legal.textContent = `· sonraki hak edişte yasal asgari ${legalAnnualLeave(el.startDate.value)}`; };
       el.annualLeave.addEventListener('input', () => { el.annualLeave.dataset.touched = '1'; });
       el.startDate.addEventListener('change', () => {
         showLegal();
@@ -561,9 +565,9 @@ function userModal(u, onSave) {
         if (owner && owner.id !== u?.id) return formError(f, 'Bu e-posta başka bir kullanıcıda kayıtlı.', el.email);
         if (!(annualLeave >= 0 && annualLeave <= 40)) return formError(f, 'İzin hakkı 0–40 gün arasında olmalı.', el.annualLeave);
         const carryIn = Number(el.carryIn.value || 0);
-        if (!(carryIn >= -40 && carryIn <= 60)) return formError(f, 'Devreden izin −40 ile 60 gün arasında olmalı.', el.carryIn);
+        if (!(carryIn >= -40 && carryIn <= 60)) return formError(f, 'Açılış bakiyesi −40 ile 60 gün arasında olmalı.', el.carryIn);
         const data = { name, email, title: el.title.value.trim() || 'Danışman', annualLeave, startDate: el.startDate.value, carryIn };
-        // Hak değişirse geçmiş yıllar eski hakla kalır; yoksa devreden izin geriye dönük değişirdi
+        // Hak değişirse geçmiş hak edişler eski değerle kalır; yoksa bakiye geriye dönük değişirdi
         if (u && u.annualLeave !== annualLeave) {
           data.entitlements = { ...(u.entitlements || { [LEAVE_START_YEAR]: u.annualLeave }), [parseISO(todayISO()).getFullYear()]: annualLeave };
         }

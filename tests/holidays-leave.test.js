@@ -84,7 +84,7 @@
   Store.init();
   const u2 = Store.user('u2');
   const L = Store.addLeave({ userId: 'u2', type: 'yillik', start: '2030-04-08', end: '2030-04-10', status: 'onaylandi' });
-  const used0 = leaveBalance(u2, 2030).used;
+  const used0 = leaveBalance(u2).used;
   App.login(u2);
   go('#/izinler');
   const mineRow = () => document.querySelector(`#mine [data-id="${L.id}"]`);
@@ -95,7 +95,7 @@
   m.querySelector('[data-send]').click();
   await wait(250);
   ok('iptal_beklerken_izin_gecerli', Store.leave(L.id).status === 'onaylandi' && Store.leave(L.id).cancel?.status === 'beklemede'
-    && leaveBalance(u2, 2030).used === used0 && dailyTarget('u2', '2030-04-08') === 0);
+    && leaveBalance(u2).used === used0 && dailyTarget('u2', '2030-04-08') === 0);
   ok('iptal_talebi_gorunur', mineRow().textContent.includes('İptal talebi onayda') && !!mineRow().querySelector('[data-cancel-undo]'));
   const pending0 = pendingApprovals();
 
@@ -104,8 +104,8 @@
   ok('yonetici_iptal_listesi', panel().textContent.includes('İptal talepleri') && panel().textContent.includes('Teslim öne çekildi')
     && document.querySelector('#tabs [data-tab=onaylar] .count')?.textContent === String(Store.leaves({ status: 'beklemede' }).length + 1));
   panel().querySelector(`[data-id="${L.id}"] [data-cancel-decide="onaylandi"]`).click();
-  ok('iptal_onaylandi', Store.leave(L.id).status === 'iptal' && leaveBalance(u2, 2030).used === used0 - 3
-    && dailyTarget('u2', '2030-04-08') === 8 && pendingApprovals() === pending0 - 1, { used: leaveBalance(u2, 2030).used, used0 });
+  ok('iptal_onaylandi', Store.leave(L.id).status === 'iptal' && leaveBalance(u2).used === used0 - 3
+    && dailyTarget('u2', '2030-04-08') === 8 && pendingApprovals() === pending0 - 1, { used: leaveBalance(u2).used, used0 });
   lastToastBtn().click();
   ok('iptal_geri_alindi', Store.leave(L.id).status === 'onaylandi' && Store.leave(L.id).cancel?.status === 'beklemede');
   panel().querySelector(`[data-id="${L.id}"] [data-cancel-decide="reddedildi"]`).click();
@@ -122,7 +122,7 @@
   await wait(250);
   const u3 = Store.user('u3'), y = parseISO(todayISO()).getFullYear();
   ok('kullanici_devir_ve_hak_gecmisi', u3.carryIn === 2.5 && entitlementFor(u3, y) === 20 && (y === LEAVE_START_YEAR || entitlementFor(u3, LEAVE_START_YEAR) === 14)
-    && panel().querySelector('[data-edit-user="u3"]').closest('tr').textContent.includes('devir'), u3.entitlements);
+    && panel().querySelector('[data-edit-user="u3"]').closest('tr').textContent.includes(fmtDate(leaveBalance(u3).next.date)), u3.entitlements);
 
   // Köprü izni: Perşembe resmi tatil, şirket Cuma'yı köprü yapar. Hiç çalışmayandan 1 gün, yarım gün çalışandan 0,5 gün düşer,
   // tam gün çalışandan düşmez.
@@ -131,20 +131,20 @@
   Store.addHoliday({ date: '2030-05-02', name: 'Deneme resmi tatil' });
   const br = Store.addHoliday({ date: '2030-05-03', name: 'Köprü izni', kind: 'kopru' });
   const [ka, kb] = ['kopru.a', 'kopru.b'].map(e => Store.addUser({ name: `Köprü ${e.slice(-1).toUpperCase()}`, email: `${e}@bisolera.com`, title: 'Danışman', role: 'consultant', annualLeave: 14, startDate: '2024-01-01' }));
-  ok('kopru_varsayilan_izinden_duser', leaveBalance(ka, 2030).used === 1 && leaveBalance(ka, 2030).bridge === 1 && dailyTarget(ka.id, '2030-05-03') === 0
-    && dayOffReason(ka.id, '2030-05-03') === 'Köprü izni', leaveBalance(ka, 2030));
+  ok('kopru_varsayilan_izinden_duser', leaveBalance(ka).used === 1 && leaveBalance(ka).bridge === 1 && dailyTarget(ka.id, '2030-05-03') === 0
+    && dayOffReason(ka.id, '2030-05-03') === 'Köprü izni', leaveBalance(ka));
 
   App.login(ka);
   go('#/izinler');
   const opt = v => document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="${v}"]`);
   ok('kopru_uc_secenek', !document.querySelector('#bridges').hidden && !!opt('off') && !!opt('half') && !!opt('full') && opt('off').classList.contains('is-active'));
   opt('half').click();
-  ok('kopru_yarim_gun_calisandan_yarim_duser', bridgeWork(Store.holiday('2030-05-03'), ka.id) === 'half' && leaveBalance(ka, 2030).used === 0.5
-    && dailyTarget(ka.id, '2030-05-03') === 4, { used: leaveBalance(ka, 2030).used, target: dailyTarget(ka.id, '2030-05-03') });
+  ok('kopru_yarim_gun_calisandan_yarim_duser', bridgeWork(Store.holiday('2030-05-03'), ka.id) === 'half' && leaveBalance(ka).used === 0.5
+    && dailyTarget(ka.id, '2030-05-03') === 4, { used: leaveBalance(ka).used, target: dailyTarget(ka.id, '2030-05-03') });
   ok('kopru_yarim_gun_ekrani', opt('half').classList.contains('is-active') && document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('Yarım gün çalışıyorsun'));
   opt('full').click();
-  ok('kopru_tam_gun_calisandan_dusmez', leaveBalance(ka, 2030).used === 0 && dailyTarget(ka.id, '2030-05-03') === 8
-    && leaveBalance(kb, 2030).used === 1 && dailyTarget(kb.id, '2030-05-03') === 0);
+  ok('kopru_tam_gun_calisandan_dusmez', leaveBalance(ka).used === 0 && dailyTarget(ka.id, '2030-05-03') === 8
+    && leaveBalance(kb).used === 1 && dailyTarget(kb.id, '2030-05-03') === 0);
   go('#/aktiviteler?d=2030-05-03&v=gun');
   ok('kopru_gunluk_gorunum', document.querySelector('#dayList [data-bridge]')?.textContent.includes('Tam gün çalışıyorsun') && document.querySelector('#dayHead').textContent.includes('8'));
 
@@ -152,17 +152,17 @@
   // (hiç çalışmayan 3 + köprü 1 = 4; tam gün çalışan 4 + 0 = 4; yarım gün çalışan 3,5 + 0,5 = 4)
   const lb = Store.addLeave({ userId: kb.id, type: 'yillik', start: '2030-04-29', end: '2030-05-03', status: 'onaylandi' });
   const la = Store.addLeave({ userId: ka.id, type: 'yillik', start: '2030-04-29', end: '2030-05-03', status: 'onaylandi' });
-  ok('kopru_izinle_cift_dusmez', leaveDays(lb) === 3 && leaveBalance(kb, 2030).used === 4 && leaveDays(la) === 4 && leaveBalance(ka, 2030).used === 4,
-    { lb: leaveDays(lb), kb: leaveBalance(kb, 2030).used, la: leaveDays(la), ka: leaveBalance(ka, 2030).used });
+  ok('kopru_izinle_cift_dusmez', leaveDays(lb) === 3 && leaveBalance(kb).used === 4 && leaveDays(la) === 4 && leaveBalance(ka).used === 4,
+    { lb: leaveDays(lb), kb: leaveBalance(kb).used, la: leaveDays(la), ka: leaveBalance(ka).used });
   Store.updateHoliday(br.id, { work: { [ka.id]: 'half' } });
-  ok('kopru_yarim_calisan_izinle_cift_dusmez', leaveDays(la) === 3.5 && leaveBalance(ka, 2030).used === 4, { la: leaveDays(la), ka: leaveBalance(ka, 2030).used });
+  ok('kopru_yarim_calisan_izinle_cift_dusmez', leaveDays(la) === 3.5 && leaveBalance(ka).used === 4, { la: leaveDays(la), ka: leaveBalance(ka).used });
   Store.updateHoliday(br.id, { work: { [ka.id]: 'full' } });
   Store.updateLeave(lb.id, { status: 'iptal' });
   Store.updateLeave(la.id, { status: 'iptal' });
 
   // Raporluysa köprü yıllık izinden düşmez; ay kapanışa gönderildiyse seçim değişmez
   const sick = Store.addLeave({ userId: kb.id, type: 'hastalik', start: '2030-05-03', end: '2030-05-03', status: 'onaylandi' });
-  ok('kopru_raporluya_dusmez', leaveBalance(kb, 2030).used === 0);
+  ok('kopru_raporluya_dusmez', leaveBalance(kb).used === 0);
   Store.updateLeave(sick.id, { status: 'iptal' });
   Store.setPeriod(ka.id, '2030-05', { status: 'gonderildi' });
   go('#/izinler');
@@ -171,7 +171,7 @@
   Store.setPeriod(ka.id, '2030-05', { status: 'acik' });
   go('#/izinler');
   opt('off').click();
-  ok('kopru_izinliyim', bridgeWork(Store.holiday('2030-05-03'), ka.id) === null && leaveBalance(ka, 2030).used === 1);
+  ok('kopru_izinliyim', bridgeWork(Store.holiday('2030-05-03'), ka.id) === null && leaveBalance(ka).used === 1);
 
   // Yönetici: Tatiller'de kimin çalışacağını görür ve işaretler
   App.login(Store.user('u1'));
@@ -184,7 +184,7 @@
   f.querySelector(`[name=work][data-user="${kb.id}"]`).value = 'half';
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   await wait(250);
-  ok('kopru_yonetici_isaretler', JSON.stringify(Store.holiday('2030-05-03').work) === JSON.stringify({ [kb.id]: 'half' }) && leaveBalance(kb, 2030).used === 0.5
+  ok('kopru_yonetici_isaretler', JSON.stringify(Store.holiday('2030-05-03').work) === JSON.stringify({ [kb.id]: 'half' }) && leaveBalance(kb).used === 0.5
     && panel().querySelector(`tr[data-hol="${br.id}"]`).textContent.includes('Yarım gün: Köprü'), Store.holiday('2030-05-03').work);
 
   // Özet: 30 gün içindeki köprü günü en üstte sorulur
@@ -214,11 +214,11 @@
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   await wait(250);
   ok('arife_kopru_tam_gun', Store.holidaysOn('2030-05-02').length === 2 && getHoliday('2030-05-02').half === false
-    && dailyTarget(kc.id, '2030-05-02') === 0 && leaveBalance(kc, 2030).bridge === 0.5 && countLeaveDays('2030-05-02', '2030-05-02', kc.id) === 0);
+    && dailyTarget(kc.id, '2030-05-02') === 0 && leaveBalance(kc).bridge === 0.5 && countLeaveDays('2030-05-02', '2030-05-02', kc.id) === 0);
   ok('arife_kopru_tabloda', panel().textContent.includes('birlikte tam gün'));
   const morning = Store.holidaysOn('2030-05-02').find(x => x.kind === 'kopru');
   Store.updateHoliday(morning.id, { work: { [kc.id]: 'full' } });
-  ok('arife_kopru_calisan_sabah_calisir', dailyTarget(kc.id, '2030-05-02') === 4 && leaveBalance(kc, 2030).bridge === 0
+  ok('arife_kopru_calisan_sabah_calisir', dailyTarget(kc.id, '2030-05-02') === 4 && leaveBalance(kc).bridge === 0
     && countLeaveDays('2030-05-02', '2030-05-02', kc.id) === 0.5);
   ok('ucuncu_tatil_eklenmez', Store.addHoliday({ date: '2030-05-02', name: 'Fazla', half: true }) === null
     && Store.addHoliday({ date: '2030-05-02', name: 'Fazla tam' }) === null);
@@ -233,7 +233,7 @@
   ok('kopru_sure_secimi_gorunur', !m.querySelector('[data-half-wrap]').hidden && f.elements.dur.value === 'full');
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   await wait(250);
-  ok('kopru_tam_gun', Store.holiday('2030-05-10')?.half === false && leaveBalance(kc, 2030).bridge === 1 && dailyTarget(kc.id, '2030-05-10') === 0);
+  ok('kopru_tam_gun', Store.holiday('2030-05-10')?.half === false && leaveBalance(kc).bridge === 1 && dailyTarget(kc.id, '2030-05-10') === 0);
   App.login(kc);
   go('#/izinler');
   ok('yarim_kopru_iki_secenek', document.querySelectorAll(`#bridges [data-bridge="${morning.id}"] [data-bridge-work]`).length === 2
