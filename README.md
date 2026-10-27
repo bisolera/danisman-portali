@@ -28,6 +28,10 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 
 **Yönetim → Tatiller**'den yıl yıl yönetilir; kod değiştirmek gerekmez. Sabit tarihli resmi tatiller (Yılbaşı, 23 Nisan, 1 ve 19 Mayıs, 15 Temmuz, 30 Ağustos, 28–29 Ekim) tek tıkla eklenir. Ramazan ve Kurban Bayramı her yıl değiştiği için Diyanet takviminden bakılıp tarih aralığıyla girilir; "önceki gün arife" seçeneği arifeyi yarım gün ekler. **Şirket tatili** resmi tatil gibi işler: o gün hedef saat düşer ve kimsenin yıllık izninden düşülmez. **Köprü izni** ise kişiye göre çalışır: danışman Özet, İzinler ya da Aktiviteler'den **İzinliyim** (1 gün düşer), **Yarım gün çalışacağım** (0,5 gün düşer) ya da **Tam gün çalışacağım** (düşmez) seçer; yönetici de Tatiller'de herkes için seçebilir. Köprü tam gün ya da yarım gün olabilir; arife gibi zaten yarım gün tatil olan bir güne eklenirse günün diğer yarısını kapsar ve ikisi birlikte tam gün tatil olur. Kapanmış bir ayda tatil değişirse hedef saatler yeniden hesaplanır, girilen kayıtlar değişmez.
 
+## Görünüm
+
+**Profilim → Görünüm**'den beş tema seçilir: **Klasik** (varsayılan; koyu kenar menü, Bisolera yeşili), **Açık & ferah**, **Koyu mod**, **Kurumsal mavi** (menü üstte yatay çubuk) ve **Sıcak & yumuşak**. **Rahat / Sıkı** yoğunluk ekrana sığan bilgi miktarını değiştirir. Seçim anında uygulanır ve bu tarayıcıda saklanır; çıktılar (aylık form, masraf formu, CV) her temada Bisolera renkleriyle basılır. Temalar yalnızca `css/styles.css`'teki renk değişkenlerini değiştirir (`css/themes.css`, `js/theme.js`).
+
 ## Yazdırma / PDF ve telefona kurulum
 
 - **Aylık formu yazdır / PDF:** Özet, Aktiviteler → Dışa aktar, ay kapanışı paneli ve Yönetim → Ay kapanışı'ndan. Müşteri başına bir A4 sayfa, altta danışman ve müşteri onayı için imza alanı. Yazdır penceresinde "PDF olarak kaydet" seçilince PDF olur.
@@ -70,6 +74,7 @@ npm test         # tüm testler, tarayıcı açmadan
 ## Kod yapısı
 
 ```
+js/theme.js      tema ve yoğunluk (sayfa çizilmeden önce uygulanır)
 js/utils.js      tarih, sayı, arama yardımcıları
 js/data.js       sabitler (izin türleri, varsayılan resmi tatiller) + demo veriler
 js/store.js      veri katmanı — sunucuya geçerken değişecek tek dosya

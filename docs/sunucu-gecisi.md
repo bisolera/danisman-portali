@@ -47,7 +47,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `expenses` | id, user_id, date, category, amount (12,2), description, project_id, rebill, status, receipt_key, decided_by, decided_at, reject_reason, paid_at, paid_by, created_at | indeks: (user_id, date), (status) |
 | `cv_files` | user_id (tekil), name, size, storage_key, uploaded_at, uploaded_by | dosyanın kendisi veritabanında değil, dosya deposunda (Azure Blob Storage / hosting'de web kökü dışındaki bir klasör) |
 | `project_skills` | project_id, skill_id | deneyim saati bu etiketlerden hesaplanır |
-| `user_prefs` | user_id, key, value (JSON) | son proje, Excel/takvim eşleştirmeleri |
+| `user_prefs` | user_id, key, value (JSON) | son proje, Excel/takvim eşleştirmeleri, görünüm (tema, yoğunluk; her cihazda aynı olsun diye) |
 | `notifications` | id, user_id, kind, ref, sent_at | aynı e-posta iki kez gitmesin (aşağıya bak) |
 
 ## API

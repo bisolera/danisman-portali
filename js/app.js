@@ -127,6 +127,20 @@ const App = {
   },
 };
 
+// Profilim → Görünüm: tema ve yoğunluk; seçim anında uygulanır (js/theme.js)
+function lookBoxHtml() {
+  const { theme, density } = Theme.get();
+  return `<div class="look-box" data-look>
+    <div class="backup-head">${icon('eye', 16)}<div><strong>Görünüm</strong><p>Seçince bütün sayfalar anında değişir; bu tarayıcıda saklanır.</p></div></div>
+    <div class="theme-grid">${THEMES.map(t => `<button type="button" class="theme-opt${t.id === theme ? ' is-active' : ''}" data-theme-id="${t.id}" aria-pressed="${t.id === theme}">
+      <span class="theme-swatch">${t.swatch.map(c => `<i style="background:${c}"></i>`).join('')}</span>
+      <span><strong>${esc(t.name)}</strong><small>${esc(t.desc)}</small></span>
+    </button>`).join('')}</div>
+    <div class="theme-density"><span>Yoğunluk</span><div class="tabs">${DENSITIES.map(([k, label]) =>
+      `<button type="button" class="${k === density ? 'is-active' : ''}" data-density-id="${k}">${label}</button>`).join('')}</div></div>
+  </div>`;
+}
+
 // Profilim'deki "uygulama olarak kur" kutusu; zaten uygulama olarak açıksa gösterilmez
 function installBoxHtml() {
   if (isStandalone()) return '';
@@ -153,6 +167,7 @@ function openProfile() {
         <div><dt>İşe giriş</dt><dd>${u.startDate ? fmtDate(u.startDate) : '—'}</dd></div>
         <div><dt>Yıllık izin</dt><dd>${fmtNum(bal.total)} gün hak${bal.carried ? ` · ${fmtNum(bal.carried)} gün devreden` : ''} · ${fmtNum(bal.remaining)} gün kalan</dd></div>
       </dl>
+      ${lookBoxHtml()}
       <div class="backup-box">
         <div class="backup-head">${icon('download', 16)}<div><strong>Verilerin bu tarayıcıda duruyor</strong>
           <p data-backup-info></p></div></div>
@@ -167,6 +182,13 @@ function openProfile() {
     footer: `<button class="btn ghost sm" data-reset>${icon('refresh', 15)} Demo verilerini sıfırla</button><span class="grow"></span><button class="btn dark sm" data-logout>${icon('logout', 15)} Çıkış yap</button>`,
     onMount(m, close) {
       m.querySelector('[data-logout]').addEventListener('click', () => { close(); App.logout(); });
+      // Görünüm kutusu her seçimde yeniden çizildiği için dinleyici pencerede
+      m.addEventListener('click', e => {
+        const t = e.target.closest('[data-look] [data-theme-id]'), d = e.target.closest('[data-look] [data-density-id]');
+        if (!t && !d) return;
+        Theme.set(t ? { theme: t.dataset.themeId } : { density: d.dataset.densityId });
+        m.querySelector('[data-look]').outerHTML = lookBoxHtml();
+      });
       m.querySelector('[data-install]')?.addEventListener('click', async () => {
         const prompt = installPrompt;
         installPrompt = null;               // kurulum penceresi yalnızca bir kez açılabilir

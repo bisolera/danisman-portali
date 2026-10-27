@@ -1,0 +1,170 @@
+/* Temalar: aynı ekranların farklı görünümleri (Profilim → Görünüm).
+   Her tema yalnızca styles.css'teki değişkenleri (renk, köşe, gölge) ve birkaç düzen kuralını değiştirir.
+   Seçim js/theme.js'te; <html data-theme="…" data-density="…">. Tema seçilmemişse "Klasik" görünüm. */
+
+/* ---------- Açık & ferah: beyaz menü, ince çizgiler, gölgesiz ---------- */
+html[data-theme="ferah"] {
+  --bg: #f7f8f7;
+  --side: #ffffff;
+  --side-text: #5f6a62;
+  --side-strong: #111613;
+  --side-hover: #f1f4f1;
+  --side-line: var(--line);
+  --side-active: #e8f6e8;
+  --hero: #0f2a17;
+  --hero-ink: #dfe9e1;
+  --radius: 12px;
+  --shadow: none;
+}
+html[data-theme="ferah"] .side { border-right: 1px solid var(--line); }
+html[data-theme="ferah"] .side-brand img, html[data-theme="ferah"] .topbar img { filter: brightness(0); }   /* beyaz logo açık zeminde koyu görünsün */
+html[data-theme="ferah"] .topbar { background: #fff; border-bottom: 1px solid var(--line); }
+html[data-theme="ferah"] .nav-link.is-active { color: var(--brand-700); font-weight: 600; }
+html[data-theme="ferah"] .nav-link.is-active .ic { color: var(--brand-700); }
+html[data-theme="ferah"] .page-head h1 { font-weight: 600; letter-spacing: -.02em; }
+
+/* ---------- Koyu mod: gece çalışması için ---------- */
+html[data-theme="gece"] {
+  color-scheme: dark;
+  --brand-50: #16301c;
+  --brand-100: #1f4127;
+  --brand-700: #86d986;
+  --ink: #e6ebe7;
+  --ink-2: #c3cbc5;
+  --muted: #949e97;
+  --faint: #6b746d;
+  --line: #2a312c;
+  --line-2: #1f2521;
+  --line-strong: #3d4740;
+  --bg: #0e1110;
+  --card: #161a18;
+  --hover: #1c211e;
+  --surface-2: #131715;
+  --surface-3: #1c211e;
+  --surface-4: #0b0d0c;
+  --side: #090b0a;
+  --hero: #17281c;
+  --hero-ink: #d4ddd6;
+  --on-ink: #0e1110;
+  --toast-bg: #2a312c;
+  --warn: #f5b454;
+  --warn-bg: #2b2213;
+  --warn-line: #5a4219;
+  --warn-ink: #f6d39b;
+  --danger: #ff8a80;
+  --danger-bg: #2e1817;
+  --danger-line: #5b2a27;
+  --info: #93b6ff;
+  --info-bg: #16203a;
+  --info-ink: #c9d8ff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, .65);
+}
+html[data-theme="gece"] { --brand-soft-ink: #cdeccd; }
+html[data-theme="gece"] .avatar { box-shadow: 0 0 0 1px rgba(255, 255, 255, .08); }
+
+/* ---------- Kurumsal mavi: üstte menü çubuğu, SAP Fiori'den ilham ---------- */
+html[data-theme="kurumsal"] {
+  --brand: #0a6ed1;
+  --brand-600: #0859aa;
+  --brand-700: #0854a0;
+  --brand-50: #ebf5fe;
+  --brand-100: #d1e8ff;
+  --brand-ink: #ffffff;
+  --ring: 0 0 0 3px rgba(10, 110, 209, .25);
+  --ink: #1d2d3e;
+  --ink-2: #32363a;
+  --muted: #6a6d70;
+  --line: #e1e4e8;
+  --line-2: #f1f3f5;
+  --bg: #f5f6f7;
+  --side: #1d2d3e;
+  --side-text: #c2cbd4;
+  --side-active: rgba(255, 255, 255, .12);
+  --hero: #1d2d3e;
+  --hero-ink: #e5ecf3;
+  --radius: 12px;
+  --font-head: var(--font);
+}
+html[data-theme="kurumsal"] { --brand-soft-ink: var(--brand-700); }
+html[data-theme="kurumsal"] .side-label { color: #8fc1f2; }
+@media (min-width: 901px) {
+  html[data-theme="kurumsal"] .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  html[data-theme="kurumsal"] .side { position: sticky; top: 0; z-index: 20; height: 56px; flex-direction: row; align-items: center; gap: 20px; padding: 0 24px; }
+  html[data-theme="kurumsal"] .side-brand { padding: 0; }
+  html[data-theme="kurumsal"] .side-brand img { height: 22px; }
+  html[data-theme="kurumsal"] .side-label { margin: 0; padding-left: 16px; border-left: 1px solid rgba(255, 255, 255, .2); white-space: nowrap; }
+  html[data-theme="kurumsal"] .side-nav { flex-direction: row; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  html[data-theme="kurumsal"] .nav-link { padding: 8px 11px; gap: 8px; border-radius: 8px; white-space: nowrap; font-size: 13.5px; }
+  html[data-theme="kurumsal"] .nav-link.is-active { box-shadow: inset 0 -3px 0 #4db1ff; border-radius: 8px 8px 0 0; }
+  html[data-theme="kurumsal"] .nav-link.is-active .ic { color: #4db1ff; }
+  html[data-theme="kurumsal"] .side-foot { margin: 0 0 0 auto; border: 0; padding: 0; }
+  html[data-theme="kurumsal"] .side-user { padding: 4px 8px; }
+  html[data-theme="kurumsal"] .side-user-text small { display: none; }
+  html[data-theme="kurumsal"] .sticky { top: 72px; }
+}
+
+/* ---------- Sıcak & yumuşak: krem zemin, yuvarlak köşeler, koyu yeşil menü ---------- */
+html[data-theme="sicak"] {
+  --bg: #f7f3ec;
+  --card: #fffdf9;
+  --hover: #fbf6ee;
+  --line: #ebe3d6;
+  --line-2: #f3ede3;
+  --line-strong: #d9cdb9;
+  --surface-2: #faf6ef;
+  --surface-3: #f2ece2;
+  --surface-4: #e9e1d4;
+  --ink: #2b2620;
+  --ink-2: #4a4238;
+  --muted: #7d7365;
+  --faint: #b0a594;
+  --side: #1f3a2a;
+  --side-text: #b9c9bd;
+  --side-active: rgba(255, 255, 255, .1);
+  --hero: #1f3a2a;
+  --hero-ink: #e3ece5;
+  --radius: 18px;
+  --shadow: 0 1px 2px rgba(80, 60, 30, .05), 0 6px 20px rgba(80, 60, 30, .06);
+}
+html[data-theme="sicak"] .btn { border-radius: 999px; }
+html[data-theme="sicak"] .input, html[data-theme="sicak"] .seg label, html[data-theme="sicak"] .icon-btn { border-radius: 12px; }
+html[data-theme="sicak"] .nav-link { border-radius: 999px; }
+html[data-theme="sicak"] .page-head h1 { font-size: 28px; }
+
+/* ---------- Yoğunluk: "Sıkı" ekrana daha çok bilgi sığdırır ---------- */
+html[data-density="sik"] body { font-size: 13.5px; }
+html[data-density="sik"] .main { padding: 20px 28px 40px; }
+html[data-density="sik"] .page-head { margin-bottom: 14px; }
+html[data-density="sik"] .page-head h1 { font-size: 22px; }
+html[data-density="sik"] .card { padding: 14px 16px; }
+html[data-density="sik"] .card-head { margin-bottom: 10px; }
+html[data-density="sik"] .grid, html[data-density="sik"] .stack { gap: 12px; }
+html[data-density="sik"] .section-gap { margin-top: 12px; }
+html[data-density="sik"] .btn { height: 34px; padding: 0 13px; }
+html[data-density="sik"] .btn.sm { height: 28px; padding: 0 10px; }
+html[data-density="sik"] .input { height: 34px; }
+html[data-density="sik"] .table td { padding: 7px 10px; }
+html[data-density="sik"] .nav-link { padding: 8px 12px; }
+
+/* Çıktılar (aylık form, masraf formu, CV) her temada Bisolera renkleriyle basılır */
+@media print {
+  html[data-theme] { --brand: #66cc66; --font-head: 'Montserrat', var(--font); }
+}
+
+/* ---------- Profilim → Görünüm ---------- */
+.look-box { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
+.look-box .backup-head > .ic { color: var(--brand-700); margin-top: 2px; }
+.theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.theme-opt { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 8px 10px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); text-align: left; }
+.theme-opt:hover { background: var(--hover); }
+.theme-opt.is-active { border-color: var(--brand); box-shadow: var(--ring); }
+.theme-opt > span:last-child { min-width: 0; }
+.theme-opt strong { display: block; font-size: 13px; }
+.theme-opt small { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-swatch { flex: none; display: grid; grid-template-columns: 12px 1fr; grid-template-rows: 1fr 7px; width: 40px; height: 30px; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); }
+.theme-swatch i:nth-child(1) { grid-row: 1 / -1; }
+.theme-swatch i:nth-child(3) { grid-column: 2; }
+.theme-density { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 600; }
+.theme-density .tabs button { padding: 5px 12px; }
+@media (max-width: 560px) { .theme-grid { grid-template-columns: 1fr; } }
