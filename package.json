@@ -1,0 +1,13 @@
+{
+  "name": "danisman-portali",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bisolera danışman portalı: aktivite, izin ve ay kapanışı",
+  "scripts": {
+    "start": "python serve.py",
+    "test": "node tests/run-all.js"
+  },
+  "devDependencies": {
+    "jsdom": "24.1.3"
+  }
+}

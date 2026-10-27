@@ -56,7 +56,7 @@ const PROJECT_STATUS = {
 };
 
 // Resmi tatiller. half: true → yarım gün (arife).
-// Not: dini bayram tarihleri her yıl Diyanet takvimine göre kontrol edilmeli; 2027 tarihleri tahminidir.
+// Dini bayramlar Diyanet takvimine göredir (2027 doğrulandı); her yıl yeni yılın tarihleri eklenmeli.
 const HOLIDAYS = [
   { date: '2026-01-01', name: 'Yılbaşı' },
   { date: '2026-03-19', name: 'Ramazan Bayramı Arifesi', half: true },
@@ -101,7 +101,7 @@ const CUSTOMER_COLORS = ['#3b82f6', '#f59e0b', '#06b6d4', '#ef4444', '#8b5cf6', 
 // Demo aktivitelerinde kullanılan iş tanımları: [tür, açıklama]
 const SEED_TASKS = {
   p1: [['gelistirme', 'ADSO ve CompositeProvider modelleme'], ['gelistirme', 'AMDP transformasyon rutini düzeltmesi'], ['analiz', 'BW 7.5 veri akışlarının envanter analizi'], ['test', 'Migrasyon sonrası veri karşılaştırma testleri'], ['toplanti', 'Müşteriyle haftalık durum toplantısı'], ['proje_yonetimi', 'Proje planı ve risk listesinin güncellenmesi']],
-  p2: [['destek', 'Gece process chain hatalarının analizi ve çözümü'], ['destek', 'Delta yükleme hatasının düzeltilmesi'], ['destek', 'Kullanıcı yetki talebinin incelenmesi'], ['toplanti', 'Destek taleplerinin gözden geçirilmesi']],
+  p2: [['destek', 'Gece process chain hatalarının analizi ve çözümü (DST-1042)'], ['destek', 'Delta yükleme hatasının düzeltilmesi (DST-1057)'], ['destek', 'Kullanıcı yetki talebinin incelenmesi (DST-1061)'], ['toplanti', 'Destek taleplerinin gözden geçirilmesi']],
   p3: [['gelistirme', 'Planlama modeli ve veri aksiyonları geliştirme'], ['gelistirme', 'Story ve dashboard tasarımı'], ['analiz', 'Satış planlama sürecinin analizi'], ['toplanti', 'Kullanıcılarla demo toplantısı']],
   p5: [['gelistirme', 'Graphical view ve analytic model geliştirme'], ['gelistirme', 'Replication flow kurulumu'], ['analiz', 'Space ve yetki yapısının tasarımı'], ['dokumantasyon', 'Teknik tasarım dokümanı']],
   p7: [['gelistirme', 'Maliyet dağıtım fonksiyonlarının geliştirilmesi'], ['analiz', 'Karlılık analizi gereksinimlerinin çıkarılması'], ['test', 'Dağıtım sonuçlarının mutabakatı']],
@@ -110,8 +110,8 @@ const SEED_TASKS = {
   p11: [['egitim', 'SAP Datasphere sertifika çalışması'], ['egitim', 'İç eğitim: SAC planlama']],
   p12: [['analiz', 'Teklif için kapsam ve efor çalışması'], ['toplanti', 'Potansiyel müşteri sunumu']],
   p13: [['proje_yonetimi', 'Haftalık ekip toplantısı'], ['dokumantasyon', 'Aylık proje raporlarının hazırlanması']],
-  p14: [['destek', 'Rapor farkı incelemesi ve kullanıcı desteği'], ['gelistirme', 'BPC veri akışı düzenlemesi'], ['destek', 'Process chain hata takibi'], ['toplanti', 'Kullanıcılarla durum görüşmesi']],
-  p15: [['destek', 'Stok raporu veri kontrolü'], ['gelistirme', 'Rapora alan ekleme geliştirmesi'], ['analiz', 'Kaynak tablo karşılaştırması']],
+  p14: [['destek', 'Rapor farkı incelemesi ve kullanıcı desteği (KZT-2201)'], ['gelistirme', 'BPC veri akışı düzenlemesi (KZT-2214)'], ['destek', 'Process chain hata takibi'], ['toplanti', 'Kullanıcılarla durum görüşmesi']],
+  p15: [['destek', 'Stok raporu veri kontrolü (MVT-318)'], ['gelistirme', 'Rapora alan ekleme geliştirmesi (MVT-331)'], ['analiz', 'Kaynak tablo karşılaştırması']],
   p16: [['gelistirme', 'Composite yapılarının Fabric’e aktarımı'], ['test', 'Pipeline veri kontrolleri'], ['analiz', 'Kaynak nesne analizi']],
   p17: [['gelistirme', 'Tartım verisi için BW veri akışı geliştirme'], ['gelistirme', 'Datasource append geliştirmesi'], ['test', 'Geliştirme ortamında veri doğrulama']],
 };
@@ -142,8 +142,8 @@ function buildSeed() {
 
   const projects = [
     { id: 'p1', customerId: 'c1', name: 'BW/4HANA Migrasyonu', code: 'ATL-BW4', status: 'aktif', billable: true },
-    { id: 'p2', customerId: 'c1', name: 'Process Chain İzleme & Destek', code: 'ATL-SUP', status: 'aktif', billable: true },
-    { id: 'p3', customerId: 'c2', name: 'SAC Satış Planlama', code: 'LAL-SAC', status: 'aktif', billable: true },
+    { id: 'p2', customerId: 'c1', name: 'Process Chain İzleme & Destek', code: 'ATL-SUP', status: 'aktif', billable: true, monthlyBudget: 40 },
+    { id: 'p3', customerId: 'c2', name: 'SAC Satış Planlama', code: 'LAL-SAC', status: 'aktif', billable: true, monthlyBudget: 160 },
     { id: 'p4', customerId: 'c2', name: 'Power BI Mağaza Raporları', code: 'LAL-PBI', status: 'tamamlandi', billable: true },
     { id: 'p5', customerId: 'c3', name: 'Datasphere Kurulumu', code: 'EGE-DSP', status: 'aktif', billable: true },
     { id: 'p6', customerId: 'c3', name: 'Health Check & Optimizasyon', code: 'EGE-HC', status: 'beklemede', billable: true },
@@ -154,8 +154,8 @@ function buildSeed() {
     { id: 'p11', customerId: 'c0', name: 'Eğitim & Sertifikasyon', code: 'BIS-EGT', status: 'aktif', billable: false },
     { id: 'p12', customerId: 'c0', name: 'Satış Öncesi / Teklif', code: 'BIS-PRE', status: 'aktif', billable: false },
     { id: 'p13', customerId: 'c0', name: 'İdari İşler', code: 'BIS-ADM', status: 'aktif', billable: false },
-    { id: 'p14', customerId: 'c6', name: 'SAP BW & BPC Destek', code: 'KZY-BW', status: 'aktif', billable: true },
-    { id: 'p15', customerId: 'c7', name: 'SAP BW Raporlama Destek', code: 'MAV-BW', status: 'aktif', billable: true },
+    { id: 'p14', customerId: 'c6', name: 'SAP BW & BPC Destek', code: 'KZY-BW', status: 'aktif', billable: true, monthlyBudget: 60 },
+    { id: 'p15', customerId: 'c7', name: 'SAP BW Raporlama Destek', code: 'MAV-BW', status: 'aktif', billable: true, monthlyBudget: 40 },
     { id: 'p16', customerId: 'c8', name: 'BW → Fabric Geçişi', code: 'ADA-FAB', status: 'aktif', billable: true },
     { id: 'p17', customerId: 'c9', name: 'SAP BW Geliştirme', code: 'DMR-BW', status: 'aktif', billable: true },
   ];

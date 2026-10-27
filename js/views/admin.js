@@ -2,10 +2,11 @@
 
 const AdminView = {
   mount(el, { query }) {
-    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['ekip', 'Ekip durumu'], ['kullanicilar', 'Kullanıcılar']];
+    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['ekip', 'Ekip durumu'], ['kullanicilar', 'Kullanıcılar']];
     let tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'onaylar';
     let teamMonth = todayISO();
     let closeMonth = addMonths(todayISO(), -1);   // kapanışta genelde geçen ay incelenir
+    let reportMonth = todayISO();
 
     el.innerHTML = `
       <header class="page-head"><div><h1>Yönetim</h1><p>İzin onayları, ekibin haftası ve kullanıcı hesapları.</p></div></header>
@@ -17,7 +18,7 @@ const AdminView = {
       const counts = { onaylar: Store.leaves({ status: 'beklemede' }).length, kapanis: Store.periods({ status: 'gonderildi' }).length };
       tabsEl.innerHTML = TABS.map(([k, label]) =>
         `<button class="${k === tab ? 'is-active' : ''}" data-tab="${k}">${label}${counts[k] ? ` <span class="count">${counts[k]}</span>` : ''}</button>`).join('');
-      ({ onaylar: renderApprovals, kapanis: renderClosing, ekip: renderTeam, kullanicilar: renderUsers })[tab]();
+      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, ekip: renderTeam, kullanicilar: renderUsers })[tab]();
       App.refreshBadges();
     }
 
@@ -54,6 +55,61 @@ const AdminView = {
           ${pending.length ? pending.map(approvalRow).join('') : emptyState('check', 'Bekleyen talep yok', 'Yeni talepler geldiğinde burada görünecek.')}
         </section>
         ${decided.length ? `<section class="card section-gap"><div class="card-head"><h2>Son kararlar</h2></div>${decided.map(l => leaveRow(l, { user: Store.user(l.userId) })).join('')}</section>` : ''}`;
+    }
+
+    // Raporlar: faturalanır/faturalanmaz saat, müşteri → proje dökümü, sözleşme kullanımı, talepler
+    function renderReports() {
+      const r = monthReport(reportMonth);
+      const pct = r.total ? Math.round((r.billable / r.total) * 100) : 0;
+      const names = row => [...row.users].sort((a, b) => b[1] - a[1]).map(([uid, h]) => `${esc(firstName(Store.user(uid)?.name || '?'))} ${fmtNum(h)}`).join(' · ');
+      const budget = row => {
+        const b = budgetState(row.project, reportMonth);
+        if (!b) return '<span class="faint">—</span>';
+        return `<div class="budget budget-${b.tone}"><div class="meter"><span style="width:${Math.min(100, b.pct)}%"></span></div><span>%${Math.round(b.pct)} · ${fmtNum(b.budget)} sa</span></div>`;
+      };
+      panel.innerHTML = `
+        <section class="card">
+          <div class="card-head">
+            <div><h2>Raporlar · ${monthTitle(reportMonth)}</h2><p class="sub">Faturalama, sözleşme saati kullanımı ve talep bazında saatler.</p></div>
+            <div class="week-nav">
+              <button class="btn ghost sm" data-report-export${r.total ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
+              <button class="icon-btn bordered" data-report-month="-1" aria-label="Önceki ay">${icon('chevron-left')}</button>
+              <button class="btn ghost sm" data-report-month="0">Bu ay</button>
+              <button class="icon-btn bordered" data-report-month="1" aria-label="Sonraki ay">${icon('chevron-right')}</button>
+            </div>
+          </div>
+          <div class="close-stats report-stats">
+            <div><b>${fmtNum(r.total)}</b><span>toplam saat</span></div>
+            <div class="is-good"><b>${fmtNum(r.billable)}</b><span>faturalanır · %${pct}</span></div>
+            <div><b>${fmtNum(r.nonBillable)}</b><span>faturalanmaz (iç)</span></div>
+            <div><b>${r.consultants}</b><span>danışman</span></div>
+          </div>
+          ${r.groups.length ? `<div class="table-wrap"><table class="table report-table">
+            <thead><tr><th>Müşteri / Proje</th><th>Danışmanlar (saat)</th><th class="num">Saat</th><th>Sözleşme</th></tr></thead>
+            <tbody>${r.groups.map(g => `
+              <tr class="group-row"><td colspan="2"><span class="cell-proj"><span class="dot" style="background:${g.customer.color}"></span><strong>${esc(g.customer.name)}</strong></span></td><td class="num"><strong>${fmtNum(g.hours)}</strong></td><td></td></tr>
+              ${g.rows.map(row => `<tr>
+                <td class="indent">${esc(row.project.name)} <span class="code">${esc(row.project.code)}</span>${row.project.billable ? '' : ' <span class="tag">İç</span>'}</td>
+                <td class="muted small-text">${names(row)}</td>
+                <td class="num">${fmtNum(row.hours)}</td>
+                <td class="w-budget">${budget(row)}</td>
+              </tr>`).join('')}`).join('')}
+            </tbody>
+          </table></div>` : emptyState('inbox', 'Bu ay için kayıt yok')}
+        </section>
+        <section class="card section-gap">
+          <div class="card-head"><div><h2>Talep bazında saatler</h2><p class="sub">Açıklamalarda geçen talep numaraları (ör. SM-2119038, CFR-102). Birden fazla talep geçen kaydın saati eşit bölünür.</p></div></div>
+          ${r.tickets.length ? `<div class="table-wrap"><table class="table">
+            <thead><tr><th>Talep</th><th>Proje</th><th class="num">Kayıt</th><th class="num">Saat</th><th>Son çalışma</th></tr></thead>
+            <tbody>${r.tickets.slice(0, 50).map(t => `<tr>
+              <td><strong class="code ticket">${esc(t.id)}</strong></td>
+              <td>${[...t.projects].map(pid => esc(Store.project(pid).name)).join(', ')}</td>
+              <td class="num">${t.entries}</td>
+              <td class="num">${fmtNum(Math.round(t.hours * 100) / 100)}</td>
+              <td class="muted nowrap">${fmtShort(t.last)}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : emptyState('search', 'Bu ay talep numarası geçen kayıt yok', 'Açıklamaya talep numarasını (ör. SM-2119038) yazınca burada toplanır.')}
+        </section>`;
     }
 
     // Ay kapanışı: kim gönderdi, kim onay bekliyor; incele → onayla / iade et / kilidi aç
@@ -178,6 +234,12 @@ const AdminView = {
     });
 
     panel.addEventListener('click', e => {
+      const reportNav = e.target.closest('[data-report-month]');
+      if (reportNav) {
+        reportMonth = reportNav.dataset.reportMonth === '0' ? todayISO() : addMonths(reportMonth, Number(reportNav.dataset.reportMonth));
+        return renderReports();
+      }
+      if (e.target.closest('[data-report-export]')) return exportMonthReport(reportMonth).catch(err => toast(err.message, { tone: 'danger' }));
       const closeNav = e.target.closest('[data-close-month]');
       if (closeNav) {
         closeMonth = closeNav.dataset.closeMonth === '0' ? addMonths(todayISO(), -1) : addMonths(closeMonth, Number(closeNav.dataset.closeMonth));
@@ -224,7 +286,7 @@ function userModal(u, onSave) {
         <label class="field full"><span class="field-label">Unvan</span><input class="input" name="title" value="${esc(u?.title || '')}" maxlength="60" placeholder="Örn. SAP BW Danışmanı"></label>
         <label class="field"><span class="field-label">Rol</span>
           <select class="input" name="role"${self ? ' disabled' : ''}><option value="consultant">Danışman</option><option value="admin"${u?.role === 'admin' ? ' selected' : ''}>Yönetici</option></select></label>
-        <label class="field"><span class="field-label">Yıllık izin hakkı (gün)</span><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? 14}"></label>
+        <label class="field"><span class="field-label">Yıllık izin hakkı (gün) <span class="faint" data-legal></span></span><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? legalAnnualLeave(todayISO())}"></label>
         <label class="field"><span class="field-label">İşe giriş tarihi</span><input class="input" name="startDate" type="date" value="${u?.startDate || todayISO()}"></label>
       </div>
       ${u ? `<label class="toggle"><input type="checkbox" name="active"${u.active ? ' checked' : ''}${self ? ' disabled' : ''}> Hesap aktif${self ? ' <span class="faint">(kendi hesabın)</span>' : ''}</label>` : ''}
@@ -234,6 +296,15 @@ function userModal(u, onSave) {
     onMount(m, close) {
       const f = m.querySelector('form'), el = f.elements;
       el.name.focus();
+      // Kıdeme göre yasal asgari izin; yeni kullanıcıda elle değiştirilmediyse tarihle birlikte güncellenir
+      const legal = m.querySelector('[data-legal]');
+      const showLegal = () => { legal.textContent = `· yasal asgari ${legalAnnualLeave(el.startDate.value)}`; };
+      el.annualLeave.addEventListener('input', () => { el.annualLeave.dataset.touched = '1'; });
+      el.startDate.addEventListener('change', () => {
+        showLegal();
+        if (!u && !el.annualLeave.dataset.touched) el.annualLeave.value = legalAnnualLeave(el.startDate.value);
+      });
+      showLegal();
       f.addEventListener('submit', e => {
         e.preventDefault();
         const name = el.name.value.trim();

@@ -110,6 +110,50 @@ const Store = (() => {
   };
 })();
 
+/* Yedekleme: bu tarayıcıdaki tüm portal verisi (kayıtlar, tercihler, takvim) tek JSON dosyasında.
+   Sunucuya geçene kadar tarayıcı verisinin silinmesine karşı tek güvence budur. */
+const Backup = {
+  PREFIX: 'bisolera-',
+  META: 'bisolera-meta',
+  APP: 'bisolera-portal',
+
+  keys() {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith(Backup.PREFIX) && k !== Backup.META) out.push(k);
+    }
+    return out;
+  },
+
+  snapshot() {
+    return { app: Backup.APP, version: DATA_VERSION, exportedAt: new Date().toISOString(),
+      data: Object.fromEntries(Backup.keys().map(k => [k, localStorage.getItem(k)])) };
+  },
+
+  // Dosyayı doğrular ve geri yüklemeden önce gösterilecek özeti çıkarır; sorun varsa hata fırlatır
+  inspect(text) {
+    let b;
+    try { b = JSON.parse(text); } catch { throw new Error('Dosya okunamadı: geçerli bir yedek dosyası değil.'); }
+    if (b?.app !== Backup.APP || !b.data || typeof b.data !== 'object') throw new Error('Bu dosya bir portal yedeği değil.');
+    if (Object.entries(b.data).some(([k, v]) => !k.startsWith(Backup.PREFIX) || typeof v !== 'string')) throw new Error('Yedekte tanınmayan bilgi var; dosya değiştirilmiş olabilir.');
+    let db = null;
+    try { db = JSON.parse(b.data['bisolera-portal-v1']); } catch { /* aşağıda yakalanır */ }
+    if (!db || !Array.isArray(db.users) || !Array.isArray(db.activities)) throw new Error('Yedekte portal verisi eksik ya da bozuk.');
+    if (Number(b.version) > DATA_VERSION) throw new Error('Bu yedek portalın daha yeni bir sürümünden; önce portalı güncelle.');
+    return { backup: b, summary: { exportedAt: b.exportedAt, users: db.users.length, activities: db.activities.length, leaves: (db.leaves || []).length } };
+  },
+
+  // Mevcut portal verisini tamamen yedektekiyle değiştirir (sayfa yeniden yüklenmeli)
+  restore(backup) {
+    Backup.keys().forEach(k => localStorage.removeItem(k));
+    Object.entries(backup.data).forEach(([k, v]) => localStorage.setItem(k, v));
+  },
+
+  markDone() { try { localStorage.setItem(Backup.META, JSON.stringify({ lastBackupAt: new Date().toISOString() })); } catch { /* yok say */ } },
+  lastAt() { try { return JSON.parse(localStorage.getItem(Backup.META))?.lastBackupAt || null; } catch { return null; } },
+};
+
 // Kişiye özel küçük tercihler (son seçilen proje/tür). Kaybolsa da sorun olmaz.
 const Prefs = {
   get(userId) {

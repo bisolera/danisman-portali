@@ -117,6 +117,22 @@ function avatar(user, size = 32) {
   return `<span class="avatar" style="--av:${color};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px" title="${esc(user.name)}">${esc(initials(user.name))}</span>`;
 }
 
+// Tarayıcıda oluşturulan metni dosya olarak indirir
+function downloadText(fileName, text, type = 'application/json') {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: fileName });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// "bugün", "dün", "5 gün önce"
+function daysAgoText(stamp) {
+  const n = daysBetween(toISO(new Date(stamp)), todayISO());
+  return n <= 0 ? 'bugün' : n === 1 ? 'dün' : `${n} gün önce`;
+}
+
 function pill(label, tone) { return `<span class="pill pill-${tone}">${esc(label)}</span>`; }
 function leaveStatusPill(status) { const s = LEAVE_STATUS[status]; return pill(s.label, s.tone); }
 function projectStatusPill(status) { const s = PROJECT_STATUS[status]; return pill(s.label, s.tone); }

@@ -1,8 +1,8 @@
 /* Excel ile toplu aktivite: içe aktarma (dosya ya da yapıştırma), şirketin aylık aktivite formu,
-   boş şablon ve dışa aktarma. SheetJS yalnızca bir Excel dosyası açılırken/oluşturulurken yüklenir.
-   Canlıda kütüphane CDN yerine proje içinden sunulmalı. */
+   boş şablon ve dışa aktarma. SheetJS (Apache 2.0, vendor/xlsx) yalnızca bir Excel dosyası
+   açılırken/oluşturulurken yüklenir ve projeyle birlikte gelir; dışarıya istek gitmez. */
 
-const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+const XLSX_URL = 'vendor/xlsx/xlsx.full.min.js';
 let xlsxPromise = null;
 
 function loadXLSX() {
@@ -12,7 +12,7 @@ function loadXLSX() {
       const s = document.createElement('script');
       s.src = XLSX_URL;
       s.onload = () => resolve(window.XLSX);
-      s.onerror = () => { xlsxPromise = null; reject(new Error('Excel kütüphanesi yüklenemedi; internet bağlantını kontrol et.')); };
+      s.onerror = () => { xlsxPromise = null; reject(new Error('Excel kütüphanesi yüklenemedi (vendor/xlsx). Sayfayı yenileyip tekrar dene.')); };
       document.head.appendChild(s);
     });
   }
@@ -575,6 +575,31 @@ async function exportMonthlyForm(user, iso) {
     });
   XLSX.writeFile(wb, fileSafe(`${FORM_TITLE}_${user.name}_${TR_MONTHS[parseISO(iso).getMonth()]}_${parseISO(iso).getFullYear()}.xlsx`));
   toast(`${monthTitle(iso)} aylık formu indirildi · ${byCustomer.size} müşteri sayfası`);
+}
+
+// Yönetim raporu: müşteri/proje, danışman bazında ve talep bazında saatler (faturalama için)
+async function exportMonthReport(iso) {
+  const r = monthReport(iso);
+  if (!r.total) { toast(`${monthTitle(iso)} için kayıt yok`, { tone: 'info' }); return; }
+  const XLSX = await loadXLSX();
+  const projectRows = [['Müşteri', 'Proje', 'Proje Kodu', 'Faturalanır', 'Saat', 'Sözleşme saati', 'Kullanım %']];
+  const userRows = [['Danışman', 'Müşteri', 'Proje', 'Proje Kodu', 'Faturalanır', 'Saat']];
+  r.groups.forEach(g => g.rows.forEach(row => {
+    const b = budgetState(row.project, iso);
+    projectRows.push([g.customer.name, row.project.name, row.project.code, row.project.billable ? 'Evet' : 'Hayır', row.hours, b ? b.budget : '', b ? Math.round(b.pct) : '']);
+    row.users.forEach((h, uid) => userRows.push([Store.user(uid)?.name || uid, g.customer.name, row.project.name, row.project.code, row.project.billable ? 'Evet' : 'Hayır', h]));
+  }));
+  projectRows.push([], ['', '', '', 'Faturalanır', r.billable], ['', '', '', 'Faturalanmaz', r.nonBillable], ['', '', '', 'Toplam', r.total]);
+  const ticketRows = [['Talep', 'Proje', 'Kayıt sayısı', 'Saat', 'Son çalışma'],
+    ...r.tickets.map(t => [t.id, [...t.projects].map(pid => Store.project(pid).name).join(', '), t.entries, Math.round(t.hours * 100) / 100, t.last])];
+
+  const wb = XLSX.utils.book_new();
+  const add = (rows, name, cols) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws['!cols'] = cols.map(wch => ({ wch })); XLSX.utils.book_append_sheet(wb, ws, name); };
+  add(projectRows, 'Müşteri-Proje', [20, 32, 12, 11, 10, 14, 11]);
+  add(userRows, 'Danışman-Proje', [24, 20, 32, 12, 11, 10]);
+  add(ticketRows, 'Talepler', [16, 40, 12, 10, 12]);
+  XLSX.writeFile(wb, `bisolera-rapor-${iso.slice(0, 7)}.xlsx`);
+  toast(`${monthTitle(iso)} raporu indirildi`);
 }
 
 // Ham liste: her kayıt bir satır + proje bazında özet sayfası

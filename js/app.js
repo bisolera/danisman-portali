@@ -113,10 +113,60 @@ function openProfile() {
         <div><dt>Rol</dt><dd>${u.role === 'admin' ? 'Yönetici' : 'Danışman'}</dd></div>
         <div><dt>İşe giriş</dt><dd>${u.startDate ? fmtDate(u.startDate) : '—'}</dd></div>
         <div><dt>Yıllık izin</dt><dd>${u.annualLeave} gün hak · ${fmtNum(bal.remaining)} gün kalan</dd></div>
-      </dl>`,
+      </dl>
+      <div class="backup-box">
+        <div class="backup-head">${icon('download', 16)}<div><strong>Verilerin bu tarayıcıda duruyor</strong>
+          <p data-backup-info></p></div></div>
+        <div class="row-gap">
+          <button class="btn primary sm" data-backup>${icon('download', 15)} Yedek indir</button>
+          <label class="btn ghost sm">${icon('upload', 15)} Yedekten geri yükle<input type="file" accept=".json,application/json" data-restore hidden></label>
+        </div>
+        <div class="backup-confirm" data-restore-confirm hidden></div>
+        <p class="form-error" data-backup-error hidden></p>
+      </div>`,
     footer: `<button class="btn ghost sm" data-reset>${icon('refresh', 15)} Demo verilerini sıfırla</button><span class="grow"></span><button class="btn dark sm" data-logout>${icon('logout', 15)} Çıkış yap</button>`,
     onMount(m, close) {
       m.querySelector('[data-logout]').addEventListener('click', () => { close(); App.logout(); });
+
+      // Yedekleme
+      const info = m.querySelector('[data-backup-info]'), err = m.querySelector('[data-backup-error]'), confirmBox = m.querySelector('[data-restore-confirm]');
+      const showInfo = () => {
+        const last = Backup.lastAt();
+        info.textContent = last ? `Son yedek: ${daysAgoText(last)} (${fmtStamp(last)}). Tarayıcı verisi silinirse kayıtların gider; düzenli yedek al.`
+          : 'Henüz yedek almadın. Tarayıcı verisi silinirse kayıtların gider; düzenli yedek al.';
+      };
+      const fileName = suffix => `bisolera-portal-yedek-${todayISO()}${suffix}.json`;
+      showInfo();
+      m.querySelector('[data-backup]').addEventListener('click', () => {
+        downloadText(fileName(''), JSON.stringify(Backup.snapshot(), null, 1));
+        Backup.markDone();
+        showInfo();
+        toast('Yedek indirildi; dosyayı güvenli bir yerde sakla');
+      });
+      m.querySelector('[data-restore]').addEventListener('change', async e => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        err.hidden = true;
+        try {
+          const { backup, summary } = Backup.inspect(await file.text());
+          confirmBox.hidden = false;
+          confirmBox.innerHTML = `<p><strong>${esc(file.name)}</strong> · ${summary.exportedAt ? fmtStamp(summary.exportedAt) : 'tarih yok'}<br>
+            ${summary.users} kişi · ${summary.activities} aktivite · ${summary.leaves} izin kaydı</p>
+            <p class="warn-text">Bu tarayıcıdaki mevcut verilerin yerini alacak. Güvenlik için önce mevcut verinin yedeği indirilecek.</p>
+            <div class="row-gap"><button class="btn danger-ghost sm" data-restore-go>${icon('upload', 15)} Geri yükle</button><button class="btn ghost sm" data-restore-cancel>Vazgeç</button></div>`;
+          confirmBox.querySelector('[data-restore-cancel]').onclick = () => { confirmBox.hidden = true; };
+          confirmBox.querySelector('[data-restore-go]').onclick = () => {
+            downloadText(fileName('-geri-yukleme-oncesi'), JSON.stringify(Backup.snapshot(), null, 1));
+            Backup.restore(backup);
+            toast('Yedek geri yüklendi; sayfa yenileniyor');
+            setTimeout(() => location.reload(), 600);
+          };
+        } catch (ex) {
+          err.textContent = ex.message;
+          err.hidden = false;
+        }
+      });
       const reset = m.querySelector('[data-reset]');
       reset.addEventListener('click', () => {
         if (!reset.dataset.armed) {          // yanlışlıkla sıfırlamayı önlemek için ikinci tık

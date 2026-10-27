@@ -9,7 +9,8 @@ Kurulum gerekmez. Klasörde `python serve.py` çalıştırıp http://localhost:4
 `serve.py`, tarayıcının güncellenmiş dosyalar yerine eski kopyaları kullanmasını engeller. Veriler adrese bağlı tutulur: `index.html`'e çift tıklamak ya da başka port kullanmak, girdiğin kayıtları göstermez.
 
 Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postanın `@` öncesini yaz (`emre.aydin`). Müşteri ve kişi adları kurgusaldır.
-Veriler tarayıcının localStorage'ında durur; **Profilim → Demo verilerini sıfırla** ile baştan başlatılır.
+
+**Veriler tarayıcıda (localStorage) durur.** Tarayıcı verisi silinirse kayıtlar gider. **Profilim → Yedek indir** ile tek bir JSON dosyası alınır, **Yedekten geri yükle** ile geri yüklenir; geri yüklemeden önce mevcut verinin yedeği kendiliğinden indirilir. **Demo verilerini sıfırla** baştan başlatır.
 
 ## Ekranlar
 
@@ -17,9 +18,9 @@ Veriler tarayıcının localStorage'ında durur; **Profilim → Demo verilerini 
 |---|---|
 | Özet | Bugün/hafta saatleri, **aylık takvim** (girilen / girilmeyen günler), kalan izin, hızlı giriş, aylık formu indirme |
 | Aktiviteler | Üç görünüm: **Günlük** (klavyeyle hızlı giriş, önceki günü kopyala), **Haftalık tablo** (CATS tarzı; hücreye saat yaz, Excel'den yapıştır), **Aylık** takvim ve ay kapanışı. Excel'den yükle, Excel'e aktar |
-| İzinler | Bakiye, talep formu (iş günü hesabı ve çakışma kontrolü), taleplerim, ekipte kim izinli |
-| Müşteriler & Projeler | Danışman için rehber; yönetici müşteri/proje ekler, durum değiştirir |
-| Yönetim (yönetici) | İzin onay/red, **ay kapanışı onayı**, ekibin haftalık durumu, ekibin aylık doluluk haritası, kullanıcı hesapları |
+| İzinler | Bakiye, talep formu (hafta sonu/tatil düşülmez, arife yarım gün), taleplerim, ekipte kim izinli |
+| Müşteriler & Projeler | Danışman için rehber, projelerde bu ayın sözleşme saati kullanımı; yönetici müşteri/proje ekler, durum ve sözleşme saati belirler |
+| Yönetim (yönetici) | İzin onay/red, **ay kapanışı onayı**, **raporlar** (faturalanır/iç saat, müşteri → proje → danışman, sözleşme kullanımı, talep bazında saat, Excel), ekibin haftalık ve aylık durumu, kullanıcılar |
 
 ## Ay kapanışı
 
@@ -39,7 +40,21 @@ Veriler tarayıcının localStorage'ında durur; **Profilim → Demo verilerini 
 
 - **İçe aktarma** (Aktiviteler → Excel'den yükle): şirketin *Danışman Aylık Aktivite Formu* doğrudan okunur. Her sayfa bir müşteri; GÜN satırları dosya adındaki aya yerleşir (`..._Eylül_2026.xlsx`). Müşteri → proje eşleştirmesi bir kez seçilir, sonraki aylarda hatırlanır. Tarih · Proje Kodu · Süre · Tür · Açıklama sütunlu her tablo ya da Excel'den yapıştırılan satırlar da olur. Önizlemede hatalı, zaten kayıtlı ve uyarılı satırlar ayrı gösterilir.
 - **Dışa aktarma:** aynı aylık form, müşteri başına sayfa ve TOPLAM formülüyle üretilir. Ayrıca kayıt listesi (hafta/ay) ve proje özeti alınabilir.
-- Excel işlemleri SheetJS 0.20.3 ile yapılır ve kütüphane yalnızca gerektiğinde yüklenir. Canlıda bu kütüphane proje içine alınmalı.
+- Excel işlemleri SheetJS 0.20.3 (Apache 2.0) ile yapılır; kütüphane `vendor/xlsx`'te projeyle gelir ve yalnızca gerektiğinde yüklenir. Yazı tipleri (Inter, Montserrat; OFL) de `vendor/fonts`'ta; portal çalışırken dışarıya istek gitmez.
+
+## Testler
+
+```
+npm install      # bir kez: test aracı (jsdom)
+npm test         # tüm testler, tarayıcı açmadan
+```
+
+`tests/*.test.js` dosyaları portalı sanal bir tarayıcıda açıp akışları uçtan uca dener: izin günleri, yedekleme, raporlar, aylık form içe/dışa aktarma, ay kapanışı, takvim önerileri. GitHub'da her gönderimde ve pull request'te otomatik çalışır (**Actions → Testler**); kırmızıysa birleştirmeden önce düzeltilmeli.
+
+## Belgeler
+
+- [İş kuralları ve deneme planı](docs/is-kurallari.md): yönetimin onaylaması gereken varsayımlar
+- [Sunucu ve veritabanına geçiş](docs/sunucu-gecisi.md): şema, API, Microsoft 365 girişi, veri taşıma
 
 ## Kod yapısı
 
@@ -53,12 +68,14 @@ js/excel.js      Excel/CSV içe aktarma, aylık form, şablon ve dışa aktarma
 js/closing.js    ay kapanışı: gönderme, onay/iade, kilit, geçmiş
 js/calendar.js   Outlook takvimi (.ics) okuma, tekrarlar, toplantı → proje önerileri
 js/views/*.js    ekranlar
-js/app.js        oturum, menü, yönlendirme
+js/app.js        oturum, menü, yönlendirme, profil ve yedekleme
+vendor/          SheetJS ve yazı tipleri (lisanslarıyla)
+tests/           uçtan uca testler (npm test)
+docs/            iş kuralları, sunucu geçişi
 ```
 
-## Canlıya geçiş için sonraki adımlar
+## Canlıya geçiş
 
-1. **Giriş:** Şirket Microsoft 365 kullanıyor → Microsoft Entra ID (Azure AD) uygulama kaydı + MSAL ile tek tıkla giriş; yalnızca `@bisolera.com` kiracısı.
-2. **Sunucu + veritabanı:** `store.js` içindeki fonksiyonlar aynı isimle bir API'ye (ör. Node/.NET + PostgreSQL ya da SQL Server) bağlanır; yetki kontrolü sunucuda yapılır.
-3. **Raporlama:** Aktivite verisi müşteri/proje bazında Excel'e veya SAC / Power BI'a aktarılabilir.
-4. **Resmi tatiller:** Dini bayram tarihleri her yıl Diyanet takvimine göre güncellenmeli (`data.js` → `HOLIDAYS`).
+Ayrıntılar [docs/sunucu-gecisi.md](docs/sunucu-gecisi.md)'de. Kısaca: hosting kararı ve Entra ID uygulama kaydı → veritabanı ve API → `store.js`'in API'ye geçmesi → yedek dosyasından veri taşıma. Resmi tatiller her yıl Diyanet takvimine göre güncellenmeli (`js/data.js` → `HOLIDAYS`).
+
+**Public repo kuralı:** Gerçek müşteri adları, kişisel bilgiler, Excel formları ve şifreler repoya girmez. Demo verisi kurgusaldır; `.gitignore` Excel, takvim ve `.env` dosyalarını dışarıda tutar.

@@ -367,6 +367,12 @@ textarea.input { height: auto; min-height: 64px; padding: 10px 12px; resize: ver
 .info-list dt { color: var(--muted); font-size: 13px; }
 .info-list dd { margin: 0; font-weight: 500; }
 
+.backup-box { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fafbfa; display: flex; flex-direction: column; gap: 10px; }
+.backup-head { display: flex; gap: 10px; align-items: flex-start; }
+.backup-head > .ic { color: var(--brand-700); margin-top: 2px; }
+.backup-head p { font-size: 12.5px; color: var(--muted); }
+.backup-confirm { padding: 12px; border-radius: 10px; background: var(--warn-bg); font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+
 /* ---------- Pencere (modal) ---------- */
 .modal-wrap { position: fixed; inset: 0; z-index: 50; background: rgba(8, 12, 10, .45); backdrop-filter: blur(2px); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 16px; overflow-y: auto; opacity: 0; transition: opacity .16s; }
 .modal-wrap.in { opacity: 1; }
@@ -616,6 +622,23 @@ tr.is-inactive .grid-proj { opacity: .55; }
 .history .sub-head { margin-top: 10px; }
 .history-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; font-size: 12.5px; }
 .history-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); flex: none; transform: translateY(-1px); }
+
+/* ---------- Raporlar ve sözleşme saati ---------- */
+.budget { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.budget .meter { flex: 0 0 90px; height: 5px; }
+.budget-warn .meter > span { background: var(--amber); }
+.budget-warn span:last-child { color: var(--warn); font-weight: 600; }
+.budget-danger .meter > span { background: #ef4444; }
+.budget-danger span:last-child { color: var(--danger); font-weight: 600; }
+.report-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.report-table .group-row td { background: #fafbfa; border-top: 1px solid var(--line); }
+.report-table td.indent { padding-left: 28px; }
+.report-table .w-budget { min-width: 190px; }
+.report-table .w-budget .budget { margin-top: 0; }
+.budget span:last-child { white-space: nowrap; }
+.small-text { font-size: 12.5px; }
+.ticket { color: var(--ink); font-size: 12.5px; }
+@media (max-width: 560px) { .report-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------- Takvim önerileri ---------- */
 .cal-connect { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

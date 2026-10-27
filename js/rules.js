@@ -35,12 +35,24 @@ function dayOffReason(userId, iso) {
   return null;
 }
 
-// İzin talebinde bakiyeden düşülecek gün sayısı (başlangıç ve bitiş dahil).
-// Kullanılabilir yardımcılar: dateRange(a, b) → ['2026-11-16', ...], isWeekend(iso), getHoliday(iso) → { name, half } | null
+// İzin talebinde bakiyeden düşülecek gün sayısı (başlangıç ve bitiş dahil):
+// hafta sonu ve resmi tatil düşülmez; arife öğleden sonra tatil olduğu için yarım gün düşülür.
 function countLeaveDays(startISO, endISO) {
-  // TODO(human): Hafta sonlarını ve resmi tatilleri sayma. Arifeler (half: true) nasıl sayılmalı?
-  // Geçici olarak takvim günü döndürüyor; bu yüzden "Cuma–Pazartesi" talebi 4 gün görünüyor.
-  return daysBetween(startISO, endISO) + 1;
+  return sum(dateRange(startISO, endISO), d => {
+    if (isWeekend(d)) return 0;
+    const holiday = getHoliday(d);
+    if (holiday) return holiday.half ? 0.5 : 0;
+    return 1;
+  });
+}
+
+// Kıdeme göre yasal asgari yıllık izin (4857 sayılı İş Kanunu md. 53):
+// 1–5 yıl 14 gün, 5–15 yıl 20 gün, 15 yıl ve üzeri 26 gün. Yeni kullanıcıda varsayılan değer olarak kullanılır.
+function legalAnnualLeave(startISO, today = todayISO()) {
+  if (!startISO) return 14;
+  const s = parseISO(startISO), t = parseISO(today);
+  const years = t.getFullYear() - s.getFullYear() - (t < new Date(t.getFullYear(), s.getMonth(), s.getDate()) ? 1 : 0);
+  return years >= 15 ? 26 : years >= 5 ? 20 : 14;
 }
 
 function leaveDays(leave) {
@@ -124,6 +136,63 @@ function findCopySource(userId, iso) {
     if (items.length) return { date, items, total: sum(items, a => a.hours) };
   }
   return null;
+}
+
+/* ---------- Raporlar: sözleşme saati, faturalama, talepler ---------- */
+
+// Projenin ay içindeki toplam saati (tüm danışmanlar)
+function projectMonthHours(projectId, iso) {
+  return sum(Store.activities({ projectId, from: monthStart(iso), to: monthEnd(iso) }), a => a.hours);
+}
+
+// Aylık sözleşme saati olan projede kullanım: %80'de uyarı, %100'de aşım
+function budgetState(project, iso) {
+  if (!project.monthlyBudget) return null;
+  const used = projectMonthHours(project.id, iso), pct = (used / project.monthlyBudget) * 100;
+  return { used, budget: project.monthlyBudget, pct, tone: pct >= 100 ? 'danger' : pct >= 80 ? 'warn' : 'ok' };
+}
+
+// Açıklamadaki talep numaraları: "SM-2119038", "CFR-102" (proje kodlarında rakam olmadığı için karışmaz)
+function ticketIds(note) {
+  return [...new Set(String(note || '').match(/\b[A-Z]{2,6}-\d{2,8}\b/g) || [])];
+}
+
+// Ayın yönetim raporu: faturalanır/faturalanmaz saat, müşteri → proje → danışman dökümü, talepler
+function monthReport(iso) {
+  const items = Store.activities({ from: monthStart(iso), to: monthEnd(iso) });
+  const projects = new Map(), tickets = new Map();
+  for (const a of items) {
+    const project = Store.project(a.projectId);
+    const row = projects.get(project.id) || { project, customer: Store.customer(project.customerId), hours: 0, users: new Map() };
+    row.hours += a.hours;
+    row.users.set(a.userId, (row.users.get(a.userId) || 0) + a.hours);
+    projects.set(project.id, row);
+    // Birden fazla talep geçen kaydın saati talepler arasında eşit bölünür
+    const ids = ticketIds(a.note);
+    ids.forEach(id => {
+      const t = tickets.get(id) || { id, hours: 0, entries: 0, projects: new Set(), last: a.date };
+      t.hours += a.hours / ids.length;
+      t.entries++;
+      t.projects.add(project.id);
+      if (a.date > t.last) t.last = a.date;
+      tickets.set(id, t);
+    });
+  }
+  const groups = new Map();
+  for (const row of projects.values()) {
+    const g = groups.get(row.customer.id) || { customer: row.customer, hours: 0, rows: [] };
+    g.hours += row.hours;
+    g.rows.push(row);
+    groups.set(row.customer.id, g);
+  }
+  const total = sum(items, a => a.hours);
+  const billable = sum(items.filter(a => Store.project(a.projectId).billable), a => a.hours);
+  return {
+    total, billable, nonBillable: total - billable,
+    consultants: new Set(items.map(a => a.userId)).size,
+    groups: [...groups.values()].sort((a, b) => b.hours - a.hours).map(g => ({ ...g, rows: g.rows.sort((a, b) => b.hours - a.hours) })),
+    tickets: [...tickets.values()].sort((a, b) => b.hours - a.hours),
+  };
 }
 
 /* ---------- Ay kapanışı ---------- */

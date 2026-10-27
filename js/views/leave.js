@@ -105,6 +105,12 @@ const LeaveView = {
 
     const onFormChange = e => {
       if (e.target.name === 'start' && f.elements.end.value < f.elements.start.value) f.elements.end.value = f.elements.start.value;
+      // KVKK: sağlık verisi özel nitelikli kişisel veridir; nota teşhis yazılmasın
+      if (e.target.name === 'type') {
+        f.elements.note.placeholder = f.elements.type.value === 'hastalik'
+          ? 'Teşhis ya da sağlık bilgisi yazma; "raporluyum" yeterli'
+          : 'Yöneticine iletmek istediğin bir not';
+      }
       renderCalc();
     };
     f.addEventListener('input', onFormChange);

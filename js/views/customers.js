@@ -44,6 +44,7 @@ const CustomersView = {
               <div class="min0">
                 <div class="proj-name">${esc(p.name)}</div>
                 <div class="proj-meta"><span class="code">${esc(p.code)}</span>${p.billable ? '' : '<span class="tag">İç proje</span>'}<span>${admin ? 'Ekip' : 'Sen'}: ${fmtHours(hours[p.id] || 0)}</span></div>
+                ${budgetBar(p)}
               </div>
               ${projectStatusPill(p.status)}
               ${admin ? `<button class="icon-btn sm" data-edit-project="${p.id}" title="Projeyi düzenle" aria-label="Projeyi düzenle">${icon('pencil', 15)}</button>` : ''}
@@ -66,6 +67,16 @@ const CustomersView = {
     render();
   },
 };
+
+// Bu ayın sözleşme saati kullanımı (ekip toplamı); sözleşme saati girilmemiş projede gösterilmez
+function budgetBar(p) {
+  const b = budgetState(p, todayISO());
+  if (!b) return '';
+  return `<div class="budget budget-${b.tone}" title="${esc(monthTitle(todayISO()))} sözleşme kullanımı">
+    <div class="meter"><span style="width:${Math.min(100, b.pct)}%"></span></div>
+    <span>Bu ay ${fmtNum(b.used)} / ${fmtNum(b.budget)} sa${b.pct >= 100 ? ' · aşıldı' : b.pct >= 80 ? ' · %80 geçti' : ''}</span>
+  </div>`;
+}
 
 function customerModal(c, onSave) {
   openModal({
@@ -107,6 +118,8 @@ function projectModal(p, onSave) {
           <select class="input" name="status">${Object.entries(PROJECT_STATUS).map(([k, s]) => `<option value="${k}"${(p?.status || 'aktif') === k ? ' selected' : ''}>${s.label}</option>`).join('')}</select></label>
       </div>
       <label class="toggle"><input type="checkbox" name="billable"${p?.billable === false ? '' : ' checked'}> Müşteriye faturalanır</label>
+      <label class="field"><span class="field-label">Aylık sözleşme saati <span class="faint">(isteğe bağlı; destek paketi gibi)</span></span>
+        <input class="input" name="monthlyBudget" type="number" min="0" max="2000" step="1" value="${p?.monthlyBudget || ''}" placeholder="Örn. 80"></label>
       <p class="form-error" hidden></p>
     </form>`,
     footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" type="submit" form="projectForm">Kaydet</button>`,
@@ -120,7 +133,9 @@ function projectModal(p, onSave) {
         if (!name) return formError(f, 'Proje adı zorunlu.', f.elements.name);
         if (!code) return formError(f, 'Proje kodu zorunlu.', f.elements.code);
         if (Store.projects().some(x => x.id !== p?.id && x.code.toLowerCase() === code.toLowerCase())) return formError(f, 'Bu kod başka bir projede kullanılıyor.', f.elements.code);
-        const data = { customerId: f.elements.customerId.value, name, code, status: f.elements.status.value, billable: f.elements.billable.checked };
+        const budget = Number(f.elements.monthlyBudget.value);
+        if (f.elements.monthlyBudget.value && !(budget > 0 && budget <= 2000)) return formError(f, 'Sözleşme saati 1–2000 arasında olmalı ya da boş bırakılmalı.', f.elements.monthlyBudget);
+        const data = { customerId: f.elements.customerId.value, name, code, status: f.elements.status.value, billable: f.elements.billable.checked, monthlyBudget: budget || null };
         if (p) Store.updateProject(p.id, data); else Store.addProject(data);
         close();
         onSave();
