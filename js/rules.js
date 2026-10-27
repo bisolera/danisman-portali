@@ -268,6 +268,61 @@ function monthReport(iso) {
   };
 }
 
+/* ---------- Doluluk: faturalanır saat / hedef saat ---------- */
+
+// Doluluk bu oranın altındaysa uyarı verilir (tam sınırdaki uyarı sayılmaz)
+const UTILIZATION_TARGET = 0.75;
+
+// Raporun kapsadığı günler: geçmiş ayın tamamı; içinde bulunulan ayda ay başından düne kadar (bugün henüz bitmedi)
+function utilizationRange(iso, today = todayISO()) {
+  const from = monthStart(iso), end = monthEnd(iso);
+  return { from, to: end < today ? end : addDays(today, -1) };
+}
+
+// Danışmanın doluluğu. Hedef saat izin, tatil ve köprü seçimi düşülmüş iş saatidir; işe girişten önceki günler sayılmaz.
+// Payda hedef saat olduğu için eksik giriş oranı düşürür (girilen saate bölünseydi eksik giren yüksek görünürdü).
+function utilization(user, iso, today = todayISO()) {
+  const range = utilizationRange(iso, today);
+  const from = user.startDate && user.startDate > range.from ? user.startDate : range.from, to = range.to;
+  if (to < from) return { from, to, target: 0, logged: 0, billable: 0, internal: 0, pct: null, missing: 0, leave: 0, tone: 'muted' };
+  const items = Store.activities({ userId: user.id, from, to });
+  const target = sum(dateRange(from, to), d => dailyTarget(user.id, d));
+  const logged = sum(items, a => a.hours);
+  const billable = sum(items.filter(a => Store.project(a.projectId)?.billable), a => a.hours);
+  const pct = target ? billable / target : null;
+  const leave = sum(Store.leaves({ userId: user.id, status: 'onaylandi' }).filter(l => l.start <= to && l.end >= from),
+    l => leaveDays({ ...l, start: l.start < from ? from : l.start, end: l.end > to ? to : l.end }));
+  return {
+    from, to, target, logged, billable, internal: logged - billable, pct, leave,
+    missing: missingDays(user.id, from, to).length,
+    tone: pct == null ? 'muted' : pct < UTILIZATION_TARGET ? 'warn' : 'ok',
+  };
+}
+
+// Ekibin doluluğu: aktif ve o dönemde işe girmiş herkes; ekip oranı toplam faturalanır / toplam hedef
+function teamUtilization(iso, today = todayISO()) {
+  const { to } = utilizationRange(iso, today);
+  const rows = Store.users().filter(u => u.active && (!u.startDate || u.startDate <= to)).map(u => ({ user: u, ...utilization(u, iso, today) }));
+  const target = sum(rows, r => r.target), billable = sum(rows, r => r.billable), logged = sum(rows, r => r.logged);
+  return { rows, target, billable, logged, pct: target ? billable / target : null, warn: rows.filter(r => r.tone === 'warn').length };
+}
+
+// Faturalanmayan saatler nereye gitti: proje bazında (eğitim, satış öncesi, idari işler…)
+function internalBreakdown(iso, today = todayISO()) {
+  const { from, to } = utilizationRange(iso, today), map = new Map();
+  if (to >= from) {
+    Store.activities({ from, to }).forEach(a => {
+      const project = Store.project(a.projectId);
+      if (!project || project.billable) return;
+      const row = map.get(project.id) || { project, customer: Store.customer(project.customerId), hours: 0, users: new Map() };
+      row.hours += a.hours;
+      row.users.set(a.userId, (row.users.get(a.userId) || 0) + a.hours);
+      map.set(project.id, row);
+    });
+  }
+  return [...map.values()].sort((a, b) => b.hours - a.hours);
+}
+
 /* ---------- Ay kapanışı ---------- */
 
 function periodStatus(userId, iso) { return Store.period(userId, iso.slice(0, 7))?.status || 'acik'; }

@@ -61,6 +61,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET/POST/PATCH /api/customers`, `/api/projects` | müşteri ve proje | yazma: yönetici |
 | `GET/POST/PATCH /api/users` | kullanıcılar | yönetici |
 | `GET /api/reports/:month` | `monthReport` | yönetici |
+| `GET /api/reports/:month/utilization` | `teamUtilization`, `internalBreakdown` | yönetici |
 
 ## Microsoft 365 girişi (Entra ID)
 Şirketin Microsoft 365 yöneticisi yapar:

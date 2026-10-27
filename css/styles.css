@@ -640,6 +640,23 @@ tr.is-inactive .grid-proj { opacity: .55; }
 .ticket { color: var(--ink); font-size: 12.5px; }
 @media (max-width: 560px) { .report-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* ---------- Doluluk ---------- */
+.util-table .w-util { min-width: 190px; }
+.util { display: flex; align-items: center; gap: 10px; }
+.util .meter { flex: 1; height: 7px; position: relative; overflow: visible; }
+.util .meter > span { border-radius: 99px; }
+.util .meter::after { content: ''; position: absolute; left: var(--goal); top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: var(--ink); opacity: .35; }
+.util b { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+.util-ok b { color: var(--brand-700); }
+.util-warn .meter > span { background: var(--amber); }
+.util-warn b { color: var(--warn); }
+.util-muted b { color: var(--faint); }
+.spark { display: inline-flex; align-items: flex-end; gap: 3px; height: 26px; vertical-align: middle; }
+.spark i { width: 7px; border-radius: 2px 2px 0 0; background: var(--brand); }
+.spark i.sp-warn { background: var(--amber); }
+.spark i.sp-muted { background: var(--line); }
+.bars small.muted { display: block; margin-top: 4px; font-size: 12px; }
+
 /* ---------- Tatiller, izin iptali, yazdırma seçimi ---------- */
 .callout.info { background: var(--info-bg); color: #1e3a8a; }
 .callout.info > .ic { color: var(--info); margin-top: 2px; }

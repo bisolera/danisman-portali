@@ -2,8 +2,11 @@
 
 const AdminView = {
   mount(el, { query }) {
-    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
+    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['doluluk', 'Doluluk'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
     let tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'onaylar';
+    // Doluluk: bağlantıyla ay seçilebilir (#/yonetim?tab=doluluk&ay=2026-09); ay yeni başladıysa geçen ay açılır
+    let utilMonth = /^\d{4}-\d{2}$/.test(query.ay || '') ? `${query.ay}-01` : todayISO();
+    if (!query.ay && utilizationRange(utilMonth).to < monthStart(utilMonth)) utilMonth = addMonths(utilMonth, -1);
     let teamMonth = todayISO();
     let closeMonth = addMonths(todayISO(), -1);   // kapanışta genelde geçen ay incelenir
     let reportMonth = todayISO();
@@ -20,7 +23,7 @@ const AdminView = {
       const counts = { onaylar: Store.leaves({ status: 'beklemede' }).length + cancelRequests().length, kapanis: Store.periods({ status: 'gonderildi' }).length };
       tabsEl.innerHTML = TABS.map(([k, label]) =>
         `<button class="${k === tab ? 'is-active' : ''}" data-tab="${k}">${label}${counts[k] ? ` <span class="count">${counts[k]}</span>` : ''}</button>`).join('');
-      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
+      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, doluluk: renderUtilization, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
       App.refreshBadges();
     }
 
@@ -136,6 +139,64 @@ const AdminView = {
               <td class="muted nowrap">${fmtShort(t.last)}</td>
             </tr>`).join('')}</tbody>
           </table></div>` : emptyState('search', 'Bu ay talep numarası geçen kayıt yok', 'Açıklamaya talep numarasını (ör. SM-2119038) yazınca burada toplanır.')}
+        </section>`;
+    }
+
+    // Doluluk: faturalanır saat ÷ hedef saat (izin, tatil, köprü düşülmüş); en düşük oran en üstte
+    function renderUtilization() {
+      const t = teamUtilization(utilMonth), { from, to } = utilizationRange(utilMonth);
+      const goal = Math.round(UTILIZATION_TARGET * 100), current = monthStart(utilMonth) >= monthStart(todayISO());
+      const pctText = p => (p == null ? '—' : `%${Math.round(p * 100)}`);
+      const months = [5, 4, 3, 2, 1, 0].map(k => addMonths(utilMonth, -k));
+      const rows = t.rows.slice().sort((a, b) => (a.pct ?? 9) - (b.pct ?? 9) || a.user.name.localeCompare(b.user.name, 'tr'));
+      const internal = internalBreakdown(utilMonth), internalTotal = sum(internal, r => r.hours);
+      const period = to < from ? 'Ay yeni başladı.' : `Dönem: ${fmtShort(from)} – ${fmtShort(to)}${monthEnd(utilMonth) > to ? ' (düne kadar)' : ''}.`;
+      const spark = u => `<span class="spark" aria-label="Son 6 ay">${months.map(mo => {
+        const x = utilization(u, mo);
+        return `<i class="sp-${x.tone}" style="height:${x.pct == null ? 3 : Math.max(10, Math.min(100, x.pct * 100))}%" title="${esc(`${monthTitle(mo)} · ${pctText(x.pct)}`)}"></i>`;
+      }).join('')}</span>`;
+      const names = users => [...users].sort((a, b) => b[1] - a[1]).map(([id, h]) => `${esc(firstName(Store.user(id)?.name || '?'))} ${fmtNum(h)}`).join(' · ');
+
+      panel.innerHTML = `
+        <section class="card">
+          <div class="card-head">
+            <div><h2>Doluluk · ${monthTitle(utilMonth)}</h2><p class="sub">Faturalanır saat ÷ hedef saat. Hedef: iş günleri × 8; izin, tatil ve köprü düşülmüş. %${goal} altı uyarı. ${period}</p></div>
+            <div class="week-nav">
+              <button class="btn ghost sm" data-util-export${t.target ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
+              <button class="icon-btn bordered" data-util-month="-1" aria-label="Önceki ay">${icon('chevron-left')}</button>
+              <button class="btn ghost sm" data-util-month="0">Bu ay</button>
+              <button class="icon-btn bordered" data-util-month="1" aria-label="Sonraki ay"${current ? ' disabled' : ''}>${icon('chevron-right')}</button>
+            </div>
+          </div>
+          <div class="close-stats report-stats">
+            <div class="${t.pct == null ? '' : t.pct < UTILIZATION_TARGET ? 'is-bad' : 'is-good'}"><b>${pctText(t.pct)}</b><span>ekip doluluğu</span></div>
+            <div><b>${fmtNum(t.billable)}</b><span>faturalanır / ${fmtNum(t.target)} sa hedef</span></div>
+            <div><b>${fmtNum(t.logged - t.billable)}</b><span>faturalanmayan (sa)</span></div>
+            <div class="${t.warn ? 'is-bad' : ''}"><b>${t.warn}</b><span>kişi %${goal} altında</span></div>
+          </div>
+          ${t.target ? `<div class="table-wrap"><table class="table util-table">
+            <thead><tr><th>Danışman</th><th class="num">Hedef</th><th class="num">Girilen</th><th class="num">Faturalanır</th><th class="num">Faturalanmayan</th><th>Doluluk</th><th>Son 6 ay</th></tr></thead>
+            <tbody>${rows.map(r => `<tr data-util-user="${r.user.id}">
+              <td><span class="cell-user">${avatar(r.user, 30)}<span><strong>${esc(r.user.name)}</strong><small>${[
+                r.leave ? `${fmtNum(r.leave)} gün izin` : '',
+                r.missing ? `<span class="warn-text">${r.missing} gün eksik giriş</span>` : '',
+              ].filter(Boolean).join(' · ') || esc(r.user.title)}</small></span></span></td>
+              <td class="num">${fmtNum(r.target)}</td>
+              <td class="num">${fmtNum(r.logged)}</td>
+              <td class="num"><strong>${fmtNum(r.billable)}</strong></td>
+              <td class="num">${fmtNum(r.internal)}</td>
+              <td class="w-util"><div class="util util-${r.tone}"><div class="meter" style="--goal:${goal}%"><span style="width:${r.pct == null ? 0 : Math.min(100, r.pct * 100)}%"></span></div><b>${pctText(r.pct)}</b></div></td>
+              <td>${spark(r.user)}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : emptyState('clock', to < from ? 'Ay yeni başladı' : 'Bu dönemde hedef saat yok', to < from ? 'Geçen aya bakmak için soldaki oku kullan.' : '')}
+        </section>
+        <section class="card section-gap">
+          <div class="card-head"><div><h2>Faturalanmayan saatler nereye gitti?</h2><p class="sub">İç projeler ve faturalanmayan işler, aynı dönem.</p></div><span class="muted">${fmtNum(internalTotal)} sa</span></div>
+          ${internal.length ? `<div class="bars">${internal.map(r => `<div>
+            <div class="bar-label"><span class="dot" style="background:${r.customer.color}"></span><span class="ellipsis">${esc(r.project.name)} <span class="faint">${esc(r.customer.name)}</span></span><span class="bar-val">${fmtNum(r.hours)} sa · %${Math.round((r.hours / internalTotal) * 100)}</span></div>
+            <div class="bar"><span style="width:${(r.hours / internal[0].hours) * 100}%;background:${r.customer.color}"></span></div>
+            <small class="muted">${names(r.users)}</small>
+          </div>`).join('')}</div>` : emptyState('check', 'Bu dönemde faturalanmayan saat yok')}
         </section>`;
     }
 
@@ -305,6 +366,13 @@ const AdminView = {
         return renderReports();
       }
       if (e.target.closest('[data-report-export]')) return exportMonthReport(reportMonth).catch(err => toast(err.message, { tone: 'danger' }));
+      const utilNav = e.target.closest('[data-util-month]');
+      if (utilNav) {
+        utilMonth = utilNav.dataset.utilMonth === '0' ? todayISO() : addMonths(utilMonth, Number(utilNav.dataset.utilMonth));
+        history.replaceState(null, '', `#/yonetim?tab=doluluk&ay=${utilMonth.slice(0, 7)}`);
+        return renderUtilization();
+      }
+      if (e.target.closest('[data-util-export]')) return exportUtilization(utilMonth).catch(err => toast(err.message, { tone: 'danger' }));
       const closeNav = e.target.closest('[data-close-month]');
       if (closeNav) {
         closeMonth = closeNav.dataset.closeMonth === '0' ? addMonths(todayISO(), -1) : addMonths(closeMonth, Number(closeNav.dataset.closeMonth));

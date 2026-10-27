@@ -36,6 +36,13 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [ ] Aylık form müşteri başına sayfa; aynı gün aynı müşterideki kayıtlar tek satırda birleşir
 - [ ] Yazdırılan / PDF form: müşteri başına A4 sayfa, altta danışman ve müşteri onayı imza alanı; onaylanmamış ayda üstte "Taslak" ya da "Onay bekliyor" yazar
 
+## Doluluk
+- [x] Doluluk = **faturalanır saat ÷ hedef saat**; **%75 altı uyarı** (tam %75 uyarı değil) (`utilization`, `UTILIZATION_TARGET`, `js/rules.js`)
+- [x] Hedef saat: iş günleri × 8; izin, tatil ve köprü seçimi düşülür; işe girişten önceki günler sayılmaz. Payda hedef olduğu için eksik giriş oranı düşürür.
+- [x] İçinde bulunulan ay, ay başından **düne kadar** hesaplanır
+- [ ] Şimdilik yalnızca yönetici görür (Yönetim → Doluluk). Danışman kendi oranını Özet'te görsün mü?
+- [ ] Yönetici rolündekiler de listede. Faturalanır iş beklenmeyen kişiler (ör. yalnızca yönetim) listeden çıkarılsın mı?
+
 ## Müşteri ve proje
 - [ ] Faturalanır / faturalanmaz ayrımı **proje bazında**
 - [ ] Aylık sözleşme saati: %80'de uyarı, %100'de aşım (`budgetState`)

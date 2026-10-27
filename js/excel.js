@@ -605,6 +605,30 @@ async function exportMonthReport(iso) {
   toast(`${monthTitle(iso)} raporu indirildi`);
 }
 
+// Doluluk raporu: danışman bazında hedef / girilen / faturalanır / doluluk ve faturalanmayan saatlerin dökümü
+async function exportUtilization(iso) {
+  const t = teamUtilization(iso);
+  if (!t.target) { toast(`${monthTitle(iso)} için hedef saat yok`, { tone: 'info' }); return; }
+  const XLSX = await loadXLSX();
+  const { from, to } = utilizationRange(iso);
+  const pct = p => (p == null ? '' : Math.round(p * 100));
+  const rows = [['Danışman', 'Hedef (sa)', 'Girilen (sa)', 'Faturalanır (sa)', 'Faturalanmayan (sa)', 'Doluluk %', 'Eksik gün', 'İzin (gün)'],
+    ...t.rows.map(r => [r.user.name, r.target, r.logged, r.billable, r.internal, pct(r.pct), r.missing, r.leave]),
+    [],
+    ['Ekip', t.target, t.logged, t.billable, t.logged - t.billable, pct(t.pct)],
+    ['Dönem', `${fmtDate(from)} – ${fmtDate(to)}`],
+    ['Uyarı sınırı', `%${Math.round(UTILIZATION_TARGET * 100)} altı`]];
+  const internal = [['Proje', 'Müşteri', 'Saat', 'Danışmanlar (saat)'],
+    ...internalBreakdown(iso).map(r => [r.project.name, r.customer.name, r.hours, [...r.users].map(([id, h]) => `${Store.user(id)?.name || id} ${h}`).join(', ')])];
+
+  const wb = XLSX.utils.book_new();
+  const add = (aoa, name, cols) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = cols.map(wch => ({ wch })); XLSX.utils.book_append_sheet(wb, ws, name); };
+  add(rows, 'Doluluk', [24, 11, 12, 15, 18, 10, 10, 10]);
+  add(internal, 'Faturalanmayan', [32, 20, 10, 50]);
+  XLSX.writeFile(wb, `bisolera-doluluk-${iso.slice(0, 7)}.xlsx`);
+  toast(`${monthTitle(iso)} doluluk raporu indirildi`);
+}
+
 // Ham liste: her kayıt bir satır + proje bazında özet sayfası
 async function exportActivities(user, from, to, tag) {
   const items = Store.activities({ userId: user.id, from, to }).slice().sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt));
