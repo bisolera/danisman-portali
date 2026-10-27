@@ -604,27 +604,53 @@ const AdminView = {
 function userModal(u, onSave) {
   const self = u && u.id === App.user.id;
   const local = u ? u.email.split('@')[0] : '';
+  const bal = u ? leaveBalance(u) : null;
+  const check = (name, on, title, text, disabled = false) => `<label class="opt-card"><input type="checkbox" name="${name}"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}>
+    <span><strong>${title}</strong><small>${text}</small></span></label>`;
   openModal({
     title: u ? 'Kullanıcıyı düzenle' : 'Yeni kullanıcı',
-    body: `<form class="form-stack" id="userForm" novalidate>
-      <div class="form-grid">
-        <label class="field full"><span class="field-label">Ad Soyad</span><input class="input" name="name" value="${esc(u?.name || '')}" maxlength="60"></label>
-        <label class="field full"><span class="field-label">Şirket e-postası</span>
-          <div class="input-suffix"><input class="input" name="email" value="${esc(local)}" placeholder="ad.soyad" autocomplete="off"><span>@${COMPANY_DOMAIN}</span></div></label>
-        <label class="field full"><span class="field-label">Unvan</span><input class="input" name="title" value="${esc(u?.title || '')}" maxlength="60" placeholder="Örn. SAP BW Danışmanı"></label>
-        <label class="field"><span class="field-label">Rol</span>
-          <select class="input" name="role"${self ? ' disabled' : ''}><option value="consultant">Danışman</option><option value="admin"${u?.role === 'admin' ? ' selected' : ''}>Yönetici</option></select></label>
-        <label class="field"><span class="field-label">Yıllık hak ediş (gün) <span class="faint" data-legal></span></span><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? legalAnnualLeave(todayISO())}"></label>
-        <label class="field"><span class="field-label">İşe giriş tarihi</span><input class="input" name="startDate" type="date" value="${u?.startDate || todayISO()}"></label>
-        <label class="field"><span class="field-label">İşten çıkış tarihi <span class="faint">(varsa)</span></span><input class="input" name="endDate" type="date" value="${u?.endDate || ''}"></label>
-        <label class="field"><span class="field-label">Açılış bakiyesi · ${fmtDate(LEAVE_START)} (gün) <span class="faint">portal öncesinden kalan; eksi olabilir</span></span><input class="input" name="carryIn" type="number" step="0.5" min="-40" max="60" value="${u?.carryIn ?? 0}"></label>
+    body: `<form class="user-form" id="userForm" novalidate>
+      ${u ? `<div class="user-id">${avatar(u, 42)}<div><strong>${esc(u.name)}</strong><small>${esc(u.title)}${u.startDate ? ` · ${tenureText(u)}` : ''}</small></div>
+        ${u.active ? pill('Aktif', 'ok') : pill('Pasif', 'muted')}</div>` : ''}
+      <div class="form-sec">
+        <div class="form-sec-title">Kişi</div>
+        <label class="field"><span class="field-label">Ad Soyad</span><input class="input" name="name" value="${esc(u?.name || '')}" maxlength="60"></label>
+        <label class="field"><span class="field-label">Şirket e-postası</span>
+          <span class="input-suffix"><input class="input" name="email" value="${esc(local)}" placeholder="ad.soyad" autocomplete="off"><span>@${COMPANY_DOMAIN}</span></span></label>
+        <div class="form-2">
+          <label class="field"><span class="field-label">Unvan</span><input class="input" name="title" value="${esc(u?.title || '')}" maxlength="60" placeholder="Örn. SAP BW Danışmanı"></label>
+          <label class="field"><span class="field-label">Rol</span>
+            <select class="input" name="role"${self ? ' disabled' : ''}><option value="consultant">Danışman</option><option value="admin"${u?.role === 'admin' ? ' selected' : ''}>Yönetici</option></select>
+            ${self ? '<small class="field-hint">Kendi rolünü değiştiremezsin.</small>' : ''}</label>
+        </div>
       </div>
-      <p class="muted small-text">İzin, işe girişten 1 yıl sonra ve her yıl işe giriş gününde eklenir. Kıdem arttıkça yasal asgari (14 / 20 / 26 gün) kendiliğinden uygulanır; şirket daha fazla veriyorsa buraya yaz.</p>
-      <div class="row-gap">
-        <label class="toggle"><input type="checkbox" name="bonusEligible"${u?.bonusEligible ? ' checked' : ''}> Prime tabi (kıdemli danışman)</label>
-        <label class="toggle"><input type="checkbox" name="carAllowance"${u?.carAllowance ? ' checked' : ''}> Araç yerine araba parası alır</label>
+      <div class="form-sec">
+        <div class="form-sec-title">Çalışma</div>
+        <div class="form-2">
+          <label class="field"><span class="field-label">İşe giriş</span><input class="input" name="startDate" type="date" value="${u?.startDate || todayISO()}"></label>
+          <label class="field"><span class="field-label">İşten çıkış <span class="faint">(varsa)</span></span><input class="input" name="endDate" type="date" value="${u?.endDate || ''}"></label>
+        </div>
+        ${u ? check('active', u.active, `Hesap aktif${self ? ' <span class="faint">· kendi hesabın</span>' : ''}`, 'Kapalıysa portala giriş yapamaz; kayıtları silinmez.', self) : ''}
       </div>
-      ${u ? `<label class="toggle"><input type="checkbox" name="active"${u.active ? ' checked' : ''}${self ? ' disabled' : ''}> Hesap aktif${self ? ' <span class="faint">(kendi hesabın)</span>' : ''}</label>` : ''}
+      <div class="form-sec">
+        <div class="form-sec-title">İzin</div>
+        <p class="form-sec-desc">${bal ? `Şu an kalan <b>${fmtNum(bal.remaining)} gün</b>${bal.next ? ` · sonraki hak ediş <b>${fmtDate(bal.next.date)}</b> (+${fmtNum(bal.next.days)})` : ''}. ` : ''}İzin işe girişten 1 yıl sonra ve her yıl işe giriş gününde eklenir.</p>
+        <div class="form-2">
+          <label class="field"><span class="field-label">Yıllık hak ediş</span>
+            <span class="input-suffix"><input class="input" name="annualLeave" type="number" min="0" max="40" value="${u?.annualLeave ?? legalAnnualLeave(todayISO())}"><span>gün</span></span>
+            <small class="field-hint" data-legal></small></label>
+          <label class="field"><span class="field-label">Açılış bakiyesi</span>
+            <span class="input-suffix"><input class="input" name="carryIn" type="number" step="0.5" min="-40" max="60" value="${u?.carryIn ?? 0}"><span>gün</span></span>
+            <small class="field-hint">${fmtDate(LEAVE_START)} öncesinden kalan; eksi olabilir.</small></label>
+        </div>
+      </div>
+      <div class="form-sec">
+        <div class="form-sec-title">Yan haklar</div>
+        <div class="opt-cards">
+          ${check('bonusEligible', u?.bonusEligible, 'Prime tabi', 'Kıdemli danışman: faturalanabilir gün eşiği aşınca prim alır.')}
+          ${check('carAllowance', u?.carAllowance, 'Araba parası', 'Şirket aracı yerine her ay araba parası alır.')}
+        </div>
+      </div>
       <p class="form-error" hidden></p>
     </form>`,
     footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" type="submit" form="userForm">Kaydet</button>`,
@@ -633,7 +659,7 @@ function userModal(u, onSave) {
       el.name.focus();
       // Kıdeme göre yasal asgari izin; yeni kullanıcıda elle değiştirilmediyse tarihle birlikte güncellenir
       const legal = m.querySelector('[data-legal]');
-      const showLegal = () => { legal.textContent = `· sonraki hak edişte yasal asgari ${legalAnnualLeave(el.startDate.value)}`; };
+      const showLegal = () => { legal.textContent = `Kıdeme göre yasal asgari ${legalAnnualLeave(el.startDate.value)} gün; şirket fazlasını veriyorsa onu yaz.`; };
       el.annualLeave.addEventListener('input', () => { el.annualLeave.dataset.touched = '1'; });
       el.startDate.addEventListener('change', () => {
         showLegal();
