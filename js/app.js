@@ -10,6 +10,12 @@ const ROUTES = {
   yonetim: { title: 'Yönetim', icon: 'shield', view: AdminView, admin: true },
 };
 
+// Uygulama olarak kurma (PWA): tarayıcı kuruluma hazır olduğunu bildirince pencere bekletilir, Profilim'den açılır
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
+window.addEventListener('appinstalled', () => { installPrompt = null; });
+const isStandalone = () => !!window.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone === true;
+
 function parseHash() {
   const [path, qs] = location.hash.replace(/^#\/?/, '').split('?');
   return { name: path || 'ozet', query: Object.fromEntries(new URLSearchParams(qs || '')) };
@@ -34,6 +40,10 @@ const App = {
       App.route();
       toast('Başka bir sekmede yapılan değişiklikler yüklendi', { tone: 'info' });
     });
+    // Çevrimdışı açılış ve uygulama olarak kurma için (yalnızca http/https; dosyadan açılınca çalışmaz)
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker kaydedilemedi', e));
+    }
     App.route();
   },
 
@@ -110,6 +120,20 @@ const App = {
   },
 };
 
+// Profilim'deki "uygulama olarak kur" kutusu; zaten uygulama olarak açıksa gösterilmez
+function installBoxHtml() {
+  if (isStandalone()) return '';
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const how = installPrompt ? `<button class="btn ghost sm" data-install>${icon('phone', 15)} Uygulama olarak yükle</button>`
+    : ios ? '<p class="small-text">Safari’de <strong>Paylaş → Ana Ekrana Ekle</strong>. Not: iPhone’da ana ekrandaki uygulama Safari’deki kayıtları görmez; sunucuya geçene kadar tek yerden kullan.</p>'
+    : '<p class="small-text">Tarayıcı menüsünden <strong>Uygulamayı yükle</strong> ya da <strong>Ana ekrana ekle</strong>’yi seç.</p>';
+  return `<div class="install-box">
+    <div class="backup-head">${icon('phone', 16)}<div><strong>Telefona / masaüstüne uygulama olarak kur</strong>
+      <p>Kendi simgesiyle açılır; bağlantı yokken de çalışır.</p></div></div>
+    ${how}
+  </div>`;
+}
+
 function openProfile() {
   const u = App.user, bal = leaveBalance(u);
   openModal({
@@ -131,10 +155,17 @@ function openProfile() {
         </div>
         <div class="backup-confirm" data-restore-confirm hidden></div>
         <p class="form-error" data-backup-error hidden></p>
-      </div>`,
+      </div>
+      ${installBoxHtml()}`,
     footer: `<button class="btn ghost sm" data-reset>${icon('refresh', 15)} Demo verilerini sıfırla</button><span class="grow"></span><button class="btn dark sm" data-logout>${icon('logout', 15)} Çıkış yap</button>`,
     onMount(m, close) {
       m.querySelector('[data-logout]').addEventListener('click', () => { close(); App.logout(); });
+      m.querySelector('[data-install]')?.addEventListener('click', async () => {
+        const prompt = installPrompt;
+        installPrompt = null;               // kurulum penceresi yalnızca bir kez açılabilir
+        prompt.prompt();
+        if ((await prompt.userChoice).outcome === 'accepted') { close(); toast('Portal uygulama olarak yüklendi'); }
+      });
 
       // Yedekleme
       const info = m.querySelector('[data-backup-info]'), err = m.querySelector('[data-backup-error]'), confirmBox = m.querySelector('[data-restore-confirm]');

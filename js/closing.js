@@ -49,12 +49,12 @@ function periodPanelHtml(user, iso) {
   const approver = p?.decidedBy && Store.user(p.decidedBy);
   const ended = monthEnd(iso) < todayISO();
   const btn = (action, label, ic, cls = 'ghost') => `<button class="btn ${cls} sm" data-period="${action}">${icon(ic, 15)} ${label}</button>`;
-  const download = cls => btn('download', 'Aylık formu indir', 'download', cls);
+  const download = cls => btn('download', 'Aylık formu indir', 'download', cls) + btn('print', 'Yazdır / PDF', 'printer');
   const view = {
     acik: [ended ? 'Ay bitti. Kayıtlarını kontrol et ve onaya gönder.' : 'Ay sonunda kayıtlarını kontrol edip onaya gönder.',
       btn('submit', 'Ayı onaya gönder', 'send', ended ? 'primary' : 'ghost')],
     gonderildi: [`${fmtStamp(p?.submittedAt)} gönderildi. Onaylanana kadar kayıtlar kilitli.`, btn('withdraw', 'Geri çek', 'refresh') + download('ghost')],
-    onaylandi: [`${approver ? approver.name : 'Yönetici'} onayladı · ${fmtStamp(p?.decidedAt)}. Kayıtlar kilitli.`, download('primary')],
+    onaylandi: [`${approver ? approver.name : 'Yönetici'} onayladı · ${fmtStamp(p?.decidedAt)}. Kayıtlar kilitli; imzalı çıktı için yazdırabilirsin.`, download('primary')],
     iade: [`İade nedeni: “${p?.reviewNote || '—'}” Düzeltip yeniden gönder.`, btn('submit', 'Yeniden gönder', 'send', 'primary')],
   }[status];
   return `<div class="period st-${status}">
@@ -71,6 +71,7 @@ function handlePeriodClick(e, user, iso, onChange) {
   const month = iso.slice(0, 7);
   if (b.dataset.period === 'submit') openSubmitDialog(user, iso, onChange);
   else if (b.dataset.period === 'download') exportMonthlyForm(user, iso).catch(err => toast(err.message, { tone: 'danger' }));
+  else if (b.dataset.period === 'print') openPrintDialog(user, iso);
   else if (b.dataset.period === 'withdraw') {
     Store.setPeriod(user.id, month, { status: 'acik' }, { by: user.id, action: 'geri_cekildi' });
     App.refreshBadges();
@@ -152,10 +153,12 @@ function openReviewDialog(user, iso, onDone) {
           ${periodHistoryHtml(p)}
         </aside>
       </div>`,
-    footer: `<button class="btn ghost sm" data-dl>${icon('download', 15)} Aylık formu indir</button><span class="grow"></span>${actions}`,
+    footer: `<button class="btn ghost sm" data-dl>${icon('download', 15)} Aylık formu indir</button>
+      <button class="icon-btn bordered" data-print-form title="Yazdır / PDF" aria-label="Yazdır / PDF">${icon('printer', 16)}</button><span class="grow"></span>${actions}`,
     onMount(m, close) {
       const done = msg => { close(); App.refreshBadges(); onDone(); if (msg) toast(msg.text, msg.opts); };
       m.querySelector('[data-dl]').addEventListener('click', () => exportMonthlyForm(user, iso).catch(e => toast(e.message, { tone: 'danger' })));
+      m.querySelector('[data-print-form]').addEventListener('click', () => { close(); openPrintDialog(user, iso); });
 
       m.querySelector('[data-approve]')?.addEventListener('click', () => {
         Store.setPeriod(user.id, month, { status: 'onaylandi', decidedBy: me.id, decidedAt: new Date().toISOString(), reviewNote: '' }, { by: me.id, action: 'onaylandi' });

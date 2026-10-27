@@ -453,6 +453,8 @@ const ActivitiesView = {
       openMenu(anchor, [
         { icon: 'sheet', label: 'Aylık aktivite formu', hint: monthTitle(month), fn: () => form(month) },
         { icon: 'sheet', label: 'Aylık aktivite formu', hint: monthTitle(prev), fn: () => form(prev) },
+        { icon: 'printer', label: 'Aylık formu yazdır / PDF', hint: monthTitle(month), fn: () => openPrintDialog(me, month) },
+        { icon: 'printer', label: 'Aylık formu yazdır / PDF', hint: monthTitle(prev), fn: () => openPrintDialog(me, prev) },
         { icon: 'list', label: 'Kayıt listesi · hafta', hint: fmtRange(monday, addDays(monday, 6)), fn: () => list(monday, addDays(monday, 6), `hafta-${monday}`) },
         { icon: 'list', label: 'Kayıt listesi · ay', hint: monthTitle(month), fn: () => list(month, monthEnd(month), month.slice(0, 7)) },
       ]);

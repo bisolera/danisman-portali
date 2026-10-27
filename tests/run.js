@@ -24,6 +24,8 @@ async function runTestFile(testFile) {
   // Excel kütüphanesi önceden yüklenir; uygulamanın kendi yükleyicisi bunu kullanır
   inject(fs.readFileSync(path.join(ROOT, 'vendor/xlsx/xlsx.full.min.js'), 'utf8'));
   for (const src of scripts) inject(fs.readFileSync(path.join(ROOT, src), 'utf8'));
+  // Test, gerçek tarayıcıdaki gibi sayfa açıldıktan (App.start) sonra başlar; yoksa açılış testin ortasında ekranı yeniden kurar
+  if (window.document.readyState === 'loading') await new Promise(r => window.document.addEventListener('DOMContentLoaded', r, { once: true }));
   inject(fs.readFileSync(testFile, 'utf8'));
 
   for (let i = 0; i < 150 && !window.__result; i++) await new Promise(r => setTimeout(r, 100));

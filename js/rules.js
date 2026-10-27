@@ -3,7 +3,12 @@
 
 const DAILY_HOURS = 8;
 
-function getHoliday(iso) { return HOLIDAYS_BY_DATE[iso] || null; }
+function getHoliday(iso) { return Store.holiday(iso); }
+
+// Seçilen yılın sabit tarihli resmi tatilleri (dini bayramlar her yıl değiştiği için elle girilir)
+function fixedHolidays(year) {
+  return FIXED_HOLIDAYS.map(([md, name, half]) => ({ date: `${year}-${md}`, name, kind: 'resmi', half: !!half }));
+}
 
 // Kullanıcının o güne denk gelen onaylı izni (yoksa null)
 function approvedLeaveOn(userId, iso) {
@@ -76,6 +81,11 @@ function missingDays(userId, fromISO, toISO) {
     .map(date => ({ date, target: dailyTarget(userId, date), logged: hoursOn(userId, date) }))
     .filter(d => d.target > 0 && d.logged < d.target);
 }
+
+// Onaylı izin için iptal talebi: izin başlamadan (en geç ilk günü) istenebilir; yönetici onaylayınca izin iptal olur.
+// Talep beklerken izin geçerli sayılır (bakiyeden düşük kalır, gün hedefi 0).
+const canRequestCancel = (l, today = todayISO()) => l.status === 'onaylandi' && l.start >= today && l.cancel?.status !== 'beklemede';
+const cancelRequests = () => Store.leaves({ status: 'onaylandi' }).filter(l => l.cancel?.status === 'beklemede');
 
 // Yeni talep, onaylı ya da bekleyen başka bir taleple çakışıyor mu?
 function overlappingLeave(userId, start, end, ignoreId = null) {
@@ -213,9 +223,9 @@ function lockMessage(userId, iso) {
     : `${monthTitle(iso)} onaya gönderildi; değiştirmek için önce gönderimi geri çek.`;
 }
 
-// Bekleyen onaylar: izin talepleri + onaya gönderilmiş aylar (yönetici rozetinde)
+// Bekleyen onaylar: izin talepleri + iptal talepleri + onaya gönderilmiş aylar (yönetici rozetinde)
 function pendingApprovals() {
-  return Store.leaves({ status: 'beklemede' }).length + Store.periods({ status: 'gonderildi' }).length;
+  return Store.leaves({ status: 'beklemede' }).length + cancelRequests().length + Store.periods({ status: 'gonderildi' }).length;
 }
 
 function nextWorkday(iso) {

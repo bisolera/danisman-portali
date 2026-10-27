@@ -55,6 +55,7 @@ const DashboardView = {
           <div><h2>Aylık durum · ${monthTitle(calMonth)}</h2><p class="sub">Hangi günler girildi, hangileri eksik. Bir güne tıkla, o güne git.</p></div>
           <div class="week-nav">
             <button class="btn ghost sm" data-form>${icon('download', 15)} Aylık formu indir</button>
+            <button class="icon-btn bordered" data-print-form title="Yazdır / PDF" aria-label="Yazdır / PDF">${icon('printer')}</button>
             <button class="icon-btn bordered" data-month="-1" aria-label="Önceki ay">${icon('chevron-left')}</button>
             <button class="btn ghost sm" data-month="0">Bu ay</button>
             <button class="icon-btn bordered" data-month="1" aria-label="Sonraki ay">${icon('chevron-right')}</button>
@@ -82,6 +83,7 @@ const DashboardView = {
       const nav = e.target.closest('[data-month]');
       if (nav) { calMonth = nav.dataset.month === '0' ? today : addMonths(calMonth, Number(nav.dataset.month)); return renderMonth(); }
       if (e.target.closest('[data-form]')) return exportMonthlyForm(me, calMonth).catch(err => toast(err.message, { tone: 'danger' }));
+      if (e.target.closest('[data-print-form]')) return openPrintDialog(me, calMonth);
       const cell = e.target.closest('[data-cal-day]');
       if (cell) location.hash = `#/aktiviteler?d=${cell.dataset.calDay}&v=gun`;
     });
@@ -138,8 +140,8 @@ const DashboardView = {
     function renderUpcoming() {
       const end = addDays(today, 45);
       const items = [
-        ...HOLIDAYS.filter(h => h.date >= today && h.date <= end)
-          .map(h => ({ date: h.date, title: h.name, sub: h.half ? 'Yarım gün tatil' : 'Resmi tatil' })),
+        ...Store.holidays({ from: today, to: end })
+          .map(h => ({ date: h.date, title: h.name, sub: h.half ? 'Yarım gün tatil' : HOLIDAY_KINDS[h.kind]?.label || 'Tatil' })),
         ...Store.leaves()
           .filter(l => l.end >= today && l.start <= end && (l.status === 'onaylandi' || (l.status === 'beklemede' && l.userId === me.id)))
           .map(l => {

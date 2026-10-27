@@ -16,11 +16,20 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 
 | Ekran | Ne yapar |
 |---|---|
-| Özet | Bugün/hafta saatleri, **aylık takvim** (girilen / girilmeyen günler), kalan izin, hızlı giriş, aylık formu indirme |
+| Özet | Bugün/hafta saatleri, **aylık takvim** (girilen / girilmeyen günler), kalan izin, hızlı giriş, aylık formu indirme ve **yazdırma / PDF** |
 | Aktiviteler | Üç görünüm: **Günlük** (klavyeyle hızlı giriş, önceki günü kopyala), **Haftalık tablo** (CATS tarzı; hücreye saat yaz, Excel'den yapıştır), **Aylık** takvim ve ay kapanışı. Excel'den yükle, Excel'e aktar |
-| İzinler | Bakiye, talep formu (hafta sonu/tatil düşülmez, arife yarım gün), taleplerim, ekipte kim izinli |
+| İzinler | Bakiye, talep formu (hafta sonu/tatil düşülmez, arife yarım gün), taleplerim, onaylı izin için **iptal talebi**, ekipte kim izinli |
 | Müşteriler & Projeler | Danışman için rehber, projelerde bu ayın sözleşme saati kullanımı; yönetici müşteri/proje ekler, durum ve sözleşme saati belirler |
-| Yönetim (yönetici) | İzin onay/red, **ay kapanışı onayı**, **raporlar** (faturalanır/iç saat, müşteri → proje → danışman, sözleşme kullanımı, talep bazında saat, Excel), ekibin haftalık ve aylık durumu, kullanıcılar |
+| Yönetim (yönetici) | İzin ve iptal talebi onayı, **ay kapanışı onayı**, **raporlar** (faturalanır/iç saat, müşteri → proje → danışman, sözleşme kullanımı, talep bazında saat, Excel), ekibin haftalık ve aylık durumu, **tatiller** (resmi tatil ve şirketin köprü günleri), kullanıcılar |
+
+## Tatiller
+
+**Yönetim → Tatiller**'den yıl yıl yönetilir; kod değiştirmek gerekmez. Sabit tarihli resmi tatiller (Yılbaşı, 23 Nisan, 1 ve 19 Mayıs, 15 Temmuz, 30 Ağustos, 28–29 Ekim) tek tıkla eklenir. Ramazan ve Kurban Bayramı her yıl değiştiği için Diyanet takviminden bakılıp tarih aralığıyla girilir; "önceki gün arife" seçeneği arifeyi yarım gün ekler. **Şirket tatili** (köprü günü) resmi tatil gibi işler: o gün hedef saat düşer ve yıllık izinden düşülmez. Kapanmış bir ayda tatil değişirse hedef saatler yeniden hesaplanır, girilen kayıtlar değişmez.
+
+## Yazdırma / PDF ve telefona kurulum
+
+- **Aylık formu yazdır / PDF:** Özet, Aktiviteler → Dışa aktar, ay kapanışı paneli ve Yönetim → Ay kapanışı'ndan. Müşteri başına bir A4 sayfa, altta danışman ve müşteri onayı için imza alanı. Yazdır penceresinde "PDF olarak kaydet" seçilince PDF olur.
+- **Uygulama olarak kur:** Profilim → *Uygulama olarak yükle* (Chrome, Edge, Android) ya da Safari'de Paylaş → Ana Ekrana Ekle. Kendi simgesiyle açılır, bağlantı yokken de çalışır (`sw.js`, `manifest.webmanifest`). iPhone'da ana ekrandaki uygulama Safari'deki kayıtları görmez; sunucuya geçene kadar tek yerden kullan.
 
 ## Ay kapanışı
 
@@ -49,7 +58,7 @@ npm install      # bir kez: test aracı (jsdom)
 npm test         # tüm testler, tarayıcı açmadan
 ```
 
-`tests/*.test.js` dosyaları portalı sanal bir tarayıcıda açıp akışları uçtan uca dener: izin günleri, yedekleme, raporlar, aylık form içe/dışa aktarma, ay kapanışı, takvim önerileri. GitHub'da her gönderimde ve pull request'te otomatik çalışır (**Actions → Testler**); kırmızıysa birleştirmeden önce düzeltilmeli.
+`tests/*.test.js` dosyaları portalı sanal bir tarayıcıda açıp akışları uçtan uca dener: izin günleri, yedekleme, raporlar, aylık form içe/dışa aktarma ve yazdırma, ay kapanışı, takvim önerileri, tatiller, izin iptali. Ayrıca `manifest.webmanifest` ve `sw.js`'in önbellek listesi dosyalarla karşılaştırılır (yeni bir JS dosyası eklenip listeye yazılmazsa test kırılır). GitHub'da her gönderimde ve pull request'te otomatik çalışır (**Actions → Testler**); kırmızıysa birleştirmeden önce düzeltilmeli.
 
 ## Belgeler
 
@@ -60,15 +69,18 @@ npm test         # tüm testler, tarayıcı açmadan
 
 ```
 js/utils.js      tarih, sayı, arama yardımcıları
-js/data.js       sabitler (izin türleri, resmi tatiller) + demo veriler
+js/data.js       sabitler (izin türleri, varsayılan resmi tatiller) + demo veriler
 js/store.js      veri katmanı — sunucuya geçerken değişecek tek dosya
-js/rules.js      iş kuralları: hedef saat, izin günü, bakiye, eksik gün
+js/rules.js      iş kuralları: hedef saat, izin günü, bakiye, eksik gün, iptal talebi
 js/ui.js         ortak bileşenler: proje seçici, aktivite formu, aylık takvim, pencere, menü, bildirim
 js/excel.js      Excel/CSV içe aktarma, aylık form, şablon ve dışa aktarma
+js/print.js      aylık formun yazdırılabilir / PDF hali
 js/closing.js    ay kapanışı: gönderme, onay/iade, kilit, geçmiş
 js/calendar.js   Outlook takvimi (.ics) okuma, tekrarlar, toplantı → proje önerileri
 js/views/*.js    ekranlar
-js/app.js        oturum, menü, yönlendirme, profil ve yedekleme
+js/app.js        oturum, menü, yönlendirme, profil, yedekleme, uygulama olarak kurma
+sw.js            çevrimdışı açılış (ağ önce, yoksa önbellek)
+manifest.webmanifest, icons/   telefona / masaüstüne kurulum
 vendor/          SheetJS ve yazı tipleri (lisanslarıyla)
 tests/           uçtan uca testler (npm test)
 docs/            iş kuralları, sunucu geçişi
@@ -76,6 +88,6 @@ docs/            iş kuralları, sunucu geçişi
 
 ## Canlıya geçiş
 
-Ayrıntılar [docs/sunucu-gecisi.md](docs/sunucu-gecisi.md)'de. Kısaca: hosting kararı ve Entra ID uygulama kaydı → veritabanı ve API → `store.js`'in API'ye geçmesi → yedek dosyasından veri taşıma. Resmi tatiller her yıl Diyanet takvimine göre güncellenmeli (`js/data.js` → `HOLIDAYS`).
+Ayrıntılar [docs/sunucu-gecisi.md](docs/sunucu-gecisi.md)'de. Kısaca: hosting kararı ve Entra ID uygulama kaydı → veritabanı ve API → `store.js`'in API'ye geçmesi → yedek dosyasından veri taşıma → e-posta bildirimleri. Dini bayramlar her yıl Diyanet takvimine göre **Yönetim → Tatiller**'den girilmeli.
 
 **Public repo kuralı:** Gerçek müşteri adları, kişisel bilgiler, Excel formları ve şifreler repoya girmez. Demo verisi kurgusaldır; `.gitignore` Excel, takvim ve `.env` dosyalarını dışarıda tutar.

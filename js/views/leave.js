@@ -26,12 +26,43 @@ const LeaveView = {
         `<div class="card bal${main ? ' is-main' : ''}"><span class="bal-label">${label}</span><span class="bal-val">${val}<small> gün</small></span><span class="bal-sub">${esc(sub)}</span></div>`).join('');
     }
 
+    // Bekleyen talep doğrudan iptal edilir; onaylanmış izin için yöneticiye iptal talebi gider
+    function actionsFor(l) {
+      if (l.status === 'beklemede') return '<button class="btn ghost sm" data-cancel>İptal et</button>';
+      if (l.status === 'onaylandi' && l.cancel?.status === 'beklemede') return '<button class="btn ghost sm" data-cancel-undo>İptal talebini geri al</button>';
+      if (canRequestCancel(l, today)) return '<button class="btn ghost sm" data-cancel-req>İptal talebi</button>';
+      return '';
+    }
+
     function renderMine() {
       const list = Store.leaves({ userId: me.id }).slice().sort((a, b) => b.start.localeCompare(a.start));
       el.querySelector('#mine').innerHTML = `
         <div class="card-head"><h2>Taleplerim</h2><span class="muted">${list.length} kayıt</span></div>
-        ${list.length ? list.map(l => leaveRow(l, { actions: l.status === 'beklemede' ? '<button class="btn ghost sm" data-cancel>İptal et</button>' : '' })).join('')
+        ${list.length ? list.map(l => leaveRow(l, { actions: actionsFor(l) })).join('')
           : emptyState('sun', 'Henüz izin talebin yok', 'Formdan ilk talebini oluşturabilirsin.')}`;
+    }
+
+    function openCancelRequest(l) {
+      const days = leaveDays(l);
+      openModal({
+        title: 'İzin iptal talebi',
+        body: `<div class="form-stack">
+          <p><strong>${esc(leaveTypeName(l.type))}</strong> · ${fmtRange(l.start, l.end)} · ${fmtNum(days)} iş günü</p>
+          <p class="muted">Yöneticin onaylayınca izin iptal olur${l.type === 'yillik' ? ` ve ${fmtNum(days)} gün bakiyene geri döner` : ''}. Onaylanana kadar izin geçerli sayılır.</p>
+          <label class="field"><span class="field-label">Neden <span class="faint">(isteğe bağlı)</span></span>
+            <textarea class="input" rows="2" maxlength="300" data-note placeholder="Örn. proje teslimi öne çekildi"></textarea></label>
+        </div>`,
+        footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" data-send>${icon('send', 15)} İptal talebini gönder</button>`,
+        onMount(m, close) {
+          m.querySelector('[data-send]').addEventListener('click', () => {
+            Store.updateLeave(l.id, { cancel: { status: 'beklemede', requestedAt: new Date().toISOString(), note: m.querySelector('[data-note]').value.trim() } });
+            close();
+            refresh();
+            App.refreshBadges();
+            toast('İptal talebin yöneticine iletildi');
+          });
+        },
+      });
     }
 
     function renderTeam() {
@@ -39,13 +70,13 @@ const LeaveView = {
       const others = Store.leaves()
         .filter(l => l.userId !== me.id && (l.status === 'onaylandi' || l.status === 'beklemede') && l.end >= today && l.start <= end)
         .sort((a, b) => a.start.localeCompare(b.start));
-      const holidays = HOLIDAYS.filter(h => h.date >= today).slice(0, 4);
+      const holidays = Store.holidays({ from: today }).slice(0, 4);
       el.querySelector('#team').innerHTML = `
         <div class="card-head"><h2>Ekipte kim izinli?</h2><span class="muted">Önümüzdeki 60 gün</span></div>
         ${others.length ? others.map(l => leaveRow(l, { user: Store.user(l.userId), showDetails: App.isAdmin() })).join('')
           : emptyState('users', 'Yakın zamanda ekipte izin yok')}
-        <div class="sub-head">Yaklaşan resmi tatiller</div>
-        <div class="hol-list">${holidays.map(h => `<span class="hol"><b>${fmtShort(h.date)}</b> ${esc(h.name)}${h.half ? ' <em>(yarım gün)</em>' : ''}</span>`).join('')}</div>`;
+        <div class="sub-head">Yaklaşan tatiller</div>
+        <div class="hol-list">${holidays.map(h => `<span class="hol"><b>${fmtShort(h.date)}</b> ${esc(h.name)}${h.half ? ' <em>(yarım gün)</em>' : ''}${h.kind === 'sirket' ? ' <em>(şirket)</em>' : ''}</span>`).join('')}</div>`;
     }
 
     // ---- Talep formu ----
@@ -132,8 +163,16 @@ const LeaveView = {
     });
 
     el.querySelector('#mine').addEventListener('click', e => {
+      const row = e.target.closest('[data-id]');
+      if (row && e.target.closest('[data-cancel-req]')) return openCancelRequest(Store.leave(row.dataset.id));
+      if (row && e.target.closest('[data-cancel-undo]')) {
+        Store.updateLeave(row.dataset.id, { cancel: null });
+        refresh();
+        App.refreshBadges();
+        return toast('İptal talebi geri alındı; izin geçerli', { tone: 'info' });
+      }
       if (!e.target.closest('[data-cancel]')) return;
-      const id = e.target.closest('[data-id]').dataset.id;
+      const id = row.dataset.id;
       Store.updateLeave(id, { status: 'iptal' });
       refresh();
       App.refreshBadges();

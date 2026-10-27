@@ -35,11 +35,12 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `customers` | id, name, sector, color, internal | |
 | `projects` | id, customer_id → customers, name, code (tekil), status, billable, monthly_budget | |
 | `activities` | id, user_id → users, project_id → projects, date, hours (4,2), type, note, source_kind, source_key, created_at, updated_at | indeks: (user_id, date), (project_id, date) |
-| `leaves` | id, user_id, type, start_date, end_date, half_day, note, status, decided_by, decided_at, created_at | |
+| `leaves` | id, user_id, type, start_date, end_date, half_day, note, status, decided_by, decided_at, created_at, cancel_status, cancel_note, cancel_requested_at, cancel_decided_by, cancel_decided_at | iptal talebi: `cancel_*` alanları |
 | `periods` | id, user_id, month (`YYYY-MM`), status, note, review_note, submitted_at, decided_by, decided_at | tekil: (user_id, month) |
 | `period_history` | id, period_id → periods, at, by_user, action, note | kim, ne zaman, ne yaptı |
-| `holidays` | date (anahtar), name, half | her yıl Diyanet takvimiyle güncellenir |
+| `holidays` | id, date (tekil), name, kind (`resmi`/`sirket`), half | Yönetim → Tatiller'den yönetilir |
 | `user_prefs` | user_id, key, value (JSON) | son proje, Excel/takvim eşleştirmeleri |
+| `notifications` | id, user_id, kind, ref, sent_at | aynı e-posta iki kez gitmesin (aşağıya bak) |
 
 ## API
 `store.js`'teki fonksiyonların karşılığı:
@@ -50,6 +51,8 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET /api/activities?from&to[&userId]` | `Store.activities` | kendi kayıtları; yönetici herkesinkini |
 | `POST /api/activities`, `PATCH/DELETE /api/activities/:id` | ekle, güncelle, sil | sahibi; **ay kilitliyse 423** |
 | `GET/POST /api/leaves`, `POST /api/leaves/:id/decision` | izinler, onay/red | onay: yönetici |
+| `POST /api/leaves/:id/cancel-request`, `…/cancel-decision` | onaylı izin için iptal talebi, karar | talep: sahibi (izin başlamadan); karar: yönetici |
+| `GET /api/holidays?year`, `POST/PATCH/DELETE /api/holidays` | tatiller | okuma: herkes; yazma: yönetici |
 | `POST /api/periods/:month/submit`, `…/withdraw` | ay kapanışı (danışman) | sahibi |
 | `POST /api/periods/:userId/:month/approve`, `…/return`, `…/unlock` | ay kapanışı (yönetici) | yönetici |
 | `GET/POST/PATCH /api/customers`, `/api/projects` | müşteri ve proje | yazma: yönetici |
@@ -63,6 +66,33 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 3. İzinler: `User.Read`. Outlook takvimi için ayrıca `Calendars.Read`, yönetici onayıyla.
 4. **Gizli anahtar asla repoya yazılmaz:** Azure'da uygulama ayarı, hostingde `.env` (`.gitignore`'da).
 
+## E-posta bildirimleri
+Tarayıcıdaki prototip e-posta gönderemez; sunucuyla birlikte eklenir. Gönderim **Microsoft Graph `sendMail`** ile şirketin kendi Microsoft 365'inden yapılır: `portal@bisolera.com` gibi paylaşılan bir posta kutusu, uygulama izni `Mail.Send`, Exchange'de *application access policy* ile yalnızca o kutuya sınırlı. Ek ücret yok, mailler şirket alan adından çıktığı için spam'e düşmez.
+
+| Olay | Kime | Ne zaman |
+|---|---|---|
+| İzin talebi geldi | Yönetici | anında |
+| İzin onaylandı / reddedildi | Danışman | anında |
+| İzin iptal talebi geldi / sonuçlandı | Yönetici / danışman | anında |
+| Ay onaya gönderildi | Yönetici | anında |
+| Ay iade edildi | Danışman | anında, iade nedeniyle |
+| Ay onaylandı | Danışman | anında; aylık form ekli (isteğe bağlı) |
+| Ay sonu yaklaşıyor | Ayı açık danışmanlar | ayın son iş günü 15:00 |
+| Geçen ay hâlâ açık | Danışman, yöneticiye özet | yeni ayın 2. ve 5. iş günü |
+| Geçen hafta eksik giriş | Danışman | Pazartesi 09:00, eksik gün varsa |
+| Onay bekleyenler özeti | Yönetici | her iş günü 09:00, bekleyen varsa |
+
+- Zamanlanmış gönderimler: Azure Functions *timer trigger* (A) ya da hosting cron (B).
+- Tatil ve izin dikkate alınır (`rules.js` → `nextWorkday`, `missingDays`): izinli kişiye "eksik giriş" gitmez, tatile denk gelen hatırlatma bir sonraki iş gününe kayar.
+- `notifications` tablosu aynı hatırlatmanın iki kez gitmesini önler (kind + ref tekil, ör. `ay_sonu` + `2026-10`).
+- Hatırlatmalar Profilim'den kapatılabilir; onay/ret bildirimleri kapatılamaz.
+- KVKK: e-postada izin türü yazılmaz (hastalık izni de yalnızca "izin" görünür); ayrıntı portalda.
+- E-postadaki buton ilgili sayfayı açar: `#/yonetim?tab=onaylar`, `#/aktiviteler?v=ay`, `#/izinler`.
+- Aynı olaylar ileride Teams sohbetine de gönderilebilir (Graph, ayrı izin).
+
+## Telefona kurulum (PWA)
+`manifest.webmanifest` ve `sw.js` hazır. Canlıda **HTTPS zorunlu** (service worker yalnızca HTTPS ya da localhost'ta çalışır). `sw.js` "ağ önce" çalışır: bağlantı varken her zaman sunucudaki güncel dosya alınır, yalnızca bağlantı yokken önbellek kullanılır; yeni sürümde kimse eski kodda kalmaz. Sunucuya geçince API istekleri (`/api/…`) önbelleğe alınmamalı; `sw.js`'te bu yol hariç tutulur.
+
 ## Mevcut verinin taşınması
 Portalın **yedek dosyası (JSON)** taşıma kaynağıdır. Tek seferlik bir betik, yedekteki kullanıcıları, müşterileri, projeleri, aktiviteleri, izinleri ve ay kapanışlarını API'ye yükler. Kimlikler korunur, eşleştirme gerekmez. Deneme haftasındaki gerçek kayıtlar böylece kaybolmaz.
 
@@ -71,4 +101,4 @@ Portalın **yedek dosyası (JSON)** taşıma kaynağıdır. Tek seferlik bir bet
 2. Veritabanı ve API (kilit ve yetki kuralları dahil)
 3. `store.js`'in API'ye geçmesi; ekranlarda bekleme durumları
 4. Yedekten veri taşıma, 1 hafta paralel kullanım
-5. Outlook takvimi (Graph) ve Teams/e-posta hatırlatmaları
+5. E-posta bildirimleri (Graph `sendMail`), Outlook takvimi (Graph), istenirse Teams

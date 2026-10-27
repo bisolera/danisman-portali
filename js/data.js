@@ -2,8 +2,8 @@
    Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
 
 const COMPANY_DOMAIN = 'bisolera.com';
-const DATA_VERSION = 4;
-const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor   // demo verisi değişince artır: tarayıcıdaki eski kayıt otomatik yenilenir
+const DATA_VERSION = 5;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
+const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor
 
 const BRAND = {
   logoOnDark: 'https://cdn.prod.website-files.com/61efd059117be97cc736bc2d/6231108fc186d4df713d8cc0_logo%20beyaz%20yazi%20(1).png',
@@ -55,8 +55,26 @@ const PROJECT_STATUS = {
   tamamlandi: { label: 'Tamamlandı', tone: 'muted' },
 };
 
-// Resmi tatiller. half: true → yarım gün (arife).
-// Dini bayramlar Diyanet takvimine göredir (2027 doğrulandı); her yıl yeni yılın tarihleri eklenmeli.
+// Tatil türleri. Şirket tatili (köprü günü) resmi tatil gibi işler: hedef saat düşer, izinden düşülmez.
+const HOLIDAY_KINDS = {
+  resmi: { label: 'Resmi tatil', tone: 'info' },
+  sirket: { label: 'Şirket tatili', tone: 'ok' },
+};
+
+// Her yıl aynı tarihe gelen resmi tatiller: Yönetim → Tatiller'de tek tıkla eklenir
+const FIXED_HOLIDAYS = [
+  ['01-01', 'Yılbaşı'],
+  ['04-23', 'Ulusal Egemenlik ve Çocuk Bayramı'],
+  ['05-01', 'Emek ve Dayanışma Günü'],
+  ['05-19', 'Atatürk\'ü Anma, Gençlik ve Spor Bayramı'],
+  ['07-15', 'Demokrasi ve Millî Birlik Günü'],
+  ['08-30', 'Zafer Bayramı'],
+  ['10-28', 'Cumhuriyet Bayramı Arifesi', true],
+  ['10-29', 'Cumhuriyet Bayramı'],
+];
+
+// İlk kurulumda veritabanına yazılan resmi tatiller; sonrası Yönetim → Tatiller'den yönetilir.
+// half: true → yarım gün (arife). Dini bayramlar Diyanet takvimine göredir (2027 doğrulandı).
 const HOLIDAYS = [
   { date: '2026-01-01', name: 'Yılbaşı' },
   { date: '2026-03-19', name: 'Ramazan Bayramı Arifesi', half: true },
@@ -92,7 +110,8 @@ const HOLIDAYS = [
   { date: '2027-10-28', name: 'Cumhuriyet Bayramı Arifesi', half: true },
   { date: '2027-10-29', name: 'Cumhuriyet Bayramı' },
 ];
-const HOLIDAYS_BY_DATE = Object.fromEntries(HOLIDAYS.map(h => [h.date, h]));
+const HOLIDAYS_BY_DATE = Object.fromEntries(HOLIDAYS.map(h => [h.date, h]));   // yalnızca demo verisi üretirken
+const defaultHolidays = () => HOLIDAYS.map(h => ({ id: uid(), kind: 'resmi', ...h, half: !!h.half }));
 
 const CUSTOMER_COLORS = ['#3b82f6', '#f59e0b', '#06b6d4', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
@@ -186,7 +205,7 @@ function buildSeed() {
       history: [{ at: stamp(2, '10:30'), by: 'u5', action: 'gonderildi' }] },
   ];
 
-  return { version: DATA_VERSION, users, customers, projects, leaves, periods, activities: generateActivities(users, leaves, monday) };
+  return { version: DATA_VERSION, users, customers, projects, leaves, periods, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
 }
 
 // Son 5 haftanın aktivitelerini üretir: hafta sonu, tatil ve izin günleri atlanır

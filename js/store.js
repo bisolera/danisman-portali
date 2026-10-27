@@ -4,7 +4,10 @@
 const Store = (() => {
   const KEY = 'bisolera-portal-v1';
   let db = null, lastSaveError = 0;
+  let holidayIndex = null;   // tarih → tatil; gün hesapları çok sık sorduğu için bir kez kurulur
   const externalListeners = [];
+  const holidaysByDate = () => holidayIndex || (holidayIndex = Object.fromEntries(db.holidays.map(h => [h.date, h])));
+  const holidaysChanged = () => { holidayIndex = null; persist(); };
 
   // Kayıt yazılamazsa (depo dolu vb.) kullanıcıya açıkça söylenir; yoksa "eklendi" görüp kaydın durduğunu sanır
   function persist() {
@@ -24,6 +27,7 @@ const Store = (() => {
   window.addEventListener('storage', e => {
     if (e.key !== KEY || !e.newValue) return;
     try { db = JSON.parse(e.newValue); } catch { return; }
+    holidayIndex = null;
     externalListeners.forEach(fn => fn());
   });
 
@@ -31,11 +35,13 @@ const Store = (() => {
   // v3 öncesi yalnızca demo verisi içerdiği için yeniden oluşturulur.
   function migrate(d) {
     if (d.version < 4) d.periods = d.periods || [];
+    if (d.version < 5) d.holidays = d.holidays || defaultHolidays();   // tatiller koddan veritabanına taşındı
     d.version = DATA_VERSION;
     return d;
   }
 
   function init() {
+    holidayIndex = null;
     try { db = JSON.parse(localStorage.getItem(KEY)); } catch { db = null; }
     if (!db || typeof db.version !== 'number' || db.version < 3) { db = buildSeed(); persist(); }
     else if (db.version < DATA_VERSION) { db = migrate(db); persist(); }
@@ -51,7 +57,7 @@ const Store = (() => {
 
   return {
     init,
-    reset() { db = buildSeed(); persist(); },
+    reset() { db = buildSeed(); holidayIndex = null; persist(); },
     onExternalChange: fn => externalListeners.push(fn),
 
     // Kullanıcılar
@@ -124,6 +130,28 @@ const Store = (() => {
       if (entry) p.history.push({ at: new Date().toISOString(), ...entry });
       persist();
       return p;
+    },
+
+    // Tatiller (resmi + şirket/köprü). Bir tarihte en fazla bir tatil olur.
+    holidays: ({ from, to } = {}) =>
+      db.holidays.filter(h => (!from || h.date >= from) && (!to || h.date <= to)).sort((a, b) => a.date.localeCompare(b.date)),
+    holiday: date => holidaysByDate()[date] || null,
+    addHoliday(h) {
+      if (holidaysByDate()[h.date]) return null;
+      const holiday = { id: uid(), kind: 'resmi', half: false, ...h };
+      db.holidays.push(holiday); holidaysChanged(); return holiday;
+    },
+    updateHoliday(id, changes) {
+      const h = byId(db.holidays, id), other = changes.date && holidaysByDate()[changes.date];
+      if (!h || (other && other.id !== id)) return null;
+      Object.assign(h, changes); holidaysChanged(); return h;
+    },
+    deleteHoliday(id) {
+      const i = db.holidays.findIndex(h => h.id === id);
+      if (i < 0) return null;
+      const [removed] = db.holidays.splice(i, 1);
+      holidaysChanged();
+      return removed;
     },
   };
 })();

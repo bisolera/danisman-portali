@@ -1,12 +1,14 @@
-/* Yönetim (yalnızca yönetici): izin onayları, ekibin haftası, kullanıcı hesapları */
+/* Yönetim (yalnızca yönetici): izin onayları, ay kapanışı, raporlar, ekibin haftası, tatiller, kullanıcı hesapları */
 
 const AdminView = {
   mount(el, { query }) {
-    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['ekip', 'Ekip durumu'], ['kullanicilar', 'Kullanıcılar']];
+    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
     let tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'onaylar';
     let teamMonth = todayISO();
     let closeMonth = addMonths(todayISO(), -1);   // kapanışta genelde geçen ay incelenir
     let reportMonth = todayISO();
+    const thisYear = parseISO(todayISO()).getFullYear();
+    let holidayYear = thisYear;
 
     el.innerHTML = `
       <header class="page-head"><div><h1>Yönetim</h1><p>İzin onayları, ekibin haftası ve kullanıcı hesapları.</p></div></header>
@@ -15,10 +17,10 @@ const AdminView = {
     const tabsEl = el.querySelector('#tabs'), panel = el.querySelector('#panel');
 
     function render() {
-      const counts = { onaylar: Store.leaves({ status: 'beklemede' }).length, kapanis: Store.periods({ status: 'gonderildi' }).length };
+      const counts = { onaylar: Store.leaves({ status: 'beklemede' }).length + cancelRequests().length, kapanis: Store.periods({ status: 'gonderildi' }).length };
       tabsEl.innerHTML = TABS.map(([k, label]) =>
         `<button class="${k === tab ? 'is-active' : ''}" data-tab="${k}">${label}${counts[k] ? ` <span class="count">${counts[k]}</span>` : ''}</button>`).join('');
-      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, ekip: renderTeam, kullanicilar: renderUsers })[tab]();
+      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
       App.refreshBadges();
     }
 
@@ -46,14 +48,39 @@ const AdminView = {
       </div>`;
     }
 
+    // Onaylı izin için iptal talebi: onaylanırsa izin iptal olur, günler bakiyeye döner
+    function cancelRow(l) {
+      const u = Store.user(l.userId), days = leaveDays(l);
+      const locked = isLocked(u.id, l.start) || isLocked(u.id, l.end);
+      return `<div class="approval" data-id="${l.id}">
+        ${avatar(u, 40)}
+        <div class="approval-main">
+          <div><strong>${esc(u.name)}</strong> <span class="muted">· iznini iptal etmek istiyor</span></div>
+          <div class="approval-what">${esc(leaveTypeName(l.type))} · ${fmtRange(l.start, l.end)} · <strong>${fmtNum(days)} iş günü</strong></div>
+          <div class="approval-meta">
+            ${l.type === 'yillik' ? `<span>${icon('sun', 14)} Onaylarsan ${fmtNum(days)} gün bakiyeye döner</span>` : ''}
+            ${locked ? `<span class="warn-text">${icon('lock', 14)} Bu ay kapanışa gönderilmiş; iptalden sonra bu günler eksik görünür</span>` : ''}
+            ${l.cancel.note ? `<span>“${esc(l.cancel.note)}”</span>` : ''}
+            <span class="faint">${fmtStamp(l.cancel.requestedAt)}</span>
+          </div>
+        </div>
+        <div class="approval-actions">
+          <button class="btn ghost sm" data-cancel-decide="reddedildi">Reddet</button>
+          <button class="btn primary sm" data-cancel-decide="onaylandi">${icon('check', 15)} İptali onayla</button>
+        </div>
+      </div>`;
+    }
+
     function renderApprovals() {
       const pending = Store.leaves({ status: 'beklemede' }).slice().sort((a, b) => a.start.localeCompare(b.start));
+      const cancels = cancelRequests().sort((a, b) => a.start.localeCompare(b.start));
       const decided = Store.leaves().filter(l => l.decidedAt).sort((a, b) => b.decidedAt.localeCompare(a.decidedAt)).slice(0, 5);
       panel.innerHTML = `
         <section class="card">
           <div class="card-head"><h2>Onay bekleyen talepler</h2><span class="muted">${pending.length} talep</span></div>
           ${pending.length ? pending.map(approvalRow).join('') : emptyState('check', 'Bekleyen talep yok', 'Yeni talepler geldiğinde burada görünecek.')}
         </section>
+        ${cancels.length ? `<section class="card section-gap"><div class="card-head"><h2>İptal talepleri</h2><span class="muted">${cancels.length} talep</span></div>${cancels.map(cancelRow).join('')}</section>` : ''}
         ${decided.length ? `<section class="card section-gap"><div class="card-head"><h2>Son kararlar</h2></div>${decided.map(l => leaveRow(l, { user: Store.user(l.userId) })).join('')}</section>` : ''}`;
     }
 
@@ -145,6 +172,7 @@ const AdminView = {
             <td class="num nowrap">
               <button class="btn ${r.status === 'gonderildi' ? 'primary' : 'ghost'} sm" data-review>${r.status === 'gonderildi' ? 'İncele' : 'Ayrıntı'}</button>
               <button class="icon-btn sm" data-dl title="Aylık formu indir" aria-label="Aylık formu indir">${icon('download', 15)}</button>
+              <button class="icon-btn sm" data-print-form title="Yazdır / PDF" aria-label="Yazdır / PDF">${icon('printer', 15)}</button>
             </td>
           </tr>`).join('')}</tbody>
         </table></div>
@@ -207,6 +235,43 @@ const AdminView = {
       </section>`;
     }
 
+    // Tatiller: resmi tatiller ve şirketin verdiği köprü günleri. Hedef saat, izin günü ve eksik gün hesapları buradan beslenir.
+    function renderHolidays() {
+      const y = holidayYear, today = todayISO(), list = Store.holidays({ from: `${y}-01-01`, to: `${y}-12-31` });
+      const missingFixed = fixedHolidays(y).filter(h => !Store.holiday(h.date));
+      const noFeast = ['Ramazan', 'Kurban'].filter(k => !list.some(h => fold(h.name).includes(fold(k))));
+      const workdays = sum(list.filter(h => !isWeekend(h.date)), h => (h.half ? 0.5 : 1));
+      panel.innerHTML = `<section class="card">
+        <div class="card-head">
+          <div><h2>Tatiller · ${y}</h2><p class="sub">Resmi tatiller ve şirketin verdiği köprü günleri. Hedef saat, izin günü ve eksik gün hesapları buna göre yapılır.</p></div>
+          <div class="week-nav">
+            <button class="btn primary sm" data-hol-add>${icon('plus', 15)} Tatil ekle</button>
+            <button class="icon-btn bordered" data-hol-year="-1" aria-label="Önceki yıl">${icon('chevron-left')}</button>
+            <button class="btn ghost sm" data-hol-year="0">Bu yıl</button>
+            <button class="icon-btn bordered" data-hol-year="1" aria-label="Sonraki yıl">${icon('chevron-right')}</button>
+          </div>
+        </div>
+        ${missingFixed.length ? `<div class="callout info">${icon('info', 16)}<div><strong>${missingFixed.length} sabit tarihli resmi tatil eksik:</strong> ${missingFixed.map(h => fmtShort(h.date)).join(', ')}
+          <div class="row-gap"><button class="btn ghost sm" data-hol-fixed>${icon('plus', 15)} Sabit tatilleri ekle</button></div></div></div>` : ''}
+        ${noFeast.length ? `<div class="callout warn">${icon('alert', 16)}<div><strong>${noFeast.join(' ve ')} Bayramı girilmemiş.</strong> Dini bayramların tarihi her yıl değişir; Diyanet takviminden bakıp “Tatil ekle” ile gir (arifeyi de ekle seçeneğiyle).</div></div>` : ''}
+        ${list.length ? `<div class="table-wrap"><table class="table">
+          <thead><tr><th>Tarih</th><th>Tatil</th><th>Tür</th><th>Süre</th><th></th></tr></thead>
+          <tbody>${list.map(h => `<tr data-hol="${h.id}" class="${h.date < today ? 'is-past' : ''}">
+            <td class="nowrap">${fmtDate(h.date, { weekday: true })}${isWeekend(h.date) ? ' <span class="faint">· hafta sonu</span>' : ''}</td>
+            <td><strong>${esc(h.name)}</strong></td>
+            <td>${pill(HOLIDAY_KINDS[h.kind]?.label || h.kind, HOLIDAY_KINDS[h.kind]?.tone || 'muted')}</td>
+            <td class="nowrap">${h.half ? 'Yarım gün' : 'Tam gün'}</td>
+            <td class="num nowrap">
+              <button class="icon-btn sm" data-hol-edit title="Düzenle" aria-label="Düzenle">${icon('pencil', 15)}</button>
+              <button class="icon-btn sm" data-hol-del title="Sil" aria-label="Sil">${icon('trash', 15)}</button>
+            </td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <p class="muted small-text hol-foot">${list.length} kayıt · hafta içine denk gelen ${fmtNum(workdays)} iş günü</p>`
+          : emptyState('calendar', `${y} için tatil girilmemiş`, 'Önce sabit tatilleri ekle, sonra bayramları gir.')}
+      </section>`;
+    }
+
     function renderUsers() {
       const users = Store.users().slice().sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name, 'tr'));
       panel.innerHTML = `<section class="card">
@@ -248,6 +313,29 @@ const AdminView = {
       const userRow = e.target.closest('[data-user]');
       if (userRow && e.target.closest('[data-review]')) return openReviewDialog(Store.user(userRow.dataset.user), closeMonth, render);
       if (userRow && e.target.closest('[data-dl]')) return exportMonthlyForm(Store.user(userRow.dataset.user), closeMonth).catch(err => toast(err.message, { tone: 'danger' }));
+      if (userRow && e.target.closest('[data-print-form]')) return openPrintDialog(Store.user(userRow.dataset.user), closeMonth);
+      const holNav = e.target.closest('[data-hol-year]');
+      if (holNav) {
+        holidayYear = holNav.dataset.holYear === '0' ? thisYear : holidayYear + Number(holNav.dataset.holYear);
+        return renderHolidays();
+      }
+      if (e.target.closest('[data-hol-add]')) return holidayModal(null, holidayYear, renderHolidays);
+      if (e.target.closest('[data-hol-fixed]')) {
+        const added = fixedHolidays(holidayYear).map(h => Store.addHoliday(h)).filter(Boolean);
+        renderHolidays();
+        return toast(`${holidayYear} için ${added.length} sabit tatil eklendi${closedPeriodsNote(added.map(h => h.date))}`, {
+          action: { label: 'Geri al', fn: () => { added.forEach(h => Store.deleteHoliday(h.id)); renderHolidays(); } },
+        });
+      }
+      const holRow = e.target.closest('[data-hol]');
+      if (holRow && e.target.closest('[data-hol-edit]')) return holidayModal(Store.holidays().find(h => h.id === holRow.dataset.hol), holidayYear, renderHolidays);
+      if (holRow && e.target.closest('[data-hol-del]')) {
+        const removed = Store.deleteHoliday(holRow.dataset.hol);
+        renderHolidays();
+        return toast(`${removed.name} (${fmtShort(removed.date)}) silindi${closedPeriodsNote([removed.date])}`, {
+          tone: 'info', action: { label: 'Geri al', fn: () => { Store.addHoliday(removed); renderHolidays(); } },
+        });
+      }
       const month = e.target.closest('[data-team-month]');
       if (month) {
         teamMonth = month.dataset.teamMonth === '0' ? todayISO() : addMonths(teamMonth, Number(month.dataset.teamMonth));
@@ -261,6 +349,19 @@ const AdminView = {
         toast(status === 'onaylandi' ? 'Talep onaylandı' : 'Talep reddedildi', {
           tone: status === 'onaylandi' ? 'ok' : 'info',
           action: { label: 'Geri al', fn: () => { Store.updateLeave(id, { status: 'beklemede', decidedBy: null, decidedAt: null }); render(); } },
+        });
+        return;
+      }
+      const cancelDecide = e.target.closest('[data-cancel-decide]');
+      if (cancelDecide) {
+        const l = Store.leave(cancelDecide.closest('[data-id]').dataset.id), ok = cancelDecide.dataset.cancelDecide === 'onaylandi';
+        const before = { status: l.status, cancel: l.cancel };
+        const cancel = { ...l.cancel, status: ok ? 'onaylandi' : 'reddedildi', decidedBy: App.user.id, decidedAt: new Date().toISOString() };
+        Store.updateLeave(l.id, ok ? { status: 'iptal', cancel } : { cancel });
+        render();
+        toast(ok ? `${Store.user(l.userId).name} · izin iptal edildi` : 'İptal talebi reddedildi; izin geçerli', {
+          tone: ok ? 'ok' : 'info',
+          action: { label: 'Geri al', fn: () => { Store.updateLeave(l.id, before); render(); } },
         });
         return;
       }
@@ -322,6 +423,82 @@ function userModal(u, onSave) {
         close();
         onSave();
         toast(u ? 'Kullanıcı güncellendi' : `${name} eklendi · artık ${email} ile giriş yapabilir`);
+      });
+    },
+  });
+}
+
+// Kapanmış ayda tatil değişirse hedef saatler yeniden hesaplanır (girilen kayıtlar değişmez); yönetici bunu bilsin
+function closedPeriodsNote(dates) {
+  const months = new Set(dates.map(d => d.slice(0, 7)));
+  const n = Store.periods().filter(p => months.has(p.month) && (p.status === 'gonderildi' || p.status === 'onaylandi')).length;
+  return n ? ` · ${n} kişinin bu ayı kapanmış, hedef saatleri yeniden hesaplandı` : '';
+}
+
+// Tatil ekle / düzenle. Yeni kayıtta tarih aralığı girilebilir (bayram); istenirse önceki gün arife (yarım gün) olarak eklenir.
+function holidayModal(h, year, onSave) {
+  const first = h?.date || (todayISO().startsWith(String(year)) ? todayISO() : `${year}-01-01`);
+  openModal({
+    title: h ? 'Tatili düzenle' : 'Tatil ekle',
+    body: `<form class="form-stack" id="holForm" novalidate>
+      <label class="field"><span class="field-label">Tatil adı</span><input class="input" name="name" value="${esc(h?.name || '')}" maxlength="60" placeholder="Örn. Kurban Bayramı ya da Köprü günü"></label>
+      <div class="field"><span class="field-label">Tür</span>
+        <div class="seg">${Object.entries(HOLIDAY_KINDS).map(([k, v]) => `<input type="radio" name="kind" id="hk-${k}" value="${k}"${(h?.kind || 'resmi') === k ? ' checked' : ''}><label for="hk-${k}">${v.label}</label>`).join('')}</div>
+      </div>
+      <div class="form-grid">
+        <label class="field"><span class="field-label">${h ? 'Tarih' : 'Başlangıç'}</span><input class="input" type="date" name="start" value="${first}"></label>
+        ${h ? '' : `<label class="field"><span class="field-label">Bitiş <span class="faint">(birden çok günse)</span></span><input class="input" type="date" name="end" value="${first}"></label>`}
+      </div>
+      <label class="toggle" data-half-wrap><input type="checkbox" name="half"${h?.half ? ' checked' : ''}> Yarım gün (öğleden sonra tatil)</label>
+      ${h ? '' : '<label class="toggle"><input type="checkbox" name="eve"> Önceki gün arife olarak eklensin (yarım gün)</label>'}
+      <p class="muted small-text" data-kind-hint></p>
+      <p class="form-error" hidden></p>
+    </form>`,
+    footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" type="submit" form="holForm">${h ? 'Kaydet' : 'Ekle'}</button>`,
+    onMount(m, close) {
+      const f = m.querySelector('form'), el = f.elements;
+      const dates = () => {
+        const s = el.start.value, e = el.end ? el.end.value : s;
+        return s && e && e >= s ? dateRange(s, e) : [];
+      };
+      const sync = () => {
+        if (el.end && el.end.value < el.start.value) el.end.value = el.start.value;
+        const multi = dates().length > 1;
+        m.querySelector('[data-half-wrap]').hidden = multi;
+        if (multi) el.half.checked = false;
+        m.querySelector('[data-kind-hint]').textContent = el.kind.value === 'sirket'
+          ? 'Şirket tatilinde (köprü günü) hedef saat düşer ve yıllık izinden düşülmez; danışmanın izin talebi açmasına gerek kalmaz.'
+          : 'Resmi tatilde hedef saat düşer; o günlere denk gelen izin bakiyeden düşülmez.';
+      };
+      f.addEventListener('input', sync);
+      f.addEventListener('change', sync);
+      sync();
+      el.name.focus();
+
+      f.addEventListener('submit', e => {
+        e.preventDefault();
+        const name = el.name.value.trim(), kind = el.kind.value, days = dates();
+        if (!name) return formError(f, 'Tatilin adını yaz.', el.name);
+        if (!days.length) return formError(f, 'Tarihleri kontrol et: bitiş başlangıçtan önce olamaz.', el.start);
+        if (days.length > 15) return formError(f, 'Tek seferde en fazla 15 gün girilebilir.', el.end);
+        const clash = days.map(d => Store.holiday(d)).find(x => x && x.id !== h?.id);
+        if (clash) return formError(f, `${fmtDate(clash.date)} tarihinde zaten “${clash.name}” var.`, el.start);
+
+        if (h) {
+          Store.updateHoliday(h.id, { name, kind, date: days[0], half: el.half.checked });
+          close();
+          onSave();
+          return toast(`${name} güncellendi${closedPeriodsNote([h.date, days[0]])}`);
+        }
+        const added = [];
+        const eve = addDays(days[0], -1);
+        if (el.eve.checked && !Store.holiday(eve)) added.push(Store.addHoliday({ date: eve, name: `${name} Arifesi`, kind, half: true }));
+        days.forEach(date => added.push(Store.addHoliday({ date, name, kind, half: days.length === 1 && el.half.checked })));
+        close();
+        onSave();
+        toast(`${name} eklendi · ${added.length} gün${closedPeriodsNote(added.map(x => x.date))}`, {
+          action: { label: 'Geri al', fn: () => { added.forEach(x => Store.deleteHoliday(x.id)); onSave(); } },
+        });
       });
     },
   });

@@ -116,7 +116,7 @@
   const n = snap.activities.length;
   localStorage.setItem('bisolera-portal-v1', JSON.stringify(snap));
   Store.init();
-  ok('tasima_veriyi_korur', Store.activities().length === n && Array.isArray(Store.periods()) && JSON.parse(localStorage.getItem('bisolera-portal-v1')).version === 4);
+  ok('tasima_veriyi_korur', Store.activities().length === n && Array.isArray(Store.periods()) && JSON.parse(localStorage.getItem('bisolera-portal-v1')).version === DATA_VERSION);
 
   window.__result = R;
 })().catch(e => { window.__result = { CRASH: e.stack }; });

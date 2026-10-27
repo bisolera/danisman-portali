@@ -537,6 +537,13 @@ async function downloadTemplate(userId) {
   XLSX.writeFile(wb, 'bisolera-aktivite-sablonu.xlsx');
 }
 
+// Onaylanmış ayda formun üstüne onaylayan ve tarih yazılır (Excel ve yazdırılan form)
+function formApprovalText(user, iso) {
+  const period = Store.period(user.id, iso.slice(0, 7));
+  if (period?.status === 'onaylandi') return `Onaylandı: ${fmtDate(toISO(new Date(period.decidedAt)))} (${Store.user(period.decidedBy)?.name || ''})`;
+  return period?.status === 'gonderildi' ? 'Onay bekliyor' : 'Taslak';
+}
+
 // Şirketin aylık formu: müşteri başına bir sayfa, D2 başlık, D5 toplam, 6. satır başlık, 7. satırdan itibaren ayın günleri
 async function exportMonthlyForm(user, iso) {
   const from = monthStart(iso), to = monthEnd(iso);
@@ -551,11 +558,7 @@ async function exportMonthlyForm(user, iso) {
     byCustomer.get(cid).push(a);
   });
 
-  // Onaylanmış ayda formun üstüne onaylayan ve tarih yazılır
-  const period = Store.period(user.id, iso.slice(0, 7));
-  const approval = period?.status === 'onaylandi'
-    ? ` · Onaylandı: ${fmtDate(toISO(new Date(period.decidedAt)))} (${Store.user(period.decidedBy)?.name || ''})`
-    : period?.status === 'gonderildi' ? ' · Onay bekliyor' : ' · Taslak';
+  const approval = ` · ${formApprovalText(user, iso)}`;
   const wb = XLSX.utils.book_new();
   [...byCustomer].map(([cid, list]) => [Store.customer(cid), list])
     .sort((a, b) => a[0].name.localeCompare(b[0].name, 'tr'))

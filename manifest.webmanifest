@@ -1,0 +1,21 @@
+{
+  "name": "Bisolera Danışman Portalı",
+  "short_name": "Bisolera",
+  "description": "Aktivite, izin ve ay kapanışı",
+  "lang": "tr",
+  "dir": "ltr",
+  "start_url": "./#/ozet",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070707",
+  "theme_color": "#070707",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Aktivite gir", "url": "./#/aktiviteler?v=gun", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "İzin talebi", "url": "./#/izinler", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

@@ -33,6 +33,8 @@ const ICONS = {
   lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   unlock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  printer: '<path d="M6 9V3h12v6"/><rect width="20" height="9" x="2" y="9" rx="2"/><path d="M6 14h12v7H6z"/>',
+  phone: '<rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/>',
 };
 
 function icon(name, size = 18) {
@@ -508,7 +510,8 @@ function leaveRow(l, { user = null, showDetails = true, actions = '' } = {}) {
   return `<div class="leave-row" data-id="${l.id}">
     <span class="date-badge"><b>${d.getDate()}</b><span>${TR_MONTHS_SHORT[d.getMonth()]}</span></span>
     <div class="leave-main"><strong>${title}</strong><small>${details.join(' · ')}</small></div>
-    ${leaveStatusPill(l.status)}
+    <span class="leave-pills">${leaveStatusPill(l.status)}${l.status === 'onaylandi' && l.cancel?.status === 'beklemede' ? pill('İptal talebi onayda', 'warn')
+      : l.status === 'onaylandi' && l.cancel?.status === 'reddedildi' ? pill('İptal reddedildi', 'muted') : ''}</span>
     <div class="leave-actions">${actions}</div>
   </div>`;
 }

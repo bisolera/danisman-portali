@@ -9,6 +9,8 @@ import sys
 
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".webmanifest": "application/manifest+json"}
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache")
         super().end_headers()
