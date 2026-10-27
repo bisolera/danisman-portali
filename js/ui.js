@@ -37,6 +37,7 @@ const ICONS = {
   phone: '<rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/>',
   award: '<circle cx="12" cy="8" r="6"/><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
 };
 
 function icon(name, size = 18) {
@@ -58,7 +59,7 @@ function toast(message, { tone = 'ok', action = null, duration = 4200 } = {}) {
   setTimeout(close, duration);
 }
 
-function openModal({ title, body, footer = '', size = '', onMount }) {
+function openModal({ title, body, footer = '', size = '', onMount, onClose }) {
   const wrap = document.createElement('div');
   wrap.className = 'modal-wrap';
   wrap.innerHTML = `
@@ -72,6 +73,7 @@ function openModal({ title, body, footer = '', size = '', onMount }) {
   const onKey = e => { if (e.key === 'Escape' && !e.defaultPrevented) close(); };
   function close() {
     document.removeEventListener('keydown', onKey);
+    onClose?.();
     wrap.classList.remove('in');
     setTimeout(() => wrap.remove(), 180);
     if (prevFocus && document.contains(prevFocus)) prevFocus.focus();

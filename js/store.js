@@ -49,6 +49,7 @@ const Store = (() => {
       d.certs = d.certs || [];
       d.projects.forEach(p => { if (!p.skills) p.skills = SEED_PROJECT_SKILLS[p.id] || []; });
     }
+    if (d.version < 8) d.expenses = d.expenses || [];                   // masraflar
     d.version = DATA_VERSION;
     return d;
   }
@@ -144,6 +145,24 @@ const Store = (() => {
       persist();
       return p;
     },
+
+    // Masraflar: { userId, date, category, amount, description, projectId?, rebill, status, receipt?, decidedBy/At, rejectReason, paidAt }
+    expenses: ({ userId, status, from, to } = {}) =>
+      db.expenses.filter(x => (!userId || x.userId === userId) && (!status || x.status === status) && (!from || x.date >= from) && (!to || x.date <= to)),
+    expense: id => byId(db.expenses, id),
+    addExpense(x) {
+      const expense = { id: uid(), status: 'beklemede', rebill: false, receipt: null, createdAt: new Date().toISOString(), ...x };
+      db.expenses.push(expense); persist(); return expense;
+    },
+    updateExpense: (id, changes) => patch(db.expenses, id, changes),
+    deleteExpense(id) {
+      const i = db.expenses.findIndex(x => x.id === id);
+      if (i < 0) return null;
+      const [removed] = db.expenses.splice(i, 1);
+      persist();
+      return removed;
+    },
+    restoreExpense(x) { db.expenses.push(x); persist(); return x; },
 
     // Sertifikalar: { userId, name, code?, skillId?, issued?, expires? }
     certs: ({ userId } = {}) => db.certs.filter(c => !userId || c.userId === userId),

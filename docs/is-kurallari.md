@@ -54,6 +54,16 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] **Word CV:** her danışmanın tek bir .docx CV'si (en fazla 10 MB); yenisi eskisinin yerine geçer; eski .doc kabul edilmez. Yükleme kendisi ve yönetici (`saveCv`, `js/files.js`)
 - [x] Word CV'yi **yalnızca kendisi ve yönetici** görür / indirir (KVKK: CV'de telefon, adres gibi kişisel bilgi olur). Diğer danışmanlar yalnızca yüklü olup olmadığını görür (`canSeeCv`). Sunucuya geçince `GET /api/users/:id/cv` de yalnızca bu ikisine açılır.
 
+## Masraflar
+- [ ] Kategoriler: Ulaşım (uçak, tren, otobüs) · Taksi · Konaklama · Yemek · Otopark / otoyol · Diğer. Eksik var mı? (`EXPENSE_CATEGORIES`, `js/data.js`)
+- [ ] Tutar TL ve KDV dahil; tek masraf en fazla 100.000 TL (`EXPENSE_MAX`); tarih ileri olamaz. **Döviz** (yurt dışı) ve **kendi aracıyla km başına ödeme** gerekli mi?
+- [ ] Fiş / fatura **isteğe bağlı**; fişsiz masraf "fişsiz" etiketiyle görünür, yönetici onaylarken görür. Fiş zorunlu olsun mu (ör. belli bir tutarın üstünde)?
+- [x] "Müşteriye yansıtılacak" işaretlenirse proje zorunlu; yönetici raporunda müşteri bazında toplanır
+- [x] Akış: onay bekliyor → onaylandı (ödenecek) → ödendi; reddedilen gerekçesiyle danışmana döner, düzeltilip yeniden gönderilir. Onaylanan ve ödenen değiştirilemez (`canEditExpense`)
+- [ ] Onaylayan: yönetici rolündeki herkes. Yönetici kendi masrafını onaylayabilir mi?
+- [x] Danışman kendi masraflarını, yönetici herkesinkini görür
+- [x] Aynı gün, aynı kategori ve tutarda ikinci masrafta uyarı çıkar (iki kez girilmiş olabilir); ikinci gönderimde kaydedilir
+
 ## Müşteri ve proje
 - [ ] Faturalanır / faturalanmaz ayrımı **proje bazında**
 - [ ] Aylık sözleşme saati: %80'de uyarı, %100'de aşım (`budgetState`)

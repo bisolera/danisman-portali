@@ -10,7 +10,7 @@ Kurulum gerekmez. Klasörde `python serve.py` çalıştırıp http://localhost:4
 
 Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postanın `@` öncesini yaz (`emre.aydin`). Müşteri ve kişi adları kurgusaldır.
 
-**Veriler tarayıcıda durur** (kayıtlar localStorage'da, Word CV'ler IndexedDB'de). Tarayıcı verisi silinirse kayıtlar gider. **Profilim → Yedek indir** ile CV'ler dahil tek bir JSON dosyası alınır, **Yedekten geri yükle** ile geri yüklenir; geri yüklemeden önce mevcut verinin yedeği kendiliğinden indirilir. **Demo verilerini sıfırla** baştan başlatır.
+**Veriler tarayıcıda durur** (kayıtlar localStorage'da, Word CV'ler ve masraf fişleri IndexedDB'de). Tarayıcı verisi silinirse kayıtlar gider. **Profilim → Yedek indir** ile CV ve fişler dahil tek bir JSON dosyası alınır, **Yedekten geri yükle** ile geri yüklenir; geri yüklemeden önce mevcut verinin yedeği kendiliğinden indirilir. **Demo verilerini sıfırla** baştan başlatır.
 
 ## Ekranlar
 
@@ -19,6 +19,7 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 | Özet | Bugün/hafta saatleri, **aylık takvim** (girilen / girilmeyen günler), kalan izin, hızlı giriş, aylık formu indirme ve **yazdırma / PDF** |
 | Aktiviteler | Üç görünüm: **Günlük** (klavyeyle hızlı giriş, önceki günü kopyala), **Haftalık tablo** (CATS tarzı; hücreye saat yaz, Excel'den yapıştır), **Aylık** takvim ve ay kapanışı. Excel'den yükle, Excel'e aktar |
 | İzinler | Bakiye (**devreden izin** dahil), talep formu (hafta sonu/tatil düşülmez, arife yarım gün), taleplerim, onaylı izin için **iptal talebi**, ekipte kim izinli |
+| Masraflar | Masraf girişi (kategori, tutar, proje, **müşteriye yansıtılacak**, fiş fotoğrafı ya da PDF), onay ve ödeme durumu, aylık **masraf formu** (yazdır / PDF). Yöneticide: **onay** (tek tek ya da toplu, gerekçeli red), **ödenecekler** (kişi bazında "ödendi"), **rapor** (kişi × kategori, müşteriye yansıtılacaklar, Excel) |
 | Müşteriler & Projeler | Danışman için rehber, projelerde bu ayın sözleşme saati kullanımı; yönetici müşteri/proje ekler, durum, sözleşme saati ve **yetkinlik etiketlerini** belirler |
 | Yetkinlikler | **Profil** (seviye: Temel / Orta / Uzman, son 12 ayın deneyim saati, sertifikalar ve bitiş uyarısı, **Word CV**: yükle, açılır pencerede önizle, indir), **ekip matrisi** (kim neyi biliyor, kimin CV'si var), **uygun danışman** arama (seviye, sertifika şartı; yöneticide "bu ay müsait" ve CV önizleme), **yetkinlik özeti** (portaldaki bilgilerden PDF, müşteri adlarını gizleme) |
 | Yönetim (yönetici) | İzin ve iptal talebi onayı, **ay kapanışı onayı**, **raporlar** (faturalanır/iç saat, müşteri → proje → danışman, sözleşme kullanımı, talep bazında saat, Excel), **doluluk** (faturalanır saat ÷ hedef saat, %75 altı uyarı, son 6 ay, faturalanmayan saatlerin dökümü, Excel), ekibin haftalık ve aylık durumu, **tatiller** (resmi tatil ve şirketin köprü günleri), kullanıcılar |
@@ -76,7 +77,7 @@ js/rules.js      iş kuralları: hedef saat, izin günü, bakiye, eksik gün, ip
 js/ui.js         ortak bileşenler: proje seçici, aktivite formu, aylık takvim, pencere, menü, bildirim
 js/excel.js      Excel/CSV içe aktarma, aylık form, şablon ve dışa aktarma
 js/print.js      aylık form ve yetkinlik özetinin yazdırılabilir / PDF hali
-js/files.js      dosya deposu (IndexedDB) ve Word CV: yükleme, önizleme, indirme
+js/files.js      dosya deposu (IndexedDB): Word CV ve masraf fişleri; yükleme, önizleme, indirme
 js/closing.js    ay kapanışı: gönderme, onay/iade, kilit, geçmiş
 js/calendar.js   Outlook takvimi (.ics) okuma, tekrarlar, toplantı → proje önerileri
 js/views/*.js    ekranlar

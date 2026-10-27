@@ -43,6 +43,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `holiday_work` | holiday_id → holidays, user_id → users, mode (`half`/`full`), chosen_by, chosen_at | köprü izninde kim ne kadar çalışıyor; satırı olmayan izinli sayılır |
 | `user_skills` | user_id, skill_id, level (1–3), updated_at | yetkinlik seviyeleri; özet metni `users.summary` |
 | `certifications` | id, user_id, name, code, skill_id, issued, expires | bitişe 90 gün kala e-posta hatırlatması da buradan |
+| `expenses` | id, user_id, date, category, amount (12,2), description, project_id, rebill, status, receipt_key, decided_by, decided_at, reject_reason, paid_at, paid_by, created_at | indeks: (user_id, date), (status) |
 | `cv_files` | user_id (tekil), name, size, storage_key, uploaded_at, uploaded_by | dosyanın kendisi veritabanında değil, dosya deposunda (Azure Blob Storage / hosting'de web kökü dışındaki bir klasör) |
 | `project_skills` | project_id, skill_id | deneyim saati bu etiketlerden hesaplanır |
 | `user_prefs` | user_id, key, value (JSON) | son proje, Excel/takvim eşleştirmeleri |
@@ -68,6 +69,8 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET /api/reports/:month/utilization` | `teamUtilization`, `internalBreakdown` | yönetici |
 | `GET /api/skills`, `PUT /api/users/:id/skills`, `GET/POST/PATCH/DELETE /api/certifications` | yetkinlik ve sertifikalar | okuma: herkes; yazma: kendisi ya da yönetici |
 | `GET /api/consultants/search?skills&minLevel&cert&available` | `findConsultants` | herkes; `available` (doluluk) yalnızca yönetici |
+| `GET/POST/PATCH/DELETE /api/expenses`, `PUT /api/expenses/:id/receipt` | masraf ve fişi | sahibi (yalnızca onay beklerken ya da reddedilmişken değiştirir); okuma: sahibi ve yönetici |
+| `POST /api/expenses/decision` (`ids`, `approve`/`reject`, gerekçe), `POST /api/expenses/pay` (`userId`) | onay, red, ödendi | yönetici |
 | `PUT/DELETE /api/users/:id/cv`, `GET /api/users/:id/cv` | Word CV yükle / sil / indir | kendisi ya da yönetici; sunucu .docx imzasını ve 10 MB sınırını yeniden kontrol eder, dosya kişiye özel geçici bağlantıyla verilir |
 
 ## Microsoft 365 girişi (Entra ID)
@@ -93,6 +96,8 @@ Tarayıcıdaki prototip e-posta gönderemez; sunucuyla birlikte eklenir. Gönder
 | Geçen hafta eksik giriş | Danışman | Pazartesi 09:00, eksik gün varsa |
 | Onay bekleyenler özeti | Yönetici | her iş günü 09:00, bekleyen varsa |
 | Sertifika dolmak üzere | Danışman, yöneticiye özet | bitişe 90 ve 30 gün kala |
+| Masraf onaylandı / reddedildi / ödendi | Danışman | anında (reddedilende gerekçeyle) |
+| Onay bekleyen masraflar | Yönetici | günlük özete eklenir |
 
 - Zamanlanmış gönderimler: Azure Functions *timer trigger* (A) ya da hosting cron (B).
 - Tatil ve izin dikkate alınır (`rules.js` → `nextWorkday`, `missingDays`): izinli kişiye "eksik giriş" gitmez, tatile denk gelen hatırlatma bir sonraki iş gününe kayar.

@@ -24,6 +24,7 @@ const SHELL = [
   'js/views/dashboard.js',
   'js/views/activities.js',
   'js/views/leave.js',
+  'js/views/expenses.js',
   'js/views/customers.js',
   'js/views/skills.js',
   'js/views/admin.js',

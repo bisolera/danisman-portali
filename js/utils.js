@@ -81,6 +81,16 @@ function fmtNum(n) {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100).replace('.', ',');
 }
 function fmtHours(h) { return `${fmtNum(h)} sa`; }
+const MONEY = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fmtMoney(n) { return `${MONEY.format(n || 0)} ₺`; }
+// "1.250,50", "1250,5", "1250.50", "₺ 1.250" → sayı; anlaşılmazsa NaN
+function parseAmount(input) {
+  let s = String(input ?? '').replace(/[\s₺]|TL/gi, '');
+  if (!s) return NaN;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');   // "1.250" binlik ayraç
+  return /^\d+(\.\d+)?$/.test(s) ? Math.round(Number(s) * 100) / 100 : NaN;
+}
 function fmtSize(bytes) { return bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${fmtNum(Math.round(bytes / 104857.6) / 10)} MB`; }
 
 // Kullanıcının yazdığı süreyi saate çevirir: "2", "1,5", "1.5" veya "1:30"

@@ -2,13 +2,15 @@
 
 const SESSION_KEY = 'bisolera-session';
 
+// short: telefonun alt çubuğundaki kısa ad · badge: yöneticiye gösterilen bekleyen iş sayısı
 const ROUTES = {
   ozet: { title: 'Özet', icon: 'home', view: DashboardView },
-  aktiviteler: { title: 'Aktiviteler', icon: 'clock', view: ActivitiesView },
-  izinler: { title: 'İzinler', icon: 'sun', view: LeaveView },
+  aktiviteler: { title: 'Aktiviteler', short: 'Aktivite', icon: 'clock', view: ActivitiesView },
+  izinler: { title: 'İzinler', short: 'İzin', icon: 'sun', view: LeaveView },
+  masraflar: { title: 'Masraflar', short: 'Masraf', icon: 'wallet', view: ExpensesView, badge: () => pendingExpenses() },
   musteriler: { title: 'Müşteriler & Projeler', short: 'Projeler', icon: 'building', view: CustomersView },
   yetkinlik: { title: 'Yetkinlikler', short: 'Yetkinlik', icon: 'award', view: SkillsView },
-  yonetim: { title: 'Yönetim', icon: 'shield', view: AdminView, admin: true },
+  yonetim: { title: 'Yönetim', icon: 'shield', view: AdminView, admin: true, badge: () => pendingApprovals() },
 };
 
 // Uygulama olarak kurma (PWA): tarayıcı kuruluma hazır olduğunu bildirince pencere bekletilir, Profilim'den açılır
@@ -97,7 +99,7 @@ const App = {
           <a class="side-brand" href="#/ozet"><img data-logo src="${BRAND.logoOnDark}" alt="Bisolera"></a>
           <div class="side-label">Danışman Portalı</div>
           <nav class="side-nav">
-            ${links.map(([k, r]) => `<a class="nav-link" data-route="${k}" href="#/${k}">${icon(r.icon)}<span>${r.title}</span>${r.admin ? '<span class="nav-badge" data-badge hidden></span>' : ''}</a>`).join('')}
+            ${links.map(([k, r]) => `<a class="nav-link" data-route="${k}" href="#/${k}">${icon(r.icon)}<span>${r.title}</span>${r.badge ? `<span class="nav-badge" data-badge="${k}" hidden></span>` : ''}</a>`).join('')}
           </nav>
           <div class="side-foot">
             <button class="side-user" data-profile>${avatar(u, 34)}<span class="side-user-text"><strong>${esc(u.name)}</strong><small>${esc(u.title)}</small></span></button>
@@ -109,15 +111,19 @@ const App = {
         </header>
         <main class="main" id="view"></main>
         <nav class="tabbar">
-          ${links.map(([k, r]) => `<a class="tab" data-route="${k}" href="#/${k}">${icon(r.icon, 20)}<span>${r.short || r.title}</span>${r.admin ? '<span class="tab-badge" data-badge hidden></span>' : ''}</a>`).join('')}
+          ${links.map(([k, r]) => `<a class="tab" data-route="${k}" href="#/${k}">${icon(r.icon, 20)}<span>${r.short || r.title}</span>${r.badge ? `<span class="tab-badge" data-badge="${k}" hidden></span>` : ''}</a>`).join('')}
         </nav>
       </div>`;
     document.querySelectorAll('[data-profile]').forEach(b => b.addEventListener('click', openProfile));
   },
 
+  // Bekleyen iş sayıları yalnızca yöneticiye gösterilir (izin, ay kapanışı, masraf onayları)
   refreshBadges() {
-    const n = App.isAdmin() ? pendingApprovals() : 0;
-    document.querySelectorAll('[data-badge]').forEach(b => { b.hidden = !n; b.textContent = n; });
+    document.querySelectorAll('[data-badge]').forEach(b => {
+      const n = App.isAdmin() ? ROUTES[b.dataset.badge].badge() : 0;
+      b.hidden = !n;
+      b.textContent = n;
+    });
   },
 };
 

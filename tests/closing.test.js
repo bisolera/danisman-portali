@@ -49,7 +49,8 @@
 
   // Yönetici iade eder
   App.login(Store.user('u1'));
-  ok('rozet_5', document.querySelector('.nav-badge').textContent === '5', document.querySelector('.nav-badge').textContent);
+  const badge = () => document.querySelector('.nav-badge[data-badge=yonetim]').textContent;
+  ok('rozet_5', badge() === '5', badge());
   go('#/yonetim?tab=kapanis');
   ok('kapanis_sekme_sayisi', document.querySelector('#tabs [data-tab=kapanis]').textContent.includes('3'), document.querySelector('#tabs [data-tab=kapanis]').textContent);
   document.querySelector('#panel tr[data-user="u2"] [data-review]').click();
@@ -61,7 +62,7 @@
   m.querySelector('[data-return]').click();
   await wait(250);
   ok('iade_edildi', periodStatus('u2', prev) === 'iade' && Store.period('u2', pm).reviewNote === 'İzin girilmemiş');
-  ok('rozet_4', document.querySelector('.nav-badge').textContent === '4', document.querySelector('.nav-badge').textContent);
+  ok('rozet_4', badge() === '4', badge());
 
   // Danışman düzeltir ve yeniden gönderir
   App.login(Store.user('u2'));

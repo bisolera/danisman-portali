@@ -629,6 +629,37 @@ async function exportUtilization(iso) {
   toast(`${monthTitle(iso)} doluluk raporu indirildi`);
 }
 
+// Masraf raporu (muhasebe için): tüm kalemler, kişi özeti, müşteriye yansıtılacaklar. Reddedilenler hariç.
+async function exportExpenses(iso) {
+  const r = expenseMonthReport(iso);
+  if (!r.items.length) { toast(`${monthTitle(iso)} için masraf yok`, { tone: 'info' }); return; }
+  const XLSX = await loadXLSX();
+  const where = x => { const p = x.projectId && Store.project(x.projectId); return p ? [Store.customer(p.customerId).name, p.name] : ['', '']; };
+  const rows = [['Tarih', 'Danışman', 'Kategori', 'Açıklama', 'Müşteri', 'Proje', 'Müşteriye yansıtılacak', 'Fiş', 'Durum', 'Tutar (TL)'],
+    ...r.items.map(x => [x.date, Store.user(x.userId)?.name || x.userId, expenseCategoryName(x.category), x.description, ...where(x),
+      x.rebill ? 'Evet' : 'Hayır', x.receipt ? 'Var' : 'Yok', EXPENSE_STATUS[x.status].label, x.amount])];
+  const cats = EXPENSE_CATEGORIES.filter(c => r.people.some(p => p.byCategory[c.id]));
+  const people = [['Danışman', ...cats.map(c => c.name), 'Toplam', 'Onay bekleyen', 'Ödenecek', 'Ödendi', 'Fişsiz kalem'],
+    ...r.people.map(p => [p.user.name, ...cats.map(c => p.byCategory[c.id] || 0), p.total, p.pending, p.toPay, p.paid, p.noReceipt]),
+    [], ['Toplam', ...cats.map(c => sum(r.people, p => p.byCategory[c.id] || 0)), r.total]];
+  const rebill = [['Müşteri', 'Proje', 'Tarih', 'Danışman', 'Kategori', 'Açıklama', 'Tutar (TL)'],
+    ...r.rebill.flatMap(c => [...c.items.map(x => [c.customer.name, where(x)[1], x.date, Store.user(x.userId)?.name || '', expenseCategoryName(x.category), x.description, x.amount]),
+      [c.customer.name, 'Toplam', '', '', '', '', c.total], []])];
+
+  const wb = XLSX.utils.book_new();
+  const add = (aoa, name, cols, dateCol) => {
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    if (dateCol) dateColumnToExcel(ws, XLSX, aoa.length);
+    ws['!cols'] = cols.map(wch => ({ wch }));
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+  add(rows, 'Masraflar', [12, 22, 16, 44, 20, 28, 12, 8, 14, 12], true);
+  add(people, 'Kişi özeti', [22, ...cats.map(() => 14), 14, 14, 14, 14, 12]);
+  add(rebill, 'Müşteriye yansıtılacak', [22, 28, 12, 22, 16, 44, 12]);
+  XLSX.writeFile(wb, `bisolera-masraf-${iso.slice(0, 7)}.xlsx`);
+  toast(`${monthTitle(iso)} masraf raporu indirildi`);
+}
+
 // Ham liste: her kayıt bir satır + proje bazında özet sayfası
 async function exportActivities(user, from, to, tag) {
   const items = Store.activities({ userId: user.id, from, to }).slice().sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt));

@@ -377,6 +377,69 @@ function cvProjects(userId, today = todayISO()) {
   return [...map.values()].sort((a, b) => b.to.localeCompare(a.to));
 }
 
+/* ---------- Masraflar ---------- */
+
+// Masraf taslağının sorunları (boşsa kaydedilebilir)
+function expenseErrors(x, today = todayISO()) {
+  const errors = [];
+  if (!x.date) errors.push('Tarihi seç.');
+  else if (x.date > today) errors.push('Masraf tarihi ileri bir gün olamaz.');
+  if (!EXPENSE_CATEGORIES.some(c => c.id === x.category)) errors.push('Kategori seç.');
+  if (!(x.amount > 0)) errors.push('Tutarı yaz (ör. 1.250,50).');
+  else if (x.amount > EXPENSE_MAX) errors.push(`Tek masraf en fazla ${fmtMoney(EXPENSE_MAX)} olabilir.`);
+  if (!x.description || x.description.trim().length < 3) errors.push('Kısa bir açıklama yaz (ne için?).');
+  if (x.rebill && !x.projectId) errors.push('Müşteriye yansıtılacak masrafta proje seçilmeli.');
+  return errors;
+}
+
+// Danışman yalnızca onay beklerken düzenler; reddedilen düzeltilip yeniden gönderilir
+const canEditExpense = x => x.status === 'beklemede' || x.status === 'reddedildi';
+
+// Aynı gün, aynı kategori ve tutarda başka bir masraf varsa (iki kez girilmiş olabilir)
+const duplicateExpense = (x, ignoreId = null) => Store.expenses({ userId: x.userId, from: x.date, to: x.date })
+  .find(o => o.id !== ignoreId && o.status !== 'reddedildi' && o.category === x.category && o.amount === x.amount) || null;
+
+// Danışmanın özet kartları: bu ay, onay bekleyen, ödenecek, bu yıl ödenen
+function expenseSummary(userId, today = todayISO()) {
+  const mine = Store.expenses({ userId }).filter(x => x.status !== 'reddedildi');
+  const total = list => sum(list, x => x.amount);
+  return {
+    month: total(mine.filter(x => x.date >= monthStart(today) && x.date <= today)),
+    pending: total(mine.filter(x => x.status === 'beklemede')),
+    toPay: total(mine.filter(x => x.status === 'onaylandi')),
+    paidYear: total(mine.filter(x => x.status === 'odendi' && x.date.slice(0, 4) === today.slice(0, 4))),
+  };
+}
+
+// Ayın masraf raporu (yönetici): kişi ve kategori bazında, müşteriye yansıtılacaklar müşteri bazında. Reddedilenler dışarıda.
+function expenseMonthReport(iso) {
+  const items = Store.expenses({ from: monthStart(iso), to: monthEnd(iso) }).filter(x => x.status !== 'reddedildi')
+    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+  const people = new Map(), customers = new Map();
+  items.forEach(x => {
+    const p = people.get(x.userId) || { user: Store.user(x.userId), total: 0, pending: 0, toPay: 0, paid: 0, byCategory: {}, noReceipt: 0 };
+    p.total += x.amount;
+    p[{ beklemede: 'pending', onaylandi: 'toPay', odendi: 'paid' }[x.status]] += x.amount;
+    p.byCategory[x.category] = (p.byCategory[x.category] || 0) + x.amount;
+    if (!x.receipt) p.noReceipt++;
+    people.set(x.userId, p);
+    if (x.rebill && x.projectId) {
+      const project = Store.project(x.projectId), customer = Store.customer(project.customerId);
+      const c = customers.get(customer.id) || { customer, total: 0, items: [] };
+      c.total += x.amount;
+      c.items.push(x);
+      customers.set(customer.id, c);
+    }
+  });
+  return {
+    items, total: sum(items, x => x.amount),
+    people: [...people.values()].sort((a, b) => b.total - a.total),
+    rebill: [...customers.values()].sort((a, b) => b.total - a.total),
+  };
+}
+
+const pendingExpenses = () => Store.expenses({ status: 'beklemede' }).length;
+
 /* ---------- Ay kapanışı ---------- */
 
 function periodStatus(userId, iso) { return Store.period(userId, iso.slice(0, 7))?.status || 'acik'; }

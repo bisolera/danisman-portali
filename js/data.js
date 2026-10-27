@@ -2,7 +2,7 @@
    Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
 
 const COMPANY_DOMAIN = 'bisolera.com';
-const DATA_VERSION = 7;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
+const DATA_VERSION = 8;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
 const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor
 
 const BRAND = {
@@ -52,6 +52,24 @@ const PERIOD_ACTIONS = {
   gonderildi: 'onaya gönderdi', geri_cekildi: 'gönderimi geri çekti', iade: 'iade etti',
   onaylandi: 'onayladı', onay_geri_alindi: 'onayı geri aldı', kilit_acildi: 'kilidi açtı',
 };
+
+// Masraflar: TL, KDV dahil. Akış: beklemede → onaylandi (ödenecek) → odendi · reddedildi (gerekçeli; düzeltip yeniden gönderilir)
+const EXPENSE_CATEGORIES = [
+  { id: 'ulasim', name: 'Ulaşım', hint: 'uçak, tren, otobüs' },
+  { id: 'taksi', name: 'Taksi' },
+  { id: 'konaklama', name: 'Konaklama' },
+  { id: 'yemek', name: 'Yemek' },
+  { id: 'otopark', name: 'Otopark / otoyol' },
+  { id: 'diger', name: 'Diğer' },
+];
+const expenseCategoryName = id => (EXPENSE_CATEGORIES.find(c => c.id === id) || { name: id }).name;
+const EXPENSE_STATUS = {
+  beklemede: { label: 'Onay bekliyor', tone: 'warn' },
+  onaylandi: { label: 'Ödenecek', tone: 'info' },
+  odendi: { label: 'Ödendi', tone: 'ok' },
+  reddedildi: { label: 'Reddedildi', tone: 'danger' },
+};
+const EXPENSE_MAX = 100000;
 
 // Yetkinlik kataloğu: danışman seviyesini girer, projeler bu kimliklerle etiketlenir (deneyim saati buradan hesaplanır)
 const SKILLS = [
@@ -269,7 +287,18 @@ function buildSeed() {
     { id: 'k5', userId: 'u5', name: 'SAP BPC Associate', skillId: 'bpc', issued: '2021-09-20', expires: null },
   ];
 
-  return { version: DATA_VERSION, users, customers, projects, leaves, periods, certs, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
+  // Masraflar (demo): bu ay ve geçen ay, farklı durumlarda
+  const day = n => [addDays(monthStart(today), n), addDays(today, -1)].sort()[0];
+  const pm = monthStart(addMonths(today, -1));
+  const expenses = [
+    { id: 'x1', userId: 'u2', date: day(2), category: 'ulasim', amount: 2480, description: 'İstanbul – Kayseri uçak bileti, müşteri ziyareti', projectId: 'p17', rebill: true, status: 'beklemede' },
+    { id: 'x2', userId: 'u2', date: day(3), category: 'konaklama', amount: 3150, description: 'Kayseri otel, 1 gece', projectId: 'p17', rebill: true, status: 'beklemede' },
+    { id: 'x3', userId: 'u2', date: day(1), category: 'taksi', amount: 420, description: 'Havalimanı – müşteri ofisi', projectId: 'p17', rebill: false, status: 'onaylandi', decidedBy: 'u1', decidedAt: `${day(4)}T10:00` },
+    { id: 'x4', userId: 'u3', date: addDays(pm, 8), category: 'yemek', amount: 860, description: 'Müşteriyle iş yemeği (3 kişi)', projectId: 'p3', rebill: false, status: 'odendi', decidedBy: 'u1', decidedAt: `${addDays(pm, 10)}T09:30`, paidAt: `${addDays(pm, 20)}T12:00` },
+    { id: 'x5', userId: 'u5', date: addDays(pm, 14), category: 'otopark', amount: 150, description: 'Müşteri otoparkı', projectId: 'p8', rebill: false, status: 'reddedildi', decidedBy: 'u1', decidedAt: `${addDays(pm, 16)}T11:00`, rejectReason: 'Fiş eksik; fişi ekleyip yeniden gönder.' },
+  ].map(x => ({ createdAt: `${x.date}T18:00`, receipt: null, ...x }));
+
+  return { version: DATA_VERSION, users, customers, projects, leaves, periods, certs, expenses, holidays: defaultHolidays(), activities: generateActivities(users, leaves, monday) };
 }
 
 // Son 5 haftanın aktivitelerini üretir: hafta sonu, tatil ve izin günleri atlanır

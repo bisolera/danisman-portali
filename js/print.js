@@ -81,6 +81,54 @@ function printMonthlyForm(user, iso, { customerIds = null, signature = true } = 
   return true;
 }
 
+/* ---------- Aylık masraf formu ---------- */
+
+// Danışmanın ayın masrafları (reddedilenler hariç): tablo, kategori ara toplamları, danışman ve onaylayan imzası
+function printExpenseForm(user, iso) {
+  const items = Store.expenses({ userId: user.id, from: monthStart(iso), to: monthEnd(iso) }).filter(x => x.status !== 'reddedildi')
+    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+  if (!items.length) { toast(`${monthTitle(iso)} için masraf yok`, { tone: 'info' }); return false; }
+  const total = sum(items, x => x.amount), rebill = sum(items.filter(x => x.rebill), x => x.amount);
+  const byCategory = EXPENSE_CATEGORIES.map(c => [c, sum(items.filter(x => x.category === c.id), x => x.amount)]).filter(([, t]) => t);
+  const approvers = [...new Set(items.map(x => x.decidedBy && Store.user(x.decidedBy)?.name).filter(Boolean))];
+  const where = x => {
+    const p = x.projectId && Store.project(x.projectId);
+    return p ? `${Store.customer(p.customerId).name} · ${p.name}` : '';
+  };
+  printPages(`<section class="print-page">
+    <header class="print-head">
+      <span class="print-brand">BISOLERA</span>
+      <div><h1>Masraf Formu</h1><p>${esc(monthTitle(iso))}</p></div>
+    </header>
+    <dl class="print-meta">
+      <div><dt>Danışman</dt><dd>${esc(user.name)}</dd></div>
+      <div><dt>Dönem</dt><dd>${esc(monthTitle(iso))}</dd></div>
+      <div><dt>Masraf</dt><dd>${items.length} kalem</dd></div>
+      <div><dt>Toplam (KDV dahil)</dt><dd>${fmtMoney(total)}</dd></div>
+    </dl>
+    <table class="print-table">
+      <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Müşteri / Proje</th><th>Fiş</th><th>Durum</th><th class="num">Tutar</th></tr></thead>
+      <tbody>${items.map(x => `<tr>
+        <td class="nowrap">${fmtShort(x.date)}</td>
+        <td class="nowrap">${esc(expenseCategoryName(x.category))}</td>
+        <td>${esc(x.description)}</td>
+        <td>${esc(where(x))}${x.rebill ? ' <b>(müşteriye)</b>' : ''}</td>
+        <td class="nowrap">${x.receipt ? 'Var' : 'Yok'}</td>
+        <td class="nowrap">${esc(EXPENSE_STATUS[x.status].label)}</td>
+        <td class="num">${fmtMoney(x.amount)}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="6">Toplam</td><td class="num">${fmtMoney(total)}</td></tr></tfoot>
+    </table>
+    <p class="print-subtotals">${byCategory.map(([c, t]) => `${esc(c.name)}: <b>${fmtMoney(t)}</b>`).join(' · ')}${rebill ? ` · Müşteriye yansıtılacak: <b>${fmtMoney(rebill)}</b>` : ''}</p>
+    <div class="print-sign">
+      <div><span>Danışman</span><b>${esc(user.name)}</b><i>İmza / Tarih</i></div>
+      <div><span>Onaylayan</span><b>${esc(approvers.join(', '))}</b><i>İmza / Tarih</i></div>
+    </div>
+    <footer class="print-foot">Bisolera Danışman Portalı · ${esc(fmtStamp(new Date().toISOString()))}</footer>
+  </section>`, `Masraf Formu_${user.name}_${TR_MONTHS[parseISO(iso).getMonth()]}_${parseISO(iso).getFullYear()}`);
+  return true;
+}
+
 /* ---------- Teklif için danışman CV'si ---------- */
 
 const monthYear = iso => `${TR_MONTHS_SHORT[parseISO(iso).getMonth()]} ${parseISO(iso).getFullYear()}`;
