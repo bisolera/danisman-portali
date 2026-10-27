@@ -52,7 +52,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Herkes ekibin yetkinliklerini ve CV'sini görür; düzenleme kendisi ve yönetici
 - [x] Yetkinlik özeti (portalın ürettiği PDF): son 24 ayın müşteri projeleri (iç projeler hariç); "müşteri adlarını gizle" seçilince müşteri yerine sektör yazar
 - [x] **Word CV:** her danışmanın tek bir .docx CV'si (en fazla 10 MB); yenisi eskisinin yerine geçer; eski .doc kabul edilmez. Yükleme kendisi ve yönetici (`saveCv`, `js/files.js`)
-- [ ] Word CV'yi **yalnızca kendisi ve yönetici** görür / indirir (KVKK: CV'de telefon, adres gibi kişisel bilgi olur). Diğer danışmanlar yalnızca yüklü olup olmadığını görür. Ekip birbirinin CV'sini görsün mü? (`canSeeCv`)
+- [x] Word CV'yi **yalnızca kendisi ve yönetici** görür / indirir (KVKK: CV'de telefon, adres gibi kişisel bilgi olur). Diğer danışmanlar yalnızca yüklü olup olmadığını görür (`canSeeCv`). Sunucuya geçince `GET /api/users/:id/cv` de yalnızca bu ikisine açılır.
 
 ## Müşteri ve proje
 - [ ] Faturalanır / faturalanmaz ayrımı **proje bazında**
