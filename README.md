@@ -32,6 +32,8 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 
 **Profilim → Görünüm**'den beş tema seçilir: **Klasik** (varsayılan; koyu kenar menü, Bisolera yeşili), **Açık & ferah**, **Koyu mod**, **Kurumsal mavi** (menü üstte yatay çubuk) ve **Sıcak & yumuşak**. **Rahat / Sıkı** yoğunluk ekrana sığan bilgi miktarını değiştirir. Seçim anında uygulanır ve bu tarayıcıda saklanır; çıktılar (aylık form, masraf formu, CV) her temada Bisolera renkleriyle basılır. Temalar yalnızca `css/styles.css`'teki renk değişkenlerini değiştirir (`css/themes.css`, `js/theme.js`).
 
+**Tarih kutuları** tarayıcının dili ne olursa olsun gün.ay.yıl (`23.10.2026`) yazar; takvim Türkçe ve pazartesiyle başlar. Elle yazarken noktalar kendiliğinden gelir; `23/10/2026`, `23102026` ya da iki haneli yıl da olur, olmayan bir tarih (31.02) kabul edilmez. Tarayıcının kendi tarih kutusu gizli kalır ve ISO değeri (`2026-10-23`) taşır, formlar onu okur (`enhanceDateInput`, `js/ui.js`). Excel içe aktarmada dönem Türkçe ay adlarından seçilir.
+
 ## Yazdırma / PDF ve telefona kurulum
 
 - **Aylık formu yazdır / PDF:** Özet, Aktiviteler → Dışa aktar, ay kapanışı paneli ve Yönetim → Ay kapanışı'ndan. Müşteri başına bir A4 sayfa, altta danışman ve müşteri onayı için imza alanı. Yazdır penceresinde "PDF olarak kaydet" seçilince PDF olur.

@@ -161,6 +161,148 @@ function formError(form, msg, field) {
   }
 }
 
+/* ---------- Tarih alanı: gg.aa.yyyy ----------
+   Tarayıcının tarih kutusu tarihi tarayıcının diline göre gösterir (İngilizcede ay/gün/yıl). Asıl <input type="date">
+   gizli kalır: adı, ISO değeri ve olayları aynen çalışır, formlar bir şey fark etmez. Üstünde gg.aa.yyyy yazılan bir
+   kutu ve Türkçe, pazartesiyle başlayan bir takvim durur. Sayfaya eklenen her tarih kutusu kendiliğinden dönüşür. */
+const TR_WEEKDAYS_SHORT = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+const NATIVE_VALUE = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+const fmtDateInput = iso => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : '');
+// "23.10.2026", "3/1/2026", "23-10-26", "23102026" → ISO; olmayan tarih (31.02) → null.
+// Yazarken (loose = false) yıl dört hane olmalı; yoksa "23.10.20" yazılırken 2020'ye atlanırdı.
+function parseDateInput(text, loose = false) {
+  const m = String(text || '').trim().match(loose ? /^(\d{1,2})[./\- ](\d{1,2})[./\- ](\d{4}|\d{2})$/ : /^(\d{1,2})[./\- ](\d{1,2})[./\- ](\d{4})$/)
+    || String(text || '').trim().match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (!m) return null;
+  const d = Number(m[1]), mo = Number(m[2]), y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const dt = new Date(y, mo - 1, d);
+  return y >= 1900 && y <= 2100 && dt.getMonth() === mo - 1 && dt.getDate() === d ? toISO(dt) : null;
+}
+
+function enhanceDateInput(native) {
+  native.dataset.dated = '1';
+  const wrap = document.createElement('span'), text = document.createElement('input'), btn = document.createElement('button');
+  wrap.className = 'date-field';
+  Object.assign(text, { type: 'text', className: `${native.className} date-text`, placeholder: 'gg.aa.yyyy', maxLength: 10, autocomplete: 'off' });
+  text.setAttribute('inputmode', 'numeric');
+  if (native.id) { text.id = native.id; native.removeAttribute('id'); }     // <label for> görünen kutuya gitsin
+  Object.assign(btn, { type: 'button', className: 'date-btn', tabIndex: -1, innerHTML: icon('calendar', 16) });
+  btn.setAttribute('aria-label', 'Takvimden seç');
+  native.tabIndex = -1;
+  native.setAttribute('aria-hidden', 'true');
+  native.before(wrap);
+  wrap.append(text, btn, native);
+
+  const field = {
+    native, text,
+    show() { text.value = fmtDateInput(NATIVE_VALUE.get.call(native)); text.disabled = btn.disabled = native.disabled; },
+    commit(iso) {               // asıl kutuya yazar; formlar her zamanki input / change olaylarını alır
+      if (iso === NATIVE_VALUE.get.call(native)) return;
+      NATIVE_VALUE.set.call(native, iso);
+      native.dispatchEvent(new Event('input', { bubbles: true }));
+      native.dispatchEvent(new Event('change', { bubbles: true }));
+      if (datePop?.field === field) datePop.sync();
+    },
+    settle() {                  // yazılanı kabul et; anlaşılmazsa son geçerli tarihe dön
+      const v = text.value.trim(), iso = v ? parseDateInput(v, true) : '';
+      if (iso !== null) field.commit(iso);
+      field.show();
+    },
+  };
+  // Kod değeri doğrudan yazınca (el.start.value = '…') görünen kutu da güncellensin
+  Object.defineProperty(native, 'value', { configurable: true, get() { return NATIVE_VALUE.get.call(this); }, set(v) { NATIVE_VALUE.set.call(this, v); field.show(); } });
+  native.addEventListener('focus', () => text.focus());     // formError ve etiket tıklaması görünen kutuya gelsin
+  native.form?.addEventListener('reset', () => setTimeout(field.show));
+
+  text.addEventListener('input', e => {
+    if (e.inputType?.startsWith('insert') && /^\d{2}$|^\d{1,2}\.\d{2}$/.test(text.value)) text.value += '.';
+    const v = text.value.trim(), iso = v ? parseDateInput(v) : '';
+    if (iso !== null) field.commit(iso);
+  });
+  text.addEventListener('blur', () => { if (datePop?.field !== field) field.settle(); });
+  text.addEventListener('keydown', e => {
+    if (e.key === 'Enter') field.settle();                   // gönderimden önce yazılan tarih asıl kutuya geçsin
+    if (e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); openDatePicker(field); }
+  });
+  text.addEventListener('click', () => { if (datePop?.field !== field) openDatePicker(field); });
+  btn.addEventListener('click', () => { if (datePop?.field === field) closeDatePicker(); else { text.focus(); openDatePicker(field); } });
+  field.show();
+}
+
+let datePop = null;     // açık takvim: { field, el, sync, close }
+function closeDatePicker() { datePop?.close(); }
+
+function openDatePicker(field) {
+  closeDatePicker();
+  const { native, text } = field;
+  if (native.disabled) return;
+  const today = todayISO(), min = native.min, max = native.max;
+  const outside = d => (min && d < min) || (max && d > max);
+  const startOn = () => monthStart(native.value || (max && today > max ? max : min && today < min ? min : today));
+  let month = startOn();
+  const el = document.createElement('div');
+  el.className = 'date-pop';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-label', 'Tarih seç');
+
+  const render = () => {
+    const sel = native.value, days = Array.from({ length: 42 }, (_, i) => addDays(weekStart(month), i));
+    el.innerHTML = `<div class="dp-head">
+        <button type="button" class="icon-btn sm" data-dp-nav="-1" aria-label="Önceki ay">${icon('chevron-left', 16)}</button>
+        <strong>${monthTitle(month)}</strong>
+        <button type="button" class="icon-btn sm" data-dp-nav="1" aria-label="Sonraki ay">${icon('chevron-right', 16)}</button>
+      </div>
+      <div class="dp-grid">${TR_WEEKDAYS_SHORT.map(d => `<span class="dp-wd">${d}</span>`).join('')}${days.map(d => `<button type="button" class="dp-day${
+        d.slice(0, 7) !== month.slice(0, 7) ? ' is-out' : ''}${isWeekend(d) ? ' is-we' : ''}${d === today ? ' is-today' : ''}${d === sel ? ' is-sel' : ''}" data-dp-day="${d}"${
+        outside(d) ? ' disabled' : ''} aria-label="${fmtDate(d, { weekday: true })}">${parseISO(d).getDate()}</button>`).join('')}</div>
+      <div class="dp-foot"><button type="button" class="link-btn" data-dp-day="${today}"${outside(today) ? ' disabled' : ''}>Bugün</button>
+        <button type="button" class="link-btn" data-dp-clear>Temizle</button></div>`;
+  };
+  const place = () => {
+    const r = text.getBoundingClientRect(), h = el.offsetHeight, w = el.offsetWidth;
+    const below = r.bottom + 6 + h <= innerHeight || r.top - 6 - h < 0;
+    el.style.top = `${below ? r.bottom + 6 : r.top - 6 - h}px`;
+    el.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
+  };
+  const pick = iso => { close(); field.commit(iso); field.show(); if (text.isConnected) text.focus(); };
+
+  el.addEventListener('mousedown', e => e.preventDefault());       // tıklamak yazı kutusunun odağını almasın
+  el.addEventListener('click', e => {
+    const nav = e.target.closest('[data-dp-nav]'), day = e.target.closest('[data-dp-day]');
+    if (nav) { month = addMonths(month, Number(nav.dataset.dpNav)); render(); }
+    else if (day && !day.disabled) pick(day.dataset.dpDay);
+    else if (e.target.closest('[data-dp-clear]')) pick('');
+  });
+  const onDown = e => { if (!el.contains(e.target) && !text.parentNode.contains(e.target)) close(); };
+  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); text.focus(); } };   // açık pencere kapanmasın
+  const onScroll = e => { if (!el.contains(e.target)) close(); };
+  function close() {
+    el.remove();
+    document.removeEventListener('mousedown', onDown, true);
+    window.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', close);
+    if (datePop?.el === el) datePop = null;
+  }
+  document.addEventListener('mousedown', onDown, true);
+  window.addEventListener('keydown', onKey, true);
+  window.addEventListener('scroll', onScroll, true);
+  window.addEventListener('resize', close);
+  datePop = { field, el, close, sync() { month = startOn(); render(); } };
+  render();
+  document.body.append(el);
+  place();
+}
+
+function enhanceDateInputs(root) {
+  if (root.matches?.('input[type="date"]:not([data-dated])')) enhanceDateInput(root);
+  else root.querySelectorAll?.('input[type="date"]:not([data-dated])').forEach(enhanceDateInput);
+}
+new MutationObserver(list => list.forEach(r => r.addedNodes.forEach(n => n.nodeType === 1 && enhanceDateInputs(n))))
+  .observe(document.body, { childList: true, subtree: true });
+enhanceDateInputs(document.body);
+
 function groupByCustomer(projects) {
   const map = new Map();
   projects.forEach(p => { if (!map.has(p.customerId)) map.set(p.customerId, []); map.get(p.customerId).push(p); });

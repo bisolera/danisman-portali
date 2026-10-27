@@ -310,6 +310,15 @@ function projectOptions(selectedId) {
     `<optgroup label="${esc(g.title)}">${g.items.map(p => `<option value="${p.id}"${p.id === selectedId ? ' selected' : ''}>${esc(p.name)} · ${esc(p.code)}</option>`).join('')}</optgroup>`).join('');
 }
 
+// Dönem seçimi Türkçe ay adlarıyla (tarayıcının ay kutusu tarayıcının dilinde yazardı): son 2 yıl ve gelecek ay; değer 'YYYY-MM'
+function monthOptions(selected) {
+  const now = monthStart(todayISO());
+  const months = Array.from({ length: 26 }, (_, i) => addMonths(now, 1 - i).slice(0, 7));
+  if (selected && !months.includes(selected)) months.push(selected);
+  return `${selected ? '' : '<option value="">Ay seç</option>'}${months.sort().reverse().map(m =>
+    `<option value="${m}"${m === selected ? ' selected' : ''}>${monthTitle(`${m}-01`)}</option>`).join('')}`;
+}
+
 function openImportDialog(userId, onDone, { defaultMonth = null } = {}) {
   const recent = recentProjectIds(userId).map(id => Store.project(id)).filter(p => p?.status === 'aktif');
   const [p1, p2] = [recent[0], recent[1] || recent[0]].map(p => p?.code || 'KZY-BW');
@@ -421,7 +430,7 @@ function openImportDialog(userId, onDone, { defaultMonth = null } = {}) {
             <div class="row-gap">${stat('ok', 'hazır', 'ok')}${stat('warn', 'uyarılı', 'warn')}${stat('map', 'proje bekliyor', 'warn')}${stat('dup', 'zaten kayıtlı', 'muted')}${stat('sample', 'şablon örneği', 'muted')}${stat('error', 'hatalı', 'danger')}</div>
           </div>
           ${info.usesDayNumbers || info.usesDefaultType ? `<div class="import-options">
-            ${info.usesDayNumbers ? `<label class="field"><span class="field-label">Dönem <span class="faint">(GÜN sütunu bu aya yerleşir)</span></span><input class="input" type="month" data-opt="month" value="${opts.month || ''}"></label>` : ''}
+            ${info.usesDayNumbers ? `<label class="field"><span class="field-label">Dönem <span class="faint">(GÜN sütunu bu aya yerleşir)</span></span><select class="input" data-opt="month">${monthOptions(opts.month)}</select></label>` : ''}
             ${info.usesDefaultType ? `<label class="field"><span class="field-label">Türü belirtilmeyen satırlar</span><select class="input" data-opt="type">${ACTIVITY_TYPES.map(t => `<option value="${t.id}"${t.id === opts.defaultType ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
           </div>` : ''}
           ${groups.length ? `<div class="import-map">
