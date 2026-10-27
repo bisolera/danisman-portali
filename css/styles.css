@@ -660,8 +660,16 @@ tr.is-inactive .grid-proj { opacity: .55; }
 .bridge-main small { color: var(--muted); font-size: 12.5px; }
 .bridge-card { margin-bottom: 18px; padding-top: 6px; padding-bottom: 6px; }
 #dayList > .bridge { margin-bottom: 8px; border-bottom: 1px solid var(--line-2); }
+.bridge-opts { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 10px; background: var(--line-2); }
+.bridge-opts button { border: 0; background: transparent; padding: 6px 10px; border-radius: 8px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.bridge-opts button:hover { background: #fff; }
+.bridge-opts button.is-active { background: var(--card); color: var(--brand-700); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
 .block-sm { display: block; font-size: 12px; margin-top: 2px; }
-@media (max-width: 560px) { .bridge { flex-wrap: wrap; } .bridge > .btn, .bridge > span.muted { margin-left: 44px; } }
+.work-pick { display: flex; flex-direction: column; gap: 6px; }
+.work-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 230px); align-items: center; gap: 10px; font-weight: 500; }
+.work-row .input { padding-top: 6px; padding-bottom: 6px; font-size: 13px; }
+@media (max-width: 560px) { .work-row { grid-template-columns: 1fr; gap: 4px; } }
+@media (max-width: 900px) { .bridge { flex-wrap: wrap; } .bridge > .bridge-opts, .bridge > span.muted { margin-left: 44px; } }
 .install-box { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .install-box p { margin: 0; color: var(--muted); }
 

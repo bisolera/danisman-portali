@@ -10,19 +10,32 @@ function mergeHolidays(list) {
 }
 function getHoliday(iso) { return mergeHolidays(Store.holidaysOn(iso)); }
 
-// Kişiye göre tatil: köprü izninde "çalışacağım" diyen için köprü kısmı yok sayılır (o kısım normal iş)
-const isBridgeWorker = (h, userId) => h?.kind === 'kopru' && !!h.workers?.includes(userId);
-function holidayFor(userId, iso) {
-  return mergeHolidays(Store.holidaysOn(iso).filter(h => !isBridgeWorker(h, userId)));
+// Köprü izninde kişinin seçimi (h.work = { userId: 'full' | 'half' }): tam gün çalışır, yarım gün çalışır ya da izinli (null).
+// Yarım gün köprüde "yarım gün çalışmak" köprünün tamamını çalışmak demektir.
+const bridgeWork = (h, userId) => (h?.kind === 'kopru' && h.work?.[userId]) || null;
+
+// Köprünün kişi için izinli kalan kısmı (gün): tam gün köprüde 1 / 0,5 / 0, yarım gün köprüde 0,5 / 0
+function bridgeOff(h, userId) {
+  const length = h.half ? 0.5 : 1, work = bridgeWork(h, userId);
+  return work === 'full' ? 0 : work === 'half' ? Math.max(0, length - 0.5) : length;
 }
 
-// Köprü izninde çalışmayanın yıllık izninden düşen gün (yarım gün köprüde 0,5).
+// Kişiye göre tatil: köprünün çalışılan kısmı o kişi için normal iş sayılır.
+// Tam gün köprüde yarım gün çalışan için gün yarım gün tatil olur (hedef 4 saat).
+function holidayFor(userId, iso) {
+  return mergeHolidays(Store.holidaysOn(iso).flatMap(h => {
+    if (h.kind !== 'kopru') return [h];
+    const off = bridgeOff(h, userId);
+    return !off ? [] : off === 0.5 && !h.half ? [{ ...h, half: true }] : [h];
+  }));
+}
+
+// Köprü izninde kişinin yıllık izninden düşen gün: izinli kalan kısım (1, 0,5 ya da 0).
 // O gün başka türde onaylı izni varsa (rapor vb.) ya da henüz işe girmemişse düşülmez.
 function bridgeDays(user, year) {
   const other = Store.leaves({ userId: user.id, status: 'onaylandi' }).filter(l => l.type !== 'yillik');
   return sum(Store.holidays({ from: `${year}-01-01`, to: `${year}-12-31` }).filter(h => h.kind === 'kopru' && !isWeekend(h.date)
-    && !isBridgeWorker(h, user.id) && (!user.startDate || user.startDate <= h.date)
-    && !other.some(l => l.start <= h.date && h.date <= l.end)), h => (h.half ? 0.5 : 1));
+    && (!user.startDate || user.startDate <= h.date) && !other.some(l => l.start <= h.date && h.date <= l.end)), h => bridgeOff(h, user.id));
 }
 
 // Danışman köprü gününde çalışıp çalışmayacağını o güne kadar seçer; ay kapanışa gönderildiyse seçim değişmez

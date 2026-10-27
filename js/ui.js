@@ -501,35 +501,50 @@ function monthStatsHtml(s) {
 }
 
 /* ---------- Köprü izni seçimi ----------
-   Köprü gününde şirket kapalıdır ve çalışmayanın yıllık izninden düşer. Danışman o güne kadar "Bu gün çalışacağım"
-   diyebilir: o gün onun için normal iş günü olur, izninden düşmez. Satırlar data-bridge, butonlar data-bridge-work taşır. */
+   Köprü gününde şirket kapalıdır. Danışman o güne kadar seçer: izinli (tamamı yıllık izninden düşer), yarım gün çalışır
+   (yarım gün düşer) ya da tam gün çalışır (düşmez). Satırlar data-bridge, seçenekler data-bridge-work="off|half|full" taşır. */
 const upcomingBridges = (to = null) => Store.holidays({ from: todayISO(), to }).filter(h => h.kind === 'kopru' && !isWeekend(h.date));
 
+// Yarım gün köprüde iki seçenek kalır: izinli ya da çalışıyor
+const bridgeOptions = h => h.half ? [['off', 'İzinliyim'], ['full', 'Çalışacağım']]
+  : [['off', 'İzinliyim'], ['half', 'Yarım gün çalışacağım'], ['full', 'Tam gün çalışacağım']];
+const bridgeChoice = (h, userId) => { const w = bridgeWork(h, userId); return !w ? 'off' : h.half ? 'full' : w; };
+
+function bridgeStatusText(h, userId) {
+  const choice = bridgeChoice(h, userId), off = bridgeOff(h, userId);
+  const cost = off ? `yıllık izninden ${fmtNum(off)} gün düşer` : 'yıllık izninden düşmez';
+  if (choice === 'off') return `Şirket kapalı${h.half ? ' (yarım gün)' : ''}; ${cost}.`;
+  const who = choice === 'half' ? 'Yarım gün çalışıyorsun' : h.half ? 'Çalışıyorsun' : 'Tam gün çalışıyorsun';
+  return `${who} · hedef ${fmtNum(dailyTarget(userId, h.date))} sa · ${cost}.`;
+}
+
 function bridgeChoiceHtml(h, userId) {
-  const working = isBridgeWorker(h, userId), cost = fmtNum(h.half ? 0.5 : 1);
+  const choice = bridgeChoice(h, userId);
   const action = canChooseBridge(h, userId)
-    ? `<button class="btn ${working ? 'ghost' : 'primary'} sm" data-bridge-work="${working ? '0' : '1'}">${working ? 'Vazgeç, izin kullanacağım' : 'Bu gün çalışacağım'}</button>`
+    ? `<div class="bridge-opts" role="group" aria-label="Köprü günü seçimin">${bridgeOptions(h).map(([v, label]) =>
+        `<button class="${v === choice ? 'is-active' : ''}" data-bridge-work="${v}" aria-pressed="${v === choice}">${label}</button>`).join('')}</div>`
     : `<span class="muted small-text nowrap">${icon('lock', 13)} ${isLocked(userId, h.date) ? 'Ay kapanışa gönderildi' : 'Seçim süresi geçti; yöneticine söyle'}</span>`;
-  return `<div class="bridge${working ? ' is-working' : ''}" data-bridge="${h.id}">
-    <span class="bridge-ic">${icon(working ? 'clock' : 'sun', 16)}</span>
+  return `<div class="bridge${choice !== 'off' ? ' is-working' : ''}" data-bridge="${h.id}">
+    <span class="bridge-ic">${icon(choice !== 'off' ? 'clock' : 'sun', 16)}</span>
     <div class="bridge-main"><strong>${fmtDate(h.date, { weekday: true, year: false })} · ${esc(h.name)}</strong>
-      <small>${working ? 'Çalışıyorsun: o süre normal mesai, yıllık izninden düşmez.' : `Şirket kapalı${h.half ? ' (yarım gün)' : ''}; yıllık izninden ${cost} gün düşer. Çalışacaksan söyle, düşmesin.`}</small></div>
+      <small>${esc(bridgeStatusText(h, userId))}</small></div>
     ${action}
   </div>`;
 }
 
-// Seçimi kaydeder; tıklama bir köprü butonuysa true döner
+// Seçimi kaydeder; tıklama bir köprü seçeneğiyse true döner
 function handleBridgeClick(e, userId, onChange) {
   const b = e.target.closest('[data-bridge-work]');
   if (!b) return false;
   const h = Store.holidays().find(x => x.id === b.closest('[data-bridge]').dataset.bridge);
   if (!h || !canChooseBridge(h, userId)) return true;
-  const working = b.dataset.bridgeWork === '1', workers = new Set(h.workers || []);
-  if (working) workers.add(userId); else workers.delete(userId);
-  Store.updateHoliday(h.id, { workers: [...workers] });
+  const work = { ...(h.work || {}) };
+  if (b.dataset.bridgeWork === 'off') delete work[userId];
+  else work[userId] = h.half ? 'full' : b.dataset.bridgeWork;
+  Store.updateHoliday(h.id, { work });
   onChange();
-  toast(working ? `${fmtShort(h.date)} çalışıyorsun; yıllık izninden düşmeyecek`
-    : `${fmtShort(h.date)} köprü izni kullanacaksın; yıllık izninden ${fmtNum(h.half ? 0.5 : 1)} gün düşer`, { tone: 'info' });
+  const off = bridgeOff({ ...h, work }, userId);
+  toast(`${fmtShort(h.date)} · ${off ? `yıllık izninden ${fmtNum(off)} gün düşecek` : 'yıllık izninden düşmeyecek'}`, { tone: 'info' });
   return true;
 }
 

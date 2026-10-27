@@ -149,7 +149,7 @@ const DashboardView = {
       const end = addDays(today, 45);
       const items = [
         ...Store.holidays({ from: today, to: end })
-          .map(h => ({ date: h.date, title: h.name, sub: h.kind === 'kopru' ? (isBridgeWorker(h, me.id) ? 'Köprü · çalışıyorsun' : 'Köprü izni · yıllık izinden düşer')
+          .map(h => ({ date: h.date, title: h.name, sub: h.kind === 'kopru' ? `Köprü · ${bridgeOff(h, me.id) ? `yıllık izninden ${fmtNum(bridgeOff(h, me.id))} gün düşer` : 'çalışıyorsun'}`
             : h.half ? 'Yarım gün tatil' : HOLIDAY_KINDS[h.kind]?.label || 'Tatil' })),
         ...Store.leaves()
           .filter(l => l.end >= today && l.start <= end && (l.status === 'onaylandi' || (l.status === 'beklemede' && l.userId === me.id)))

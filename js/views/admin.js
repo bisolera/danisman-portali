@@ -258,9 +258,7 @@ const AdminView = {
           <thead><tr><th>Tarih</th><th>Tatil</th><th>Tür</th><th>Süre</th><th></th></tr></thead>
           <tbody>${list.map(h => `<tr data-hol="${h.id}" class="${h.date < today ? 'is-past' : ''}">
             <td class="nowrap">${fmtDate(h.date, { weekday: true })}${isWeekend(h.date) ? ' <span class="faint">· hafta sonu</span>' : ''}</td>
-            <td><strong>${esc(h.name)}</strong>${h.kind === 'kopru' ? `<small class="muted block-sm">${h.workers?.length
-              ? `Çalışacak: ${esc(h.workers.map(id => firstName(Store.user(id)?.name || '?')).join(', '))} · diğerlerinin izninden düşer`
-              : 'Herkesin yıllık izninden düşer'}</small>` : ''}</td>
+            <td><strong>${esc(h.name)}</strong>${h.kind === 'kopru' ? `<small class="muted block-sm">${esc(bridgeSummary(h))}</small>` : ''}</td>
             <td>${pill(HOLIDAY_KINDS[h.kind]?.label || h.kind, HOLIDAY_KINDS[h.kind]?.tone || 'muted')}</td>
             <td class="nowrap">${!h.half ? 'Tam gün' : Store.holidaysOn(h.date).length > 1 ? 'Yarım gün <span class="faint">· birlikte tam gün</span>' : 'Yarım gün'}</td>
             <td class="num nowrap">
@@ -444,6 +442,15 @@ function closedPeriodsNote(dates) {
   return n ? ` · ${n} kişinin bu ayı kapanmış, hedef saatleri yeniden hesaplandı` : '';
 }
 
+// Tatiller listesinde köprü özeti: kim tam / yarım gün çalışıyor (yarım gün köprüde "yarım" = çalışıyor)
+function bridgeSummary(h) {
+  const names = mode => Object.entries(h.work || {}).filter(([, w]) => (h.half ? 'full' : w) === mode).map(([id]) => firstName(Store.user(id)?.name || '?'));
+  const full = names('full'), half = h.half ? [] : names('half');
+  if (!full.length && !half.length) return 'Herkesin yıllık izninden düşer';
+  return [full.length && `${h.half ? 'Çalışacak' : 'Tam gün çalışacak'}: ${full.join(', ')}`, half.length && `Yarım gün: ${half.join(', ')}`]
+    .filter(Boolean).join(' · ') + ' · diğerlerinin izninden düşer';
+}
+
 // Tatil ekle / düzenle. Yeni kayıtta tarih aralığı girilebilir (bayram); istenirse önceki gün arife (yarım gün) olarak eklenir.
 function holidayModal(h, year, onSave) {
   const first = h?.date || (todayISO().startsWith(String(year)) ? todayISO() : `${year}-01-01`);
@@ -464,9 +471,11 @@ function holidayModal(h, year, onSave) {
       <div class="callout info" data-pair hidden></div>
       ${h ? '' : '<label class="toggle"><input type="checkbox" name="eve"> Önceki gün arife olarak eklensin (yarım gün)</label>'}
       <p class="muted small-text" data-kind-hint></p>
-      <div class="field" data-workers-wrap><span class="field-label">Çalışacaklar <span class="faint">(izinlerinden düşmez; danışman kendisi de seçebilir)</span></span>
-        <div class="print-pick">${Store.users().filter(x => x.active).sort((a, b) => a.name.localeCompare(b.name, 'tr')).map(x =>
-          `<label class="toggle"><input type="checkbox" name="workers" value="${x.id}"${h?.workers?.includes(x.id) ? ' checked' : ''}> ${esc(x.name)}</label>`).join('')}</div>
+      <div class="field" data-workers-wrap><span class="field-label">Kim çalışacak? <span class="faint">(danışman kendisi de seçebilir)</span></span>
+        <div class="work-pick">${Store.users().filter(x => x.active).sort((a, b) => a.name.localeCompare(b.name, 'tr')).map(x => `<label class="work-row"><span>${esc(x.name)}</span>
+          <select class="input" name="work" data-user="${x.id}"><option value="">İzinli · tamamı düşer</option>
+            <option value="half"${h?.work?.[x.id] === 'half' ? ' selected' : ''}>Yarım gün çalışır · yarısı düşer</option>
+            <option value="full"${h?.work?.[x.id] === 'full' ? ' selected' : ''}>Tam gün çalışır · düşmez</option></select></label>`).join('')}</div>
       </div>
       <p class="form-error" hidden></p>
     </form>`,
@@ -494,6 +503,13 @@ function holidayModal(h, year, onSave) {
           kopru: 'Köprü izninde şirket kapalıdır ve herkesin yıllık izninden düşer. Çalışacak olanları aşağıdan işaretle ya da danışman portaldan "Bu gün çalışacağım" desin; onların izninden düşmez, o gün normal iş günüdür.',
         }[el.kind.value];
         m.querySelector('[data-workers-wrap]').hidden = el.kind.value !== 'kopru';
+        // Yarım gün köprüde "yarım gün çalışır" köprünün tamamıdır: yalnızca izinli / çalışır kalır
+        const halfBridge = !multi && el.dur.value === 'half';
+        f.querySelectorAll('[name=work]').forEach(s => {
+          s.querySelector('[value=half]').hidden = halfBridge;
+          s.querySelector('[value=full]').textContent = halfBridge ? 'Çalışır · düşmez' : 'Tam gün çalışır · düşmez';
+          if (halfBridge && s.value === 'half') s.value = 'full';
+        });
       };
       f.addEventListener('input', sync);
       f.addEventListener('change', sync);
@@ -503,7 +519,8 @@ function holidayModal(h, year, onSave) {
       f.addEventListener('submit', e => {
         e.preventDefault();
         const name = el.name.value.trim(), kind = el.kind.value, days = dates();
-        const workers = kind === 'kopru' ? [...f.querySelectorAll('[name=workers]:checked')].map(x => x.value) : [];
+        // Kişi başına seçim yalnızca köprüde: { userId: 'half' | 'full' }, izinliler yazılmaz
+        const work = kind === 'kopru' ? Object.fromEntries([...f.querySelectorAll('[name=work]')].filter(s => s.value).map(s => [s.dataset.user, s.value])) : {};
         if (!name) return formError(f, 'Tatilin adını yaz.', el.name);
         if (!days.length) return formError(f, 'Tarihleri kontrol et: bitiş başlangıçtan önce olamaz.', el.start);
         if (days.length > 15) return formError(f, 'Tek seferde en fazla 15 gün girilebilir.', el.end);
@@ -514,15 +531,15 @@ function holidayModal(h, year, onSave) {
         if (clash) return formError(f, `${fmtDate(clash[0].date)} tarihinde zaten “${clash.map(x => x.name).join(' + ')}” var.`, el.start);
 
         if (h) {
-          Store.updateHoliday(h.id, { name, kind, date: days[0], half, workers });
+          Store.updateHoliday(h.id, { name, kind, date: days[0], half, work });
           close();
           onSave();
           return toast(`${name} güncellendi${closedPeriodsNote([h.date, days[0]])}`);
         }
         const added = [];
         const eve = addDays(days[0], -1);
-        if (el.eve.checked && !Store.holiday(eve)) added.push(Store.addHoliday({ date: eve, name: `${name} Arifesi`, kind, half: true, workers }));
-        days.forEach(date => added.push(Store.addHoliday({ date, name, kind, half, workers })));
+        if (el.eve.checked && !Store.holiday(eve)) added.push(Store.addHoliday({ date: eve, name: `${name} Arifesi`, kind, half: true, work }));
+        days.forEach(date => added.push(Store.addHoliday({ date, name, kind, half, work })));
         close();
         onSave();
         toast(`${name} eklendi · ${added.length} gün${closedPeriodsNote(added.map(x => x.date))}`, {

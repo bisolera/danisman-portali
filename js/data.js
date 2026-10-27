@@ -2,7 +2,7 @@
    Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
 
 const COMPANY_DOMAIN = 'bisolera.com';
-const DATA_VERSION = 5;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
+const DATA_VERSION = 6;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
 const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor
 
 const BRAND = {
@@ -62,8 +62,8 @@ const PROJECT_STATUS = {
 // Tatil türleri:
 //  resmi  → herkes için hedef saat düşer, izinden düşülmez
 //  sirket → şirketin verdiği tatil: resmi tatil gibi, kimsenin izninden düşmez
-//  kopru  → köprü izni: şirket kapalı, çalışmayanın yıllık izninden düşer; "çalışacağım" diyen (workers)
-//           için normal iş günüdür ve izninden düşmez
+//  kopru  → köprü izni: şirket kapalı. Kişi başına seçim (work): hiç çalışmayandan tamamı, yarım gün
+//           çalışandan yarım gün düşer, tam gün çalışandan düşmez
 const HOLIDAY_KINDS = {
   resmi: { label: 'Resmi tatil', tone: 'info' },
   sirket: { label: 'Şirket tatili', tone: 'ok' },

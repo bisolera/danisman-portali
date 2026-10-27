@@ -124,7 +124,8 @@
   ok('kullanici_devir_ve_hak_gecmisi', u3.carryIn === 2.5 && entitlementFor(u3, y) === 20 && (y === LEAVE_START_YEAR || entitlementFor(u3, LEAVE_START_YEAR) === 14)
     && panel().querySelector('[data-edit-user="u3"]').closest('tr').textContent.includes('devir'), u3.entitlements);
 
-  // Köprü izni: Perşembe resmi tatil, şirket Cuma'yı köprü yapar. Çalışmayanın yıllık izninden düşer, "çalışacağım" diyeninkinden düşmez.
+  // Köprü izni: Perşembe resmi tatil, şirket Cuma'yı köprü yapar. Hiç çalışmayandan 1 gün, yarım gün çalışandan 0,5 gün düşer,
+  // tam gün çalışandan düşmez.
   localStorage.clear();
   Store.init();
   Store.addHoliday({ date: '2030-05-02', name: 'Deneme resmi tatil' });
@@ -135,19 +136,27 @@
 
   App.login(ka);
   go('#/izinler');
-  ok('kopru_secim_karti', !document.querySelector('#bridges').hidden && !!document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="1"]`));
-  document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="1"]`).click();
-  ok('kopru_calisan_dusmez', Store.holiday('2030-05-03').workers.includes(ka.id) && leaveBalance(ka, 2030).used === 0 && dailyTarget(ka.id, '2030-05-03') === 8
+  const opt = v => document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="${v}"]`);
+  ok('kopru_uc_secenek', !document.querySelector('#bridges').hidden && !!opt('off') && !!opt('half') && !!opt('full') && opt('off').classList.contains('is-active'));
+  opt('half').click();
+  ok('kopru_yarim_gun_calisandan_yarim_duser', bridgeWork(Store.holiday('2030-05-03'), ka.id) === 'half' && leaveBalance(ka, 2030).used === 0.5
+    && dailyTarget(ka.id, '2030-05-03') === 4, { used: leaveBalance(ka, 2030).used, target: dailyTarget(ka.id, '2030-05-03') });
+  ok('kopru_yarim_gun_ekrani', opt('half').classList.contains('is-active') && document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('Yarım gün çalışıyorsun'));
+  opt('full').click();
+  ok('kopru_tam_gun_calisandan_dusmez', leaveBalance(ka, 2030).used === 0 && dailyTarget(ka.id, '2030-05-03') === 8
     && leaveBalance(kb, 2030).used === 1 && dailyTarget(kb.id, '2030-05-03') === 0);
-  ok('kopru_calisan_ekrani', document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('Çalışıyorsun') && !!document.querySelector('#bridges [data-bridge-work="0"]'));
   go('#/aktiviteler?d=2030-05-03&v=gun');
-  ok('kopru_gunluk_gorunum', document.querySelector('#dayList [data-bridge]')?.textContent.includes('Çalışıyorsun') && document.querySelector('#dayHead').textContent.includes('8'));
+  ok('kopru_gunluk_gorunum', document.querySelector('#dayList [data-bridge]')?.textContent.includes('Tam gün çalışıyorsun') && document.querySelector('#dayHead').textContent.includes('8'));
 
-  // Pzt–Cuma izin, Perşembe resmi tatil: köprü günü çift düşmez (çalışmayan 3 + köprü 1 = 4; çalışan 4 + 0 = 4)
+  // Pzt–Cuma izin, Perşembe resmi tatil: köprü günü çift düşmez
+  // (hiç çalışmayan 3 + köprü 1 = 4; tam gün çalışan 4 + 0 = 4; yarım gün çalışan 3,5 + 0,5 = 4)
   const lb = Store.addLeave({ userId: kb.id, type: 'yillik', start: '2030-04-29', end: '2030-05-03', status: 'onaylandi' });
   const la = Store.addLeave({ userId: ka.id, type: 'yillik', start: '2030-04-29', end: '2030-05-03', status: 'onaylandi' });
   ok('kopru_izinle_cift_dusmez', leaveDays(lb) === 3 && leaveBalance(kb, 2030).used === 4 && leaveDays(la) === 4 && leaveBalance(ka, 2030).used === 4,
     { lb: leaveDays(lb), kb: leaveBalance(kb, 2030).used, la: leaveDays(la), ka: leaveBalance(ka, 2030).used });
+  Store.updateHoliday(br.id, { work: { [ka.id]: 'half' } });
+  ok('kopru_yarim_calisan_izinle_cift_dusmez', leaveDays(la) === 3.5 && leaveBalance(ka, 2030).used === 4, { la: leaveDays(la), ka: leaveBalance(ka, 2030).used });
+  Store.updateHoliday(br.id, { work: { [ka.id]: 'full' } });
   Store.updateLeave(lb.id, { status: 'iptal' });
   Store.updateLeave(la.id, { status: 'iptal' });
 
@@ -161,8 +170,8 @@
     && document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('kapanışa'));
   Store.setPeriod(ka.id, '2030-05', { status: 'acik' });
   go('#/izinler');
-  document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="0"]`).click();
-  ok('kopru_vazgec', !Store.holiday('2030-05-03').workers.includes(ka.id) && leaveBalance(ka, 2030).used === 1);
+  opt('off').click();
+  ok('kopru_izinliyim', bridgeWork(Store.holiday('2030-05-03'), ka.id) === null && leaveBalance(ka, 2030).used === 1);
 
   // Yönetici: Tatiller'de kimin çalışacağını görür ve işaretler
   App.login(Store.user('u1'));
@@ -172,18 +181,18 @@
   panel().querySelector(`tr[data-hol="${br.id}"] [data-hol-edit]`).click();
   m = lastModal(); f = m.querySelector('form');
   ok('kopru_calisacaklar_listesi', !m.querySelector('[data-workers-wrap]').hidden);
-  f.querySelector(`[name=workers][value="${kb.id}"]`).checked = true;
+  f.querySelector(`[name=work][data-user="${kb.id}"]`).value = 'half';
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   await wait(250);
-  ok('kopru_yonetici_isaretler', Store.holiday('2030-05-03').workers.join() === kb.id && leaveBalance(kb, 2030).used === 0
-    && panel().querySelector(`tr[data-hol="${br.id}"]`).textContent.includes('Çalışacak: Köprü'));
+  ok('kopru_yonetici_isaretler', JSON.stringify(Store.holiday('2030-05-03').work) === JSON.stringify({ [kb.id]: 'half' }) && leaveBalance(kb, 2030).used === 0.5
+    && panel().querySelector(`tr[data-hol="${br.id}"]`).textContent.includes('Yarım gün: Köprü'), Store.holiday('2030-05-03').work);
 
   // Özet: 30 gün içindeki köprü günü en üstte sorulur
   const soon = dateRange(addDays(todayISO(), 2), addDays(todayISO(), 20)).find(d => !isWeekend(d) && !getHoliday(d));
   Store.addHoliday({ date: soon, name: 'Yakın köprü', kind: 'kopru' });
   App.login(ka);
   go('#/ozet');
-  ok('kopru_ozette_sorulur', document.querySelector('#bridges')?.textContent.includes('Yakın köprü') && !!document.querySelector('#bridges [data-bridge-work="1"]'));
+  ok('kopru_ozette_sorulur', document.querySelector('#bridges')?.textContent.includes('Yakın köprü') && !!document.querySelector('#bridges [data-bridge-work="full"]'));
 
   // Arife öğleden sonra resmi tatil + şirket sabahı köprü yapar → tam gün. Tam gün köprü de girilebilir.
   localStorage.clear();
@@ -208,7 +217,7 @@
     && dailyTarget(kc.id, '2030-05-02') === 0 && leaveBalance(kc, 2030).bridge === 0.5 && countLeaveDays('2030-05-02', '2030-05-02', kc.id) === 0);
   ok('arife_kopru_tabloda', panel().textContent.includes('birlikte tam gün'));
   const morning = Store.holidaysOn('2030-05-02').find(x => x.kind === 'kopru');
-  Store.updateHoliday(morning.id, { workers: [kc.id] });
+  Store.updateHoliday(morning.id, { work: { [kc.id]: 'full' } });
   ok('arife_kopru_calisan_sabah_calisir', dailyTarget(kc.id, '2030-05-02') === 4 && leaveBalance(kc, 2030).bridge === 0
     && countLeaveDays('2030-05-02', '2030-05-02', kc.id) === 0.5);
   ok('ucuncu_tatil_eklenmez', Store.addHoliday({ date: '2030-05-02', name: 'Fazla', half: true }) === null
@@ -225,6 +234,19 @@
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   await wait(250);
   ok('kopru_tam_gun', Store.holiday('2030-05-10')?.half === false && leaveBalance(kc, 2030).bridge === 1 && dailyTarget(kc.id, '2030-05-10') === 0);
+  App.login(kc);
+  go('#/izinler');
+  ok('yarim_kopru_iki_secenek', document.querySelectorAll(`#bridges [data-bridge="${morning.id}"] [data-bridge-work]`).length === 2
+    && document.querySelectorAll(`#bridges [data-bridge="${Store.holiday('2030-05-10').id}"] [data-bridge-work]`).length === 3);
+
+  // Sürüm taşıma: eski "çalışacaklar" listesi tam gün çalışma seçimine dönüşür
+  const snap6 = JSON.parse(localStorage.getItem('bisolera-portal-v1'));
+  snap6.version = 5;
+  snap6.holidays.push({ id: 'eski-kopru', date: '2030-06-07', name: 'Eski köprü', kind: 'kopru', half: false, workers: [kc.id] });
+  localStorage.setItem('bisolera-portal-v1', JSON.stringify(snap6));
+  Store.init();
+  ok('tasima_kopru_secimleri', bridgeWork(Store.holiday('2030-06-07'), kc.id) === 'full' && !('workers' in Store.holiday('2030-06-07'))
+    && dailyTarget(kc.id, '2030-06-07') === 8 && JSON.parse(localStorage.getItem('bisolera-portal-v1')).version === DATA_VERSION);
 
   // Aylık form yazdırma: müşteri başına sayfa, aynı gün tek satır, imza alanı, PDF dosya adı
   localStorage.clear();

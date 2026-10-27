@@ -40,7 +40,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `periods` | id, user_id, month (`YYYY-MM`), status, note, review_note, submitted_at, decided_by, decided_at | tekil: (user_id, month) |
 | `period_history` | id, period_id → periods, at, by_user, action, note | kim, ne zaman, ne yaptı |
 | `holidays` | id, date (tekil), name, kind (`resmi`/`sirket`/`kopru`), half | Yönetim → Tatiller'den yönetilir |
-| `holiday_workers` | holiday_id → holidays, user_id → users, chosen_by, chosen_at | köprü izninde çalışacaklar; izinlerinden düşmez |
+| `holiday_work` | holiday_id → holidays, user_id → users, mode (`half`/`full`), chosen_by, chosen_at | köprü izninde kim ne kadar çalışıyor; satırı olmayan izinli sayılır |
 | `user_prefs` | user_id, key, value (JSON) | son proje, Excel/takvim eşleştirmeleri |
 | `notifications` | id, user_id, kind, ref, sent_at | aynı e-posta iki kez gitmesin (aşağıya bak) |
 
@@ -55,7 +55,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET/POST /api/leaves`, `POST /api/leaves/:id/decision` | izinler, onay/red | onay: yönetici |
 | `POST /api/leaves/:id/cancel-request`, `…/cancel-decision` | onaylı izin için iptal talebi, karar | talep: sahibi (izin başlamadan); karar: yönetici |
 | `GET /api/holidays?year`, `POST/PATCH/DELETE /api/holidays` | tatiller | okuma: herkes; yazma: yönetici |
-| `PUT/DELETE /api/holidays/:id/work` | köprü izninde "çalışacağım" seçimi | danışman kendisi (gün geçmeden, ay kilitli değilse); yönetici herkes için |
+| `PUT/DELETE /api/holidays/:id/work` | köprü izninde seçim: yarım / tam gün çalışır, silinirse izinli | danışman kendisi (gün geçmeden, ay kilitli değilse); yönetici herkes için |
 | `POST /api/periods/:month/submit`, `…/withdraw` | ay kapanışı (danışman) | sahibi |
 | `POST /api/periods/:userId/:month/approve`, `…/return`, `…/unlock` | ay kapanışı (yönetici) | yönetici |
 | `GET/POST/PATCH /api/customers`, `/api/projects` | müşteri ve proje | yazma: yönetici |

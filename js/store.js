@@ -41,6 +41,10 @@ const Store = (() => {
   function migrate(d) {
     if (d.version < 4) d.periods = d.periods || [];
     if (d.version < 5) d.holidays = d.holidays || defaultHolidays();   // tatiller koddan veritabanına taşındı
+    if (d.version < 6) d.holidays.forEach(h => {                        // köprüde "çalışacaklar" listesi → kişi başına tam/yarım gün seçimi
+      if (h.workers?.length) h.work = Object.fromEntries(h.workers.map(id => [id, 'full']));
+      delete h.workers;
+    });
     d.version = DATA_VERSION;
     return d;
   }
