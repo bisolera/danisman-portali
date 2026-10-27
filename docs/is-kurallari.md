@@ -57,7 +57,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 ## Masraflar
 - [ ] Kategoriler: Ulaşım (uçak, tren, otobüs) · Taksi · Konaklama · Yemek · Otopark / otoyol · Diğer. Eksik var mı? (`EXPENSE_CATEGORIES`, `js/data.js`)
 - [ ] Tutar TL ve KDV dahil; tek masraf en fazla 100.000 TL (`EXPENSE_MAX`); tarih ileri olamaz. **Döviz** (yurt dışı) ve **kendi aracıyla km başına ödeme** gerekli mi?
-- [ ] Fiş / fatura **isteğe bağlı**; fişsiz masraf "fişsiz" etiketiyle görünür, yönetici onaylarken görür. Fiş zorunlu olsun mu (ör. belli bir tutarın üstünde)?
+- [x] Fiş / fatura **isteğe bağlı**; fişsiz masraf "fişsiz" etiketiyle görünür, yönetici onaylarken ve ödeme listesinde görür
 - [x] "Müşteriye yansıtılacak" işaretlenirse proje zorunlu; yönetici raporunda müşteri bazında toplanır
 - [x] Akış: onay bekliyor → onaylandı (ödenecek) → ödendi; reddedilen gerekçesiyle danışmana döner, düzeltilip yeniden gönderilir. Onaylanan ve ödenen değiştirilemez (`canEditExpense`)
 - [ ] Onaylayan: yönetici rolündeki herkes. Yönetici kendi masrafını onaylayabilir mi?
