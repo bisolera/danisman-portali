@@ -262,13 +262,13 @@ const AdminView = {
       </section>`;
     }
 
-    // Prim & yan haklar: faturalanabilir saat ÷ 8 (tam gün), eşiği aşan gün × günlük prim; araç yerine araba parası
+    // Prim & yan haklar: faturalanabilir saat ÷ 8 (kesirli gün), eşiği aşan gün × günlük prim; araç yerine araba parası
     function renderPayroll() {
       const r = payrollMonth(payMonth), draft = r.rows.filter(x => !x.final).length;
       const money = v => (v ? fmtMoney(v) : '<span class="faint">—</span>');
       panel.innerHTML = `<section class="card">
         <div class="card-head">
-          <div><h2>Prim & yan haklar · ${monthTitle(payMonth)}</h2><p class="sub">Prim: faturalanabilir saat ÷ 8 (tam güne aşağı yuvarlanır), eşiği aşan her gün × günlük prim. Araba parası: araç yerine para alanlara aylık sabit tutar.</p></div>
+          <div><h2>Prim & yan haklar · ${monthTitle(payMonth)}</h2><p class="sub">Prim: faturalanabilir saat ÷ 8 (kesirli gün: 203 sa = 25,375 gün), eşiği aşan gün × günlük prim. Araba parası: araç yerine para alanlara aylık sabit tutar.</p></div>
           <div class="week-nav">
             <button class="btn ghost sm" data-pay-rates>${icon('pencil', 15)} Tutarlar</button>
             <button class="btn ghost sm" data-pay-export${r.rows.length && r.rate ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
@@ -291,8 +291,8 @@ const AdminView = {
           <tbody>${r.rows.map(x => `<tr data-pay-row="${x.user.id}">
             <td><span class="cell-user">${avatar(x.user, 30)}<span><strong>${esc(x.user.name)}</strong><small>${[x.user.bonusEligible && 'Prime tabi', x.user.carAllowance && 'Araba parası'].filter(Boolean).join(' · ')}</small></span></span></td>
             <td class="num nowrap">${fmtNum(x.billable)} sa</td>
-            <td class="num">${x.days}</td>
-            <td class="num">${x.user.bonusEligible ? x.over : '<span class="faint">—</span>'}</td>
+            <td class="num">${fmtDays(x.days)}</td>
+            <td class="num">${x.user.bonusEligible ? fmtDays(x.over) : '<span class="faint">—</span>'}</td>
             <td class="num nowrap">${money(x.bonus)}</td>
             <td class="num nowrap">${money(x.car)}</td>
             <td class="num nowrap"><strong>${fmtMoney(x.total)}</strong></td>

@@ -1,4 +1,4 @@
-// Prim ve araba parası: faturalanabilir saat ÷ 8 (tam gün), eşik üstü gün × günlük prim; araba parası; yürürlük tarihli tutarlar;
+// Prim ve araba parası: faturalanabilir saat ÷ 8 (kesirli gün), eşik üstü gün × günlük prim; araba parası; yürürlük tarihli tutarlar;
 // yalnızca yönetici. Tutarlar UYDURMADIR (şirketin gerçek tutarları repoya yazılmaz).
 (async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -19,9 +19,10 @@
   Store.addActivity({ userId: p.id, projectId: 'p14', date: '2025-03-26', hours: 3, type: 'destek', note: 'Kesirli' });
   Store.addActivity({ userId: p.id, projectId: 'p13', date: '2025-03-27', hours: 16, type: 'proje_yonetimi', note: 'İç iş sayılmaz' });
 
-  // Hesap: 203 faturalanabilir saat → 25 gün (aşağı yuvarlanır) → 25 − 18 = 7 × 1.000 = 7.000
+  // Hesap: 203 faturalanabilir saat → 25,375 gün (kesirli) → 25,375 − 18 = 7,375 × 1.000 = 7.375
   const x = payFor(p, '2025-03-01');
-  ok('prim_hesabi', x.billable === 203 && x.days === 25 && x.over === 7 && x.bonus === 7000 && x.car === 0 && !x.final, x);
+  ok('prim_hesabi', x.billable === 203 && x.days === 25.375 && x.over === 7.375 && x.bonus === 7375 && x.car === 0 && !x.final, x);
+  ok('kesirli_gun_gosterimi', fmtDays(25.375) === '25,375' && fmtDays(25) === '25');
   ok('ic_isler_sayilmaz', x.billable === 203);
   ok('araba_parasi', payFor(q, '2025-03-01').car === 10000 && payFor(q, '2025-03-01').bonus === 0);
   ok('esik_alti_prim_yok', payFor(p, '2025-02-01').bonus === 0);
@@ -37,7 +38,7 @@
   go('#/yonetim?tab=prim&ay=2025-03');
   const panel = () => document.querySelector('#panel');
   const row = panel().querySelector(`tr[data-pay-row="${p.id}"]`);
-  ok('ekran', panel().querySelector('h2').textContent.includes('Mart 2025') && row?.textContent.includes('7.000,00 ₺') && row.textContent.includes('Kesin')
+  ok('ekran', panel().querySelector('h2').textContent.includes('Mart 2025') && row?.textContent.includes('7.375,00 ₺') && row.textContent.includes('25,375') && row.textContent.includes('Kesin')
     && panel().querySelector(`tr[data-pay-row="${q.id}"]`)?.textContent.includes('Taslak') && panel().querySelector('.pay-rate').textContent.includes('1.000,00 ₺'), row?.textContent);
   go('#/yonetim?tab=prim&ay=2024-11');
   ok('tutar_yok_uyarisi', panel().textContent.includes('tutar girilmemiş'));
@@ -67,7 +68,7 @@
   await exportPayroll('2025-03-01');
   XLSX.writeFile = orig;
   const rows = XLSX.utils.sheet_to_json(wb.Sheets['Prim ve yan haklar'], { header: 1 });
-  ok('excel', rows.some(r => r[0] === 'Prim Deneme' && r[3] === 203 && r[4] === 25 && r[6] === 7 && r[8] === 7000 && r[11].startsWith('Kesin')), rows.slice(0, 3));
+  ok('excel', rows.some(r => r[0] === 'Prim Deneme' && r[3] === 203 && r[4] === 25.375 && r[6] === 7.375 && r[8] === 7375 && r[11].startsWith('Kesin')), rows.slice(0, 3));
 
   // Kullanıcı formu: işaretler kaydedilir
   go('#/yonetim?tab=kullanicilar');

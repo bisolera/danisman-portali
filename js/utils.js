@@ -81,6 +81,8 @@ function fmtNum(n) {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100).replace('.', ',');
 }
 function fmtHours(h) { return `${fmtNum(h)} sa`; }
+// Kesirli gün (prim): 25,375 gibi üç basamağa kadar
+function fmtDays(n) { return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000).replace('.', ','); }
 const MONEY = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function fmtMoney(n) { return `${MONEY.format(n || 0)} ₺`; }
 // "1.250,50", "1250,5", "1250.50", "₺ 1.250" → sayı; anlaşılmazsa NaN

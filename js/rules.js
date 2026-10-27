@@ -553,14 +553,14 @@ function payRateFor(iso) {
   return Store.payRates().filter(r => r.from <= m).pop() || null;
 }
 
-// Kişinin ay hesabı. Prim: faturalanabilir saat ÷ 8, tam güne aşağı yuvarlanır; eşiği aşan her gün × günlük prim.
+// Kişinin ay hesabı. Prim: faturalanabilir saat ÷ 8, kesirli gün (203 sa = 25,375 gün); eşiği aşan gün × günlük prim, kuruşa yuvarlanır.
 // Araba parası: araç yerine para alana ay başına sabit tutar (ay içinde işe girene tam ay). Kesinlik: ay kapanışı onaylıysa.
 function payFor(user, iso, rate = payRateFor(iso)) {
   const from = monthStart(iso), to = monthEnd(iso);
   const billable = sum(Store.activities({ userId: user.id, from, to }).filter(a => Store.project(a.projectId)?.billable), a => a.hours);
-  const days = Math.floor(billable / DAILY_HOURS);
+  const days = billable / DAILY_HOURS;
   const over = rate ? Math.max(0, days - rate.bonusThreshold) : 0;
-  const bonus = user.bonusEligible && rate ? over * rate.bonusDaily : 0;
+  const bonus = user.bonusEligible && rate ? Math.round(over * rate.bonusDaily * 100) / 100 : 0;
   const employed = !user.startDate || user.startDate <= to;
   const car = user.carAllowance && rate && employed ? rate.carMonthly : 0;
   return { user, billable, days, over, bonus, car, total: bonus + car, final: periodStatus(user.id, iso) === 'onaylandi' };

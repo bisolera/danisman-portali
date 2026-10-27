@@ -69,7 +69,7 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 
 ## Prim ve araba parası (yalnızca yönetici)
 - [x] Prim: kullanıcı formunda "Prime tabi (kıdemli)" işaretli olanlara. Ayın **faturalanabilir** saati ÷ 8 = gün; eşiği aşan her gün × günlük prim (`payFor`, `js/rules.js`)
-- [ ] Gün sayısı **tam güne aşağı yuvarlanır** (203 sa → 25 gün). Kesirli gün de sayılsın mı?
+- [x] Gün sayısı **kesirli** (203 sa → 25,375 gün); prim kuruşa yuvarlanır
 - [x] Araba parası: "Araç yerine araba parası alır" işaretli olanlara her ay sabit tutar
 - [ ] Ay içinde işe girene / ayrılana araba parası tam ay ödenir (kıst hesap yok). Doğru mu?
 - [x] Eşik, günlük prim ve araba parası Yönetim → Prim & yan haklar → Tutarlar'dan **yürürlük tarihiyle** girilir; her ay o tarihte geçerli tutarla hesaplanır, eski aylar değişmez
