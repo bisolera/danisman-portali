@@ -73,6 +73,9 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Araba parası: "Araç yerine araba parası alır" işaretli olanlara her ay sabit tutar
 - [x] Ay ortasında işe girene / ayrılana araba parası **kıst**: tutar × çalışılan takvim günü ÷ ayın gün sayısı (16 Ekim'de giren: 16/31), kuruşa yuvarlanır. Ayrılan kişi, kullanıcı formundaki "İşten çıkış tarihi"yle ayrıldığı ay listede kalır
 - [x] Kıst hesap **ayın gerçek gün sayısıyla** (28–31) yapılır; "ay 30 gün" esası kullanılmaz
+- [x] **Haklar tarihlidir** (`perks`, `perkHistory`): kullanıcı formunda prim ya da araba parası açılıp kapanınca "geçerlilik tarihi" sorulur (varsayılan: bu ayın 1'i). Önceki aylarda hak yoksa o aylarda prim ve araba parası çıkmaz, kişi o ayların listesinde görünmez. Örnek: 3 yıl haksız çalışan, 1 Kasım 2026'dan prime tabi olursa Ekim 2026 ve öncesi boş, Kasım'dan itibaren hesaplanır
+- [x] Prim hakkı ayın ortasında başlar ya da biterse **o ayın tamamı** sayılır (15 Kasım'da başladıysa Kasım'ın bütün faturalanabilir saatleri). Araba parası hakkın açık olduğu gün kadar kıst (15 Kasım'da başladıysa 16/30)
+- [x] Yeni tarihli kayıt, o tarihten sonraki eski kayıtların yerini alır; yanlış kayıt formdaki "Hak geçmişi"nden silinir. Geçmişi olmayan eski kullanıcılarda işaretler işe girişten beri geçerli sayılır
 - [x] Eşik, günlük prim ve araba parası Yönetim → Prim & yan haklar → Tutarlar'dan **yürürlük tarihiyle** girilir; her ay o tarihte geçerli tutarla hesaplanır, eski aylar değişmez
 - [x] Ay kapanışı onaylı ayda tutar kesin, değilse "taslak"
 - [x] Gerçek tutarlar repoya yazılmaz (public); yalnızca portalda ve yedek dosyasında durur

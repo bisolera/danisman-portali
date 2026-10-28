@@ -33,6 +33,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 |---|---|---|
 | `users` | id, name, email (tekil), title, role (`consultant`/`admin`), annual_leave, start_date, end_date, carry_in, bonus_eligible, car_allowance, active | email = Microsoft hesabı; carry_in = 1 Ocak 2026 açılış izin bakiyesi |
 | `pay_rates` | id, valid_from (tekil), bonus_threshold, bonus_daily, car_monthly | prim ve araba parası tutarları; yalnızca yönetici okur |
+| `user_perks` | user_id, valid_from, bonus_eligible, car_allowance; (user_id, valid_from) tekil | yan hak geçmişi: her satır o tarihten sonraki durum; `users`'taki iki işaret en son durumun kopyası |
 | `leave_entitlements` | user_id, year, days | izin hakkı değiştiği yıllar; eski yılların devri değişmesin |
 | `customers` | id, name, sector, color, internal | |
 | `projects` | id, customer_id → customers, name, code (tekil), status, billable, monthly_budget | |

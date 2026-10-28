@@ -553,30 +553,61 @@ function payRateFor(iso) {
   return Store.payRates().filter(r => r.from <= m).pop() || null;
 }
 
+// Prim ve araba parası hakkı tarihlidir: perks = [{ from, bonus, car }], her kayıt o tarihten sonraki durumu söyler (tarihe göre sıralı).
+// Geçmişi olmayan eski kayıtlarda işaretler işe girişten beri geçerli sayılır; böylece eski aylar değişmez.
+function perkHistory(user) {
+  if (user.perks) return user.perks.slice().sort((a, b) => a.from.localeCompare(b.from));
+  return user.bonusEligible || user.carAllowance ? [{ from: user.startDate || LEAVE_START, bonus: !!user.bonusEligible, car: !!user.carAllowance }] : [];
+}
+
+// [from, to] aralığında hakkın ('bonus' | 'car') açık olduğu gün sayısı
+function perkDays(user, key, from, to) {
+  const list = perkHistory(user);
+  return sum(list.map((p, i) => {
+    if (!p[key]) return 0;
+    const a = p.from > from ? p.from : from, end = list[i + 1] ? addDays(list[i + 1].from, -1) : to, b = end < to ? end : to;
+    return b < a ? 0 : daysBetween(a, b) + 1;
+  }), n => n);
+}
+
+// [from, to] içinde açılan ya da kapanan haklar: [{ date, key, on }]. İşe girişte başlayan hak değişiklik sayılmaz.
+function perkChanges(user, from, to) {
+  const list = perkHistory(user), out = [];
+  list.forEach((p, i) => {
+    const prev = list[i - 1] || { bonus: false, car: false };
+    if (p.from < from || p.from > to || (i === 0 && p.from === user.startDate)) return;
+    ['bonus', 'car'].forEach(key => { if (!!p[key] !== !!prev[key]) out.push({ date: p.from, key, on: !!p[key] }); });
+  });
+  return out;
+}
+
 // Kişinin ay hesabı. Prim: faturalanabilir saat ÷ 8, kesirli gün (203 sa = 25,375 gün); eşiği aşan gün × günlük prim, kuruşa yuvarlanır.
-// Araba parası: araç yerine para alana aylık tutar; ay ortasında işe giren ya da ayrılana kıst (çalışılan takvim günü ÷ ayın günü).
+// Prim hakkı ayın herhangi bir gününde açıksa o ayın tamamı sayılır.
+// Araba parası: araç yerine para alana aylık tutar; hakkın açık olduğu ve şirkette çalışılan takvim günü kadar (kıst: gün ÷ ayın günü).
 // Kesinlik: ay kapanışı onaylıysa.
 function payFor(user, iso, rate = payRateFor(iso)) {
   const from = monthStart(iso), to = monthEnd(iso);
   const billable = sum(Store.activities({ userId: user.id, from, to }).filter(a => Store.project(a.projectId)?.billable), a => a.hours);
   const days = billable / DAILY_HOURS;
+  const bonusOn = perkDays(user, 'bonus', from, to) > 0;
   const over = rate ? Math.max(0, days - rate.bonusThreshold) : 0;
-  const bonus = user.bonusEligible && rate ? Math.round(over * rate.bonusDaily * 100) / 100 : 0;
+  const bonus = bonusOn && rate ? Math.round(over * rate.bonusDaily * 100) / 100 : 0;
   const monthDays = daysBetween(from, to) + 1;
   const workFrom = user.startDate && user.startDate > from ? user.startDate : from, workTo = user.endDate && user.endDate < to ? user.endDate : to;
-  const carDays = workTo < workFrom ? 0 : daysBetween(workFrom, workTo) + 1;
-  const car = user.carAllowance && rate && carDays ? Math.round((rate.carMonthly * carDays / monthDays) * 100) / 100 : 0;
-  return { user, billable, days, over, bonus, car, carDays, monthDays, prorated: carDays < monthDays, total: bonus + car, final: periodStatus(user.id, iso) === 'onaylandi' };
+  const carDays = workTo < workFrom ? 0 : perkDays(user, 'car', workFrom, workTo);
+  const car = rate && carDays ? Math.round((rate.carMonthly * carDays / monthDays) * 100) / 100 : 0;
+  return { user, billable, days, over, bonusOn, carOn: carDays > 0, bonus, car, carDays, monthDays, prorated: carDays < monthDays, total: bonus + car,
+    final: periodStatus(user.id, iso) === 'onaylandi' };
 }
 
 // O ay şirkette olan kişi: işe girişi ay sonundan önce, çıkışı (varsa) ay başından sonra. Ayrılmış (pasif) kişi ayrıldığı ay listede kalır.
 const employedIn = (u, iso) => (!u.startDate || u.startDate <= monthEnd(iso)) && (u.endDate ? u.endDate >= monthStart(iso) : u.active);
 
-// Ayın listesi: o ay şirkette olan, prime tabi ya da araba parası alan kişiler
+// Ayın listesi: o ay şirkette olan ve o ay prime tabi ya da araba parası hakkı açık olan kişiler
 function payrollMonth(iso) {
   const rate = payRateFor(iso);
-  const rows = Store.users().filter(u => (u.bonusEligible || u.carAllowance) && employedIn(u, iso))
-    .map(u => payFor(u, iso, rate)).sort((a, b) => b.total - a.total || a.user.name.localeCompare(b.user.name, 'tr'));
+  const rows = Store.users().filter(u => employedIn(u, iso)).map(u => payFor(u, iso, rate)).filter(r => r.bonusOn || r.carOn)
+    .sort((a, b) => b.total - a.total || a.user.name.localeCompare(b.user.name, 'tr'));
   return { rate, rows, bonus: sum(rows, r => r.bonus), car: sum(rows, r => r.car), total: sum(rows, r => r.total) };
 }
 

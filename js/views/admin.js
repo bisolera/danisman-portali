@@ -265,14 +265,14 @@ const AdminView = {
     // Prim & yan haklar: faturalanabilir saat ÷ 8 (kesirli gün), eşiği aşan gün × günlük prim; araç yerine araba parası
     function renderPayroll() {
       const r = payrollMonth(payMonth), rate = r.rate, from = monthStart(payMonth), to = monthEnd(payMonth);
-      const draft = r.rows.filter(x => !x.final).length, eligible = r.rows.filter(x => x.user.bonusEligible);
+      const draft = r.rows.filter(x => !x.final).length, eligible = r.rows.filter(x => x.bonusOn);
       const money = v => (v ? fmtMoney(v) : '<span class="faint">—</span>');
       const share = v => (r.total ? `${((v / r.total) * 100).toFixed(2)}%` : '0%');
       // Gün çubukları aynı ölçekte: eşik çizgisi bütün satırlarda aynı hizaya düşer, kimin geçtiği tek bakışta görülür
       const scale = Math.max(rate ? rate.bonusThreshold * 1.4 : 0, ...r.rows.map(x => x.days), 1);
       const pos = v => `${Math.min(100, (v / scale) * 100).toFixed(2)}%`;
       const dayBar = x => {
-        if (!x.user.bonusEligible) return `<span class="pday-off">Prime tabi değil · ${fmtNum(x.billable)} sa</span>`;
+        if (!x.bonusOn) return `<span class="pday-off">Prime tabi değil · ${fmtNum(x.billable)} sa</span>`;
         const goal = rate?.bonusThreshold;
         const note = goal == null ? 'eşik tanımsız' : x.over > 0 ? `+${fmtDays(x.over)} gün eşik üstü` : `eşiğe ${fmtDays(goal - x.days)} gün`;
         return `<div class="pday${x.over > 0 ? ' is-over' : ''}${goal == null ? ' no-goal' : ''}" style="--goal:${pos(goal || 0)}">
@@ -281,7 +281,9 @@ const AdminView = {
         </div>`;
       };
       const subline = u => [esc(u.title), u.startDate > from && u.startDate <= to && `${fmtShort(u.startDate)} başladı`,
-        u.endDate && u.endDate <= to && `${fmtShort(u.endDate)} ayrıldı`].filter(Boolean).join(' · ');
+        u.endDate && u.endDate <= to && `${fmtShort(u.endDate)} ayrıldı`,
+        ...perkChanges(u, from, to).map(c => `${c.key === 'bonus' ? 'Prim' : 'Araba parası'} ${fmtShort(c.date)} itibarıyla ${c.on ? 'başladı' : 'bitti'}`)]
+        .filter(Boolean).join(' · ');
       panel.innerHTML = `<section class="card">
         <div class="card-head">
           <div><h2>Prim & yan haklar</h2><p class="sub">Faturalanabilir güne göre prim ve araç yerine ödenen araba parası. Yalnızca yöneticiler görür.</p></div>
@@ -605,6 +607,8 @@ function userModal(u, onSave) {
   const self = u && u.id === App.user.id;
   const local = u ? u.email.split('@')[0] : '';
   const bal = u ? leaveBalance(u) : null;
+  let perks = u ? perkHistory(u) : [];     // kaydedilene kadar burada düzenlenir
+  const lastPerk = perks[perks.length - 1] || { bonus: false, car: false };
   const check = (name, on, title, text, disabled = false) => `<label class="opt-card"><input type="checkbox" name="${name}"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}>
     <span><strong>${title}</strong><small>${text}</small></span></label>`;
   openModal({
@@ -647,9 +651,12 @@ function userModal(u, onSave) {
       <div class="form-sec">
         <div class="form-sec-title">Yan haklar</div>
         <div class="opt-cards">
-          ${check('bonusEligible', u?.bonusEligible, 'Prime tabi', 'Kıdemli danışman: faturalanabilir gün eşiği aşınca prim alır.')}
-          ${check('carAllowance', u?.carAllowance, 'Araba parası', 'Şirket aracı yerine her ay araba parası alır.')}
+          ${check('bonusEligible', lastPerk.bonus, 'Prime tabi', 'Kıdemli danışman: faturalanabilir gün eşiği aşınca prim alır.')}
+          ${check('carAllowance', lastPerk.car, 'Araba parası', 'Şirket aracı yerine her ay araba parası alır.')}
         </div>
+        ${u ? `<label class="field" data-perk-when hidden><span class="field-label">Geçerlilik tarihi</span><input class="input" type="date" name="perkFrom" value="${monthStart(todayISO())}">
+          <small class="field-hint">Değişiklik bu tarihten itibaren geçerli olur; önceki aylar değişmez. Prim, hakkın başladığı ayın tamamı için hesaplanır.</small></label>
+        <div data-perk-history></div>` : '<p class="field-hint">Yeni kişide haklar işe giriş tarihinden itibaren geçerli olur.</p>'}
       </div>
       <p class="form-error" hidden></p>
     </form>`,
@@ -666,6 +673,26 @@ function userModal(u, onSave) {
         if (!u && !el.annualLeave.dataset.touched) el.annualLeave.value = legalAnnualLeave(el.startDate.value);
       });
       showLegal();
+      // Yan hak geçmişi: değişiklik tarihi yalnızca bir hak açılıp kapanınca sorulur; yanlış kayıt silinebilir (kaydedince işler)
+      const when = m.querySelector('[data-perk-when]'), history = m.querySelector('[data-perk-history]');
+      const latest = () => perks[perks.length - 1] || { bonus: false, car: false };
+      const changed = () => latest().bonus !== el.bonusEligible.checked || latest().car !== el.carAllowance.checked;
+      const renderPerks = () => {
+        if (!u) return;
+        when.hidden = !changed();
+        history.innerHTML = perks.length ? `<div class="field-label">Hak geçmişi</div><ul class="perk-list">${perks.slice().reverse().map(p => `<li data-perk="${p.from}">
+          <span>${fmtDate(p.from)} itibarıyla</span><b>${[p.bonus && 'Prime tabi', p.car && 'Araba parası'].filter(Boolean).join(' · ') || 'Hak yok'}</b>
+          <button class="icon-btn sm" type="button" data-del-perk title="Bu kaydı sil" aria-label="Bu kaydı sil">${icon('trash', 14)}</button></li>`).join('')}</ul>` : '';
+      };
+      renderPerks();
+      el.bonusEligible.addEventListener('change', renderPerks);
+      el.carAllowance.addEventListener('change', renderPerks);
+      history?.addEventListener('click', e => {
+        const li = e.target.closest('[data-del-perk]')?.closest('[data-perk]');
+        if (!li) return;
+        perks = perks.filter(p => p.from !== li.dataset.perk);
+        renderPerks();
+      });
       f.addEventListener('submit', e => {
         e.preventDefault();
         const name = el.name.value.trim();
@@ -679,8 +706,21 @@ function userModal(u, onSave) {
         const carryIn = Number(el.carryIn.value || 0);
         if (!(carryIn >= -40 && carryIn <= 60)) return formError(f, 'Açılış bakiyesi −40 ile 60 gün arasında olmalı.', el.carryIn);
         if (el.endDate.value && el.endDate.value < el.startDate.value) return formError(f, 'İşten çıkış tarihi işe girişten önce olamaz.', el.endDate);
+        // Yeni değer seçilen tarihten itibaren geçerli; o tarihten sonraki eski kayıtların yerini alır. İşe giriş değişirse ilk kayıt onunla kayar.
+        const want = { bonus: el.bonusEligible.checked, car: el.carAllowance.checked };
+        let list = u ? perks.map(p => (p.from === u.startDate ? { ...p, from: el.startDate.value } : p)) : [];
+        if (!u) list = want.bonus || want.car ? [{ from: el.startDate.value, ...want }] : [];
+        else if (changed()) {
+          const at = el.perkFrom.value;
+          if (!at) return formError(f, 'Yan hakkın geçerlilik tarihini seç.', el.perkFrom);
+          if (at < el.startDate.value) return formError(f, 'Yan hakkın geçerlilik tarihi işe girişten önce olamaz.', el.perkFrom);
+          list = list.filter(p => p.from < at);
+          const prev = list[list.length - 1] || { bonus: false, car: false };
+          if (prev.bonus !== want.bonus || prev.car !== want.car) list.push({ from: at, ...want });
+        }
+        const now = list[list.length - 1] || { bonus: false, car: false };
         const data = { name, email, title: el.title.value.trim() || 'Danışman', annualLeave, startDate: el.startDate.value, carryIn,
-          endDate: el.endDate.value || null, bonusEligible: el.bonusEligible.checked, carAllowance: el.carAllowance.checked };
+          endDate: el.endDate.value || null, perks: list, bonusEligible: now.bonus, carAllowance: now.car };
         // Hak değişirse geçmiş hak edişler eski değerle kalır; yoksa bakiye geriye dönük değişirdi
         if (u && u.annualLeave !== annualLeave) {
           data.entitlements = { ...(u.entitlements || { [LEAVE_START_YEAR]: u.annualLeave }), [parseISO(todayISO()).getFullYear()]: annualLeave };

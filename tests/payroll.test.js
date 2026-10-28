@@ -35,6 +35,23 @@
   ok('ayrilan_ayrildigi_ay_listede', payrollMonth('2025-03-01').rows.some(r => r.user.id === leaver.id)
     && !payrollMonth('2025-04-01').rows.some(r => r.user.id === leaver.id) && payFor(joiner, '2025-04-01').car === 10000);
   ok('esik_alti_prim_yok', payFor(p, '2025-02-01').bonus === 0);
+
+  // Hak sonradan gelir: önceki aylarda prim ve araba parası yok, kişi o ayların listesinde görünmez.
+  // Hak ayın ortasında (15 Mart) başlarsa prim o ayın tamamından, araba parası hakkın açık olduğu günler kadar (17/31).
+  const later = person('Sonradan Hak', { perks: [{ from: '2025-03-15', bonus: true, car: true }] });
+  for (let d = 1; d <= 25; d++) {
+    Store.addActivity({ userId: later.id, projectId: 'p14', date: `2025-02-${String(d).padStart(2, '0')}`, hours: 8, type: 'destek', note: 'Hak öncesi' });
+    Store.addActivity({ userId: later.id, projectId: 'p14', date: `2025-03-${String(d).padStart(2, '0')}`, hours: 8, type: 'destek', note: 'Hak ayı' });
+  }
+  const feb = payFor(later, '2025-02-01'), mar = payFor(later, '2025-03-01');
+  ok('hak_oncesi_ay_bos', !feb.bonusOn && !feb.carOn && feb.bonus === 0 && feb.car === 0 && !payrollMonth('2025-02-01').rows.some(r => r.user.id === later.id), feb);
+  ok('hak_ayi_prim_tam_ay', mar.bonusOn && mar.billable === 200 && mar.bonus === 7000, mar);
+  ok('hak_ayi_araba_kist', mar.carDays === 17 && mar.car === 5483.87 && mar.prorated, mar);
+  ok('hak_degisikligi', JSON.stringify(perkChanges(later, '2025-03-01', '2025-03-31')) === JSON.stringify([{ date: '2025-03-15', key: 'bonus', on: true }, { date: '2025-03-15', key: 'car', on: true }]));
+  // Hak biter: 11 Mart'ta şirket aracı aldı → Mart'ta 10 gün araba parası, Nisan'da listede yok
+  const carEnds = person('Arac Aldi', { perks: [{ from: '2020-01-01', bonus: false, car: true }, { from: '2025-03-11', bonus: false, car: false }] });
+  ok('hak_bitti', payFor(carEnds, '2025-03-01').carDays === 10 && payFor(carEnds, '2025-03-01').car === 3225.81
+    && !payrollMonth('2025-04-01').rows.some(r => r.user.id === carEnds.id) && payFor(carEnds, '2025-02-01').car === 10000);
   ok('yururluk_tarihi', payRateFor('2025-05-15').bonusDaily === 1000 && payRateFor('2025-06-01').bonusDaily === 1200 && payRateFor('2024-12-01') === null);
   const month = payrollMonth('2025-03-01');
   ok('ay_listesi', month.rows.some(r => r.user.id === p.id) && month.rows.some(r => r.user.id === q.id) && !month.rows.some(r => r.user.id === late.id)
@@ -53,6 +70,9 @@
     && panel().querySelector('.pay-rate').textContent.includes('1.000,00 ₺') && panel().querySelector('.pay-sum-main').textContent.includes(fmtMoney(payrollMonth('2025-03-01').total)), row?.textContent);
   ok('kist_ekranda', panel().querySelector(`tr[data-pay-row="${joiner.id}"]`)?.textContent.includes('kıst 16/31 gün')
     && panel().querySelector(`tr[data-pay-row="${leaver.id}"]`)?.textContent.includes('ayrıldı'));
+  ok('hak_ekranda', panel().querySelector(`tr[data-pay-row="${later.id}"]`)?.textContent.includes('Prim 15 Mar itibarıyla başladı')
+    && panel().querySelector(`tr[data-pay-row="${carEnds.id}"]`)?.textContent.includes('Araba parası 11 Mar itibarıyla bitti'),
+    panel().querySelector(`tr[data-pay-row="${later.id}"]`)?.textContent);
   go('#/yonetim?tab=prim&ay=2024-11');
   ok('tutar_yok_uyarisi', panel().textContent.includes('tutar girilmemiş'));
 
@@ -92,7 +112,10 @@
   go('#/yonetim?tab=kullanicilar');
   panel().querySelector('[data-edit-user="u3"]').click();
   m = lastModal(); f = m.querySelector('form');
+  ok('tarih_kutusu_gizli', m.querySelector('[data-perk-when]').hidden);
   f.elements.bonusEligible.checked = true;
+  f.elements.bonusEligible.dispatchEvent(new Event('change', { bubbles: true }));
+  ok('tarih_kutusu_acilir', !m.querySelector('[data-perk-when]').hidden && f.elements.perkFrom.value === monthStart(todayISO()));
   f.elements.endDate.value = '2020-01-01';   // işe girişten önce: kabul edilmez
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   ok('cikis_tarihi_kontrolu', !m.querySelector('.form-error').hidden && !Store.user('u3').endDate);
@@ -100,6 +123,21 @@
   f.dispatchEvent(new Event('submit', { cancelable: true }));
   await wait(250);
   ok('form_isaretleri', Store.user('u3').bonusEligible === true && Store.user('u3').carAllowance === false && Store.user('u3').endDate === '2030-06-30');
+  // Hak bu aydan açıldı: geçen ay prim yok, bu ay var; geçmişte tarihiyle kayıtlı
+  const thisMonth = monthStart(todayISO()), u3 = Store.user('u3');
+  ok('form_hak_tarihli', JSON.stringify(u3.perks) === JSON.stringify([{ from: thisMonth, bonus: true, car: false }])
+    && !payFor(u3, addMonths(thisMonth, -1)).bonusOn && payFor(u3, thisMonth).bonusOn, u3.perks);
+
+  // Yanlış kayıt geçmişten silinir; hak geri kapanır
+  panel().querySelector('[data-edit-user="u3"]').click();
+  m = lastModal(); f = m.querySelector('form');
+  ok('hak_gecmisi_listede', m.querySelectorAll('.perk-list li').length === 1 && f.elements.bonusEligible.checked);
+  m.querySelector('.perk-list [data-del-perk]').click();
+  f.elements.bonusEligible.checked = false;
+  f.elements.bonusEligible.dispatchEvent(new Event('change', { bubbles: true }));
+  f.dispatchEvent(new Event('submit', { cancelable: true }));
+  await wait(250);
+  ok('hak_kaydi_silindi', Store.user('u3').perks.length === 0 && Store.user('u3').bonusEligible === false, Store.user('u3').perks);
 
   // Danışman göremez
   App.login(Store.user('u2'));
