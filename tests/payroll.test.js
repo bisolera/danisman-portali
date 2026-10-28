@@ -139,6 +139,18 @@
   await wait(250);
   ok('hak_kaydi_silindi', Store.user('u3').perks.length === 0 && Store.user('u3').bonusEligible === false, Store.user('u3').perks);
 
+  // Hakkı olmayan kişide de geçmiş görünür; değişiklik kaydetmeden önce en üstte önizlenir
+  panel().querySelector('[data-edit-user="u4"]').click();
+  m = lastModal(); f = m.querySelector('form');
+  ok('bos_gecmis_gorunur', m.querySelector('[data-perk-history]').textContent.includes('Henüz yan hak kaydı yok'));
+  f.elements.carAllowance.checked = true;
+  f.elements.carAllowance.dispatchEvent(new Event('change', { bubbles: true }));
+  const preview = m.querySelector('.perk-list li.is-new');
+  ok('degisiklik_onizlenir', preview?.textContent.includes('Araba parası') && preview.textContent.includes('kaydedince eklenir')
+    && preview.textContent.includes(fmtDate(monthStart(todayISO()))) && !m.querySelector('.perk-list li.is-empty'), preview?.textContent);
+  m.querySelector('[data-close]').click();
+  await wait(250);
+
   // Danışman göremez
   App.login(Store.user('u2'));
   go('#/yonetim?tab=prim&ay=2025-03');

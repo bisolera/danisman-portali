@@ -677,16 +677,23 @@ function userModal(u, onSave) {
       const when = m.querySelector('[data-perk-when]'), history = m.querySelector('[data-perk-history]');
       const latest = () => perks[perks.length - 1] || { bonus: false, car: false };
       const changed = () => latest().bonus !== el.bonusEligible.checked || latest().car !== el.carAllowance.checked;
+      // Geçmiş her zaman görünür: kaydedilmemiş değişiklik en üstte önizlenir, yerini alacağı kayıtların üstü çizilir
+      const perkText = p => [p.bonus && 'Prime tabi', p.car && 'Araba parası'].filter(Boolean).join(' · ') || 'Hak yok';
       const renderPerks = () => {
         if (!u) return;
-        when.hidden = !changed();
-        history.innerHTML = perks.length ? `<div class="field-label">Hak geçmişi</div><ul class="perk-list">${perks.slice().reverse().map(p => `<li data-perk="${p.from}">
-          <span>${fmtDate(p.from)} itibarıyla</span><b>${[p.bonus && 'Prime tabi', p.car && 'Araba parası'].filter(Boolean).join(' · ') || 'Hak yok'}</b>
-          <button class="icon-btn sm" type="button" data-del-perk title="Bu kaydı sil" aria-label="Bu kaydı sil">${icon('trash', 14)}</button></li>`).join('')}</ul>` : '';
+        const draft = changed(), at = el.perkFrom.value;
+        when.hidden = !draft;
+        const next = draft ? `<li class="is-new"><span>${at ? fmtDate(at) : 'Tarih seç'} itibarıyla</span><b>${perkText({ bonus: el.bonusEligible.checked, car: el.carAllowance.checked })}</b>
+          <small>kaydedince eklenir</small></li>` : '';
+        const rows = perks.slice().reverse().map(p => `<li data-perk="${p.from}" class="${draft && at && p.from >= at ? 'is-replaced' : ''}">
+          <span>${fmtDate(p.from)} itibarıyla</span><b>${perkText(p)}</b>
+          <button class="icon-btn sm" type="button" data-del-perk title="Bu kaydı sil" aria-label="Bu kaydı sil">${icon('trash', 14)}</button></li>`).join('');
+        history.innerHTML = `<div class="field-label">Hak geçmişi</div><ul class="perk-list">${next}${rows || (draft ? '' : '<li class="is-empty">Henüz yan hak kaydı yok</li>')}</ul>`;
       };
       renderPerks();
       el.bonusEligible.addEventListener('change', renderPerks);
       el.carAllowance.addEventListener('change', renderPerks);
+      el.perkFrom?.addEventListener('change', renderPerks);
       history?.addEventListener('click', e => {
         const li = e.target.closest('[data-del-perk]')?.closest('[data-perk]');
         if (!li) return;
