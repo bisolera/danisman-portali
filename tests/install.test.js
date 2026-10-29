@@ -13,7 +13,24 @@
 
   as('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1');
   let html = installBoxHtml();
-  ok('iphone_adimlar', html.includes('Ana Ekrana Ekle') && html.includes('Paylaş') && html.includes('install-steps') && !html.includes('data-install'));
+  ok('iphone_rehber_dugmesi', html.includes('data-ios-guide') && html.includes('Uygulama olarak kur') && !html.includes('data-install'));
+
+  // iPhone rehberi: üç adım, Paylaş'ı gösteren ok (iPhone'da aşağıda, iPad'de yukarıda); kapanınca ok kalkar
+  const modal0 = () => [...document.querySelectorAll('.modal')].pop();
+  openProfile();
+  modal0().querySelector('[data-ios-guide]').click();
+  ok('iphone_rehber', modal0().querySelectorAll('.ios-guide li').length === 3 && modal0().textContent.includes('Ana Ekrana Ekle')
+    && document.querySelector('.ios-arrow:not(.is-top)')?.textContent.includes('aşağıda'));
+  modal0().querySelector('[data-close]').click();
+  await wait(250);
+  ok('rehber_kapaninca_ok_kalkar', !document.querySelector('.ios-arrow') && !!document.querySelector('.install-box'));
+  as('Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1');
+  openIosInstallGuide();
+  ok('ipad_ok_yukarida', !!document.querySelector('.ios-arrow.is-top') && modal0().textContent.includes('üst çubuğunda'));
+  modal0().querySelector('[data-close]').click();
+  await wait(250);
+  modal0()?.querySelector('[data-close]')?.click();   // Profilim
+  await wait(250);
   as('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36');
   html = installBoxHtml();
   ok('android_adimlar', html.includes('Uygulamayı yükle') && html.includes('⋮') && html.includes('install-steps'));

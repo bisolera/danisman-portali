@@ -152,8 +152,8 @@ function installBoxHtml() {
   const steps = list => `<ol class="install-steps">${list.map(s => `<li>${s}</li>`).join('')}</ol>`;
   const how = installPrompt ? `<button class="btn ghost sm" data-install>${icon('phone', 15)} Uygulama olarak yükle</button>`
     : inApp ? `<p class="small-text">Bu sayfa başka bir uygulamanın içinde açık; oradan kurulamaz. Bağlantıyı ${ios ? '<strong>Safari</strong>' : '<strong>Chrome</strong>'}’da açıp tekrar dene (sağ üstteki menüden “Tarayıcıda aç”).</p>`
-    : ios ? `${steps(['Safari’de alttaki <strong>Paylaş</strong> simgesine dokun (yukarı oklu kare)', 'Listeden <strong>Ana Ekrana Ekle</strong>’yi seç (görünmüyorsa aşağı kaydır)', 'Sağ üstte <strong>Ekle</strong>’ye dokun'])}
-      <p class="small-text muted">iPhone’da ana ekrandaki uygulama Safari’deki kayıtları görmez; sunucuya geçene kadar tek yerden kullan.</p>`
+    : ios ? `<button class="btn ghost sm" data-ios-guide>${icon('phone', 15)} Uygulama olarak kur</button>
+      <p class="small-text muted">iPhone’da Safari’nin Paylaş menüsünden eklenir; düğme nereye dokunacağını adım adım gösterir.</p>`
     : /android/i.test(ua) ? steps(['Chrome’da sağ üstteki <strong>⋮</strong> menüsüne dokun', '<strong>Uygulamayı yükle</strong> ya da <strong>Ana ekrana ekle</strong>’yi seç', '<strong>Yükle</strong>’ye dokun'])
     : '<p class="small-text">Adres çubuğunun sağındaki kurulum simgesine ya da tarayıcı menüsündeki <strong>Uygulamayı yükle</strong>’ye tıkla.</p>';
   return `<div class="install-box">
@@ -161,6 +161,29 @@ function installBoxHtml() {
       <p>Kendi simgesiyle açılır; bağlantı yokken de çalışır.</p></div></div>
     ${how}
   </div>`;
+}
+
+// iPhone/iPad kurulum rehberi: Apple web sitesinin kendisi kurmasına izin vermediği için Safari'nin Paylaş düğmesini okla gösterir
+// (iPhone'da alt çubukta, iPad'de üstte; yeni Safari'de ••• menüsünün içinde olabilir).
+function openIosInstallGuide() {
+  const ipad = /ipad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const arrow = document.createElement('div');
+  arrow.className = `ios-arrow${ipad ? ' is-top' : ''}`;
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.innerHTML = ipad ? `${icon('arrow-up', 30)}<span>Paylaş burada</span>` : `<span>Paylaş aşağıda</span>${icon('arrow-down', 30)}`;
+  const step = (ic, title, note) => `<li><span class="ios-ic">${icon(ic, 22)}</span><div>${title}<small>${note}</small></div></li>`;
+  openModal({
+    title: 'Ana ekrana ekle',
+    body: `<ol class="ios-guide">
+        ${step('share', '<strong>Paylaş</strong> simgesine dokun', `Safari’nin ${ipad ? 'üst' : 'alt'} çubuğunda, yukarı oklu kare. Görmüyorsan önce <b>•••</b> düğmesine dokun.`)}
+        ${step('plus-square', '<strong>Ana Ekrana Ekle</strong>’yi seç', 'Listede görünmüyorsa aşağı kaydır.')}
+        ${step('check', 'Sağ üstte <strong>Ekle</strong>’ye dokun', 'Bisolera simgesi ana ekranına gelir; oradan uygulama gibi açılır.')}
+      </ol>
+      <p class="muted small-text">Ana ekrandaki uygulama Safari’deki kayıtları görmez; sunucuya geçene kadar tek yerden kullan.</p>`,
+    footer: '<span class="grow"></span><button class="btn primary" data-close>Anladım</button>',
+    onMount() { document.body.appendChild(arrow); },
+    onClose() { arrow.remove(); },
+  });
 }
 
 function openProfile() {
@@ -199,6 +222,7 @@ function openProfile() {
         m.querySelector('[data-look]').outerHTML = lookBoxHtml();
       });
       m.addEventListener('click', async e => {
+        if (e.target.closest('[data-ios-guide]')) return openIosInstallGuide();
         if (!e.target.closest('[data-install]') || !installPrompt) return;
         const prompt = installPrompt;
         installPrompt = null;               // kurulum penceresi yalnızca bir kez açılabilir
