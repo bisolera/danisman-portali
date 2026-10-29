@@ -590,10 +590,27 @@ async function exportMonthlyForm(user, iso) {
 }
 
 // Yönetim raporu: müşteri/proje, danışman bazında ve talep bazında saatler (faturalama için)
-async function exportMonthReport(iso) {
+/* ---------- Raporlar: bir kez veri olarak kurulur, Excel'e de PDF'e (print.js → printReport) de aynı satırlar gider ----------
+   { title, period, file, done, sheets: [{ name, rows, cols, dates?, filter? }] }; gösterilecek bir şey yoksa { empty: 'mesaj' }.
+   rows[0] başlık satırı; boş satır ayraç; dates = ilk sütun ISO tarih (Excel'de tarih biçimi); money = PDF'te tutar yazılacak sütun başlıkları. */
+async function saveReportExcel(rep) {
+  if (rep.empty) { toast(rep.empty, { tone: 'info' }); return; }
+  const XLSX = await loadXLSX(), wb = XLSX.utils.book_new();
+  rep.sheets.forEach(s => {
+    const ws = XLSX.utils.aoa_to_sheet(s.rows);
+    if (s.dates) dateColumnToExcel(ws, XLSX, s.rows.length);
+    ws['!cols'] = s.cols.map(wch => ({ wch }));
+    if (s.filter) ws['!autofilter'] = { ref: `A1:${XLSX.utils.encode_col(s.rows[0].length - 1)}${s.rows.length}` };
+    XLSX.utils.book_append_sheet(wb, ws, s.name);
+  });
+  XLSX.writeFile(wb, `${rep.file}.xlsx`);
+  toast(rep.done);
+}
+
+async function exportMonthReport(iso) { return saveReportExcel(monthReportData(iso)); }
+function monthReportData(iso) {
   const r = monthReport(iso);
-  if (!r.total) { toast(`${monthTitle(iso)} için kayıt yok`, { tone: 'info' }); return; }
-  const XLSX = await loadXLSX();
+  if (!r.total) return { empty: `${monthTitle(iso)} için kayıt yok` };
   const projectRows = [['Müşteri', 'Proje', 'Proje Kodu', 'Faturalanır', 'Saat', 'Sözleşme saati', 'Kullanım %']];
   const userRows = [['Danışman', 'Müşteri', 'Proje', 'Proje Kodu', 'Faturalanır', 'Saat']];
   r.groups.forEach(g => g.rows.forEach(row => {
@@ -605,20 +622,17 @@ async function exportMonthReport(iso) {
   const ticketRows = [['Talep', 'Proje', 'Kayıt sayısı', 'Saat', 'Son çalışma'],
     ...r.tickets.map(t => [t.id, [...t.projects].map(pid => Store.project(pid).name).join(', '), t.entries, Math.round(t.hours * 100) / 100, t.last])];
 
-  const wb = XLSX.utils.book_new();
-  const add = (rows, name, cols) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws['!cols'] = cols.map(wch => ({ wch })); XLSX.utils.book_append_sheet(wb, ws, name); };
-  add(projectRows, 'Müşteri-Proje', [20, 32, 12, 11, 10, 14, 11]);
-  add(userRows, 'Danışman-Proje', [24, 20, 32, 12, 11, 10]);
-  add(ticketRows, 'Talepler', [16, 40, 12, 10, 12]);
-  XLSX.writeFile(wb, `bisolera-rapor-${iso.slice(0, 7)}.xlsx`);
-  toast(`${monthTitle(iso)} raporu indirildi`);
+  return { title: 'Aylık rapor', period: monthTitle(iso), file: `bisolera-rapor-${iso.slice(0, 7)}`, done: `${monthTitle(iso)} raporu indirildi`, sheets: [
+    { name: 'Müşteri-Proje', rows: projectRows, cols: [20, 32, 12, 11, 10, 14, 11] },
+    { name: 'Danışman-Proje', rows: userRows, cols: [24, 20, 32, 12, 11, 10] },
+    { name: 'Talepler', rows: ticketRows, cols: [16, 40, 12, 10, 12] }] };
 }
 
 // Doluluk raporu: danışman bazında hedef / girilen / faturalanır / doluluk ve faturalanmayan saatlerin dökümü
-async function exportUtilization(iso) {
+async function exportUtilization(iso) { return saveReportExcel(utilizationData(iso)); }
+function utilizationData(iso) {
   const t = teamUtilization(iso);
-  if (!t.target) { toast(`${monthTitle(iso)} için hedef saat yok`, { tone: 'info' }); return; }
-  const XLSX = await loadXLSX();
+  if (!t.target) return { empty: `${monthTitle(iso)} için hedef saat yok` };
   const { from, to } = utilizationRange(iso);
   const pct = p => (p == null ? '' : Math.round(p * 100));
   const rows = [['Danışman', 'Hedef (sa)', 'Girilen (sa)', 'Faturalanır (sa)', 'Faturalanmayan (sa)', 'Doluluk %', 'Eksik gün', 'İzin (gün)'],
@@ -630,19 +644,16 @@ async function exportUtilization(iso) {
   const internal = [['Proje', 'Müşteri', 'Saat', 'Danışmanlar (saat)'],
     ...internalBreakdown(iso).map(r => [r.project.name, r.customer.name, r.hours, [...r.users].map(([id, h]) => `${Store.user(id)?.name || id} ${h}`).join(', ')])];
 
-  const wb = XLSX.utils.book_new();
-  const add = (aoa, name, cols) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = cols.map(wch => ({ wch })); XLSX.utils.book_append_sheet(wb, ws, name); };
-  add(rows, 'Doluluk', [24, 11, 12, 15, 18, 10, 10, 10]);
-  add(internal, 'Faturalanmayan', [32, 20, 10, 50]);
-  XLSX.writeFile(wb, `bisolera-doluluk-${iso.slice(0, 7)}.xlsx`);
-  toast(`${monthTitle(iso)} doluluk raporu indirildi`);
+  return { title: 'Doluluk raporu', period: monthTitle(iso), file: `bisolera-doluluk-${iso.slice(0, 7)}`, done: `${monthTitle(iso)} doluluk raporu indirildi`, sheets: [
+    { name: 'Doluluk', rows, cols: [24, 11, 12, 15, 18, 10, 10, 10] },
+    { name: 'Faturalanmayan', rows: internal, cols: [32, 20, 10, 50] }] };
 }
 
 // Masraf raporu (muhasebe için): tüm kalemler, kişi özeti, müşteriye yansıtılacaklar. Reddedilenler hariç.
-async function exportExpenses(iso) {
+async function exportExpenses(iso) { return saveReportExcel(expensesData(iso)); }
+function expensesData(iso) {
   const r = expenseMonthReport(iso);
-  if (!r.items.length) { toast(`${monthTitle(iso)} için masraf yok`, { tone: 'info' }); return; }
-  const XLSX = await loadXLSX();
+  if (!r.items.length) return { empty: `${monthTitle(iso)} için masraf yok` };
   const where = x => { const p = x.projectId && Store.project(x.projectId); return p ? [Store.customer(p.customerId).name, p.name] : ['', '']; };
   const rows = [['Tarih', 'Danışman', 'Kategori', 'Açıklama', 'Müşteri', 'Proje', 'Müşteriye yansıtılacak', 'Fiş', 'Durum', 'Tutar (TL)'],
     ...r.items.map(x => [x.date, Store.user(x.userId)?.name || x.userId, expenseCategoryName(x.category), x.description, ...where(x),
@@ -655,44 +666,32 @@ async function exportExpenses(iso) {
     ...r.rebill.flatMap(c => [...c.items.map(x => [c.customer.name, where(x)[1], x.date, Store.user(x.userId)?.name || '', expenseCategoryName(x.category), x.description, x.amount]),
       [c.customer.name, 'Toplam', '', '', '', '', c.total], []])];
 
-  const wb = XLSX.utils.book_new();
-  const add = (aoa, name, cols, dateCol) => {
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    if (dateCol) dateColumnToExcel(ws, XLSX, aoa.length);
-    ws['!cols'] = cols.map(wch => ({ wch }));
-    XLSX.utils.book_append_sheet(wb, ws, name);
-  };
-  add(rows, 'Masraflar', [12, 22, 16, 44, 20, 28, 12, 8, 14, 12], true);
-  add(people, 'Kişi özeti', [22, ...cats.map(() => 14), 14, 14, 14, 14, 12]);
-  add(rebill, 'Müşteriye yansıtılacak', [22, 28, 12, 22, 16, 44, 12]);
-  XLSX.writeFile(wb, `bisolera-masraf-${iso.slice(0, 7)}.xlsx`);
-  toast(`${monthTitle(iso)} masraf raporu indirildi`);
+  return { title: 'Masraf raporu', period: monthTitle(iso), file: `bisolera-masraf-${iso.slice(0, 7)}`, done: `${monthTitle(iso)} masraf raporu indirildi`, sheets: [
+    { name: 'Masraflar', rows, cols: [12, 22, 16, 44, 20, 28, 12, 8, 14, 12], dates: true, money: ['Tutar (TL)'] },
+    { name: 'Kişi özeti', rows: people, cols: [22, ...cats.map(() => 14), 14, 14, 14, 14, 12], money: [...cats.map(c => c.name), 'Toplam', 'Onay bekleyen', 'Ödenecek', 'Ödendi'] },
+    { name: 'Müşteriye yansıtılacak', rows: rebill, cols: [22, 28, 12, 22, 16, 44, 12], money: ['Tutar (TL)'] }] };
 }
 
 // Prim ve araba parası (yalnızca yönetici): kişi başına faturalanabilir saat, gün, eşik üstü, prim, araba parası
-async function exportPayroll(iso) {
+async function exportPayroll(iso) { return saveReportExcel(payrollData(iso)); }
+function payrollData(iso) {
   const r = payrollMonth(iso);
-  if (!r.rate || !r.rows.length) { toast(`${monthTitle(iso)} için hesaplanacak kimse ya da tutar yok`, { tone: 'info' }); return; }
-  const XLSX = await loadXLSX();
+  if (!r.rate || !r.rows.length) return { empty: `${monthTitle(iso)} için hesaplanacak kimse ya da tutar yok` };
   const rows = [['Danışman', 'Prime tabi', 'Araba parası alır', 'Faturalanabilir saat', 'Gün (÷8)', 'Eşik (gün)', 'Eşik üstü gün', 'Günlük prim', 'Prim', 'Araba parası', 'Toplam', 'Durum', 'Araba parası günü'],
     ...r.rows.map(x => [x.user.name, x.bonusOn ? 'Evet' : 'Hayır', x.carOn ? 'Evet' : 'Hayır', x.billable, x.days, r.rate.bonusThreshold,
       x.bonusOn ? x.over : '', r.rate.bonusDaily, x.bonus, x.car, x.total, x.final ? 'Kesin (ay onaylı)' : 'Taslak',
       x.carOn ? `${x.carDays}/${x.monthDays}${x.prorated ? ' (kıst)' : ''}` : '']),
     [], ['Toplam', '', '', '', '', '', '', '', r.bonus, r.car, r.total],
     ['Dönem', monthTitle(iso)], ['Tutarların geçerlilik tarihi', r.rate.from]];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [24, 11, 16, 18, 10, 11, 13, 12, 12, 13, 12, 16, 16].map(wch => ({ wch }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Prim ve yan haklar');
-  XLSX.writeFile(wb, `bisolera-prim-${iso.slice(0, 7)}.xlsx`);
-  toast(`${monthTitle(iso)} prim listesi indirildi`);
+  return { title: 'Prim ve yan haklar', period: monthTitle(iso), file: `bisolera-prim-${iso.slice(0, 7)}`, done: `${monthTitle(iso)} prim listesi indirildi`, sheets: [
+    { name: 'Prim ve yan haklar', rows, cols: [24, 11, 16, 18, 10, 11, 13, 12, 12, 13, 12, 16, 16], money: ['Günlük prim', 'Prim', 'Araba parası', 'Toplam'] }] };
 }
 
 // Sözleşme listesi: dönem, saat havuzu kullanımı, tahmini tükenme ve durum
-async function exportContracts() {
+async function exportContracts() { return saveReportExcel(contractsData()); }
+function contractsData() {
   const today = todayISO(), list = Store.contracts().slice().sort((a, b) => a.end.localeCompare(b.end));
-  if (!list.length) { toast('Sözleşme yok', { tone: 'info' }); return; }
-  const XLSX = await loadXLSX();
+  if (!list.length) return { empty: 'Sözleşme yok' };
   const rows = [['Müşteri', 'Sözleşme', 'Başlangıç', 'Bitiş', 'Kalan gün', 'Projeler', 'Saat havuzu', 'Kullanılan', 'Kalan saat', 'Kullanım %', 'Tahmini tükenme', 'Durum', 'Yenileme', 'Not'],
     ...list.map(c => {
       const u = contractUsage(c, today);
@@ -700,44 +699,34 @@ async function exportContracts() {
         c.projectIds.map(pid => Store.project(pid)?.code).filter(Boolean).join(', '), c.hours || '', u.used, u.remaining ?? '',
         u.pct == null ? '' : Math.round(u.pct), u.runsOutOn || '', CONTRACT_STATUS[contractStatus(c, today)].label, CONTRACT_RENEWAL[c.renewal] || '', c.note || ''];
     })];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [20, 32, 12, 12, 10, 18, 11, 11, 11, 10, 15, 13, 18, 36].map(wch => ({ wch }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Sözleşmeler');
-  XLSX.writeFile(wb, `bisolera-sozlesmeler-${today}.xlsx`);
-  toast(`${list.length} sözleşme Excel'e aktarıldı`);
+  return { title: 'Sözleşmeler', period: `${fmtDate(today)} itibarıyla`, file: `bisolera-sozlesmeler-${today}`, done: `${list.length} sözleşme Excel'e aktarıldı`, sheets: [
+    { name: 'Sözleşmeler', rows, cols: [20, 32, 12, 12, 10, 18, 11, 11, 11, 10, 15, 13, 18, 36] }] };
 }
 
 // Ham liste: her kayıt bir satır + proje bazında özet sayfası
-async function exportActivities(user, from, to, tag) {
+async function exportActivities(user, from, to, tag) { return saveReportExcel(activitiesData(user, from, to, tag)); }
+function activitiesData(user, from, to, tag) {
   const items = Store.activities({ userId: user.id, from, to }).slice().sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt));
-  if (!items.length) { toast('Bu aralıkta dışa aktarılacak kayıt yok', { tone: 'info' }); return; }
-  const XLSX = await loadXLSX();
+  if (!items.length) return { empty: 'Bu aralıkta dışarı aktarılacak kayıt yok' };
 
   const rows = [['Tarih', 'Müşteri', 'Proje', 'Proje Kodu', 'Tür', 'Süre (saat)', 'Açıklama', 'Faturalanır']];
   items.forEach(a => {
     const p = Store.project(a.projectId), c = Store.customer(p.customerId);
     rows.push([a.date, c.name, p.name, p.code, activityTypeName(a.type), a.hours, a.note, p.billable ? 'Evet' : 'Hayır']);
   });
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  dateColumnToExcel(ws, XLSX, rows.length);
-  ws['!cols'] = [{ wch: 12 }, { wch: 20 }, { wch: 32 }, { wch: 12 }, { wch: 16 }, { wch: 11 }, { wch: 50 }, { wch: 11 }];
-  ws['!autofilter'] = { ref: `A1:H${rows.length}` };
 
   const byProject = {};
   items.forEach(a => { byProject[a.projectId] = (byProject[a.projectId] || 0) + a.hours; });
-  const summary = XLSX.utils.aoa_to_sheet([['Müşteri', 'Proje', 'Proje Kodu', 'Toplam saat'],
+  const summary = [['Müşteri', 'Proje', 'Proje Kodu', 'Toplam saat'],
     ...Object.entries(byProject).sort((a, b) => b[1] - a[1]).map(([pid, h]) => {
       const p = Store.project(pid);
       return [Store.customer(p.customerId).name, p.name, p.code, h];
     }),
     [],
-    ['', '', 'Genel toplam', sum(items, a => a.hours)]]);
-  summary['!cols'] = [{ wch: 20 }, { wch: 32 }, { wch: 14 }, { wch: 12 }];
+    ['', '', 'Genel toplam', sum(items, a => a.hours)]];
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Aktiviteler');
-  XLSX.utils.book_append_sheet(wb, summary, 'Özet');
-  XLSX.writeFile(wb, `aktiviteler-${fold(user.name).replace(/[^a-z0-9]+/g, '-')}-${tag}.xlsx`);
-  toast(`${items.length} kayıt Excel'e aktarıldı`);
+  return { title: `Aktiviteler · ${user.name}`, period: fmtRange(from, to), file: `aktiviteler-${fold(user.name).replace(/[^a-z0-9]+/g, '-')}-${tag}`,
+    done: `${items.length} kayıt Excel'e aktarıldı`, sheets: [
+      { name: 'Aktiviteler', rows, cols: [12, 20, 32, 12, 16, 11, 50, 11], dates: true, filter: true },
+      { name: 'Özet', rows: summary, cols: [20, 32, 14, 12] }] };
 }

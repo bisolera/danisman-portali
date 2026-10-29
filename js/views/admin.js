@@ -111,7 +111,7 @@ const AdminView = {
           <div class="card-head">
             <div><h2>Raporlar · ${monthTitle(reportMonth)}</h2><p class="sub">Faturalama, sözleşme saati kullanımı ve talep bazında saatler.</p></div>
             <div class="week-nav">
-              <button class="btn ghost sm" data-report-export${r.total ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
+              ${exportButton('data-report-export', r.total)}
               <button class="icon-btn bordered" data-report-month="-1" aria-label="Önceki ay">${icon('chevron-left')}</button>
               <button class="btn ghost sm" data-report-month="0">Bu ay</button>
               <button class="icon-btn bordered" data-report-month="1" aria-label="Sonraki ay">${icon('chevron-right')}</button>
@@ -171,7 +171,7 @@ const AdminView = {
           <div class="card-head">
             <div><h2>Doluluk · ${monthTitle(utilMonth)}</h2><p class="sub">Faturalanır saat ÷ hedef saat. Hedef: iş günleri × 8; izin, tatil ve köprü düşülmüş. %${goal} altı uyarı. ${period}</p></div>
             <div class="week-nav">
-              <button class="btn ghost sm" data-util-export${t.target ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
+              ${exportButton('data-util-export', t.target)}
               <button class="icon-btn bordered" data-util-month="-1" aria-label="Önceki ay">${icon('chevron-left')}</button>
               <button class="btn ghost sm" data-util-month="0">Bu ay</button>
               <button class="icon-btn bordered" data-util-month="1" aria-label="Sonraki ay"${current ? ' disabled' : ''}>${icon('chevron-right')}</button>
@@ -227,7 +227,7 @@ const AdminView = {
         <div class="card-head">
           <div><h2>Sözleşmeler</h2><p class="sub">Müşteri sözleşmelerinin bitiş tarihleri ve saat havuzları. Kullanılan saat, bağlı projelere sözleşme döneminde yazılan saattir.</p></div>
           <div class="row-gap">
-            <button class="btn ghost sm" data-contract-export${all.length ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>
+            ${exportButton('data-contract-export', all.length)}
             <button class="btn primary sm" data-add-contract>${icon('plus', 15)} Sözleşme ekle</button>
           </div>
         </div>
@@ -294,7 +294,7 @@ const AdminView = {
               <span class="month-label">${monthTitle(payMonth)}</span>
               <button class="icon-btn" data-pay-month="1" aria-label="Sonraki ay"${from >= monthStart(todayISO()) ? ' disabled' : ''}>${icon('chevron-right', 16)}</button>
             </div>
-            <button class="btn ghost sm" data-pay-export${r.rows.length && rate ? '' : ' disabled'}>${icon('download', 15)} Excel</button>
+            ${exportButton('data-pay-export', r.rows.length && rate)}
           </div>
         </div>
         ${rate ? `<div class="pay-rate">
@@ -501,14 +501,14 @@ const AdminView = {
         reportMonth = reportNav.dataset.reportMonth === '0' ? todayISO() : addMonths(reportMonth, Number(reportNav.dataset.reportMonth));
         return renderReports();
       }
-      if (e.target.closest('[data-report-export]')) return exportMonthReport(reportMonth).catch(err => toast(err.message, { tone: 'danger' }));
+      if (e.target.closest('[data-report-export]')) return openExportChoice(e.target.closest('[data-report-export]'), () => monthReportData(reportMonth));
       const utilNav = e.target.closest('[data-util-month]');
       if (utilNav) {
         utilMonth = utilNav.dataset.utilMonth === '0' ? todayISO() : addMonths(utilMonth, Number(utilNav.dataset.utilMonth));
         history.replaceState(null, '', `#/yonetim?tab=doluluk&ay=${utilMonth.slice(0, 7)}`);
         return renderUtilization();
       }
-      if (e.target.closest('[data-util-export]')) return exportUtilization(utilMonth).catch(err => toast(err.message, { tone: 'danger' }));
+      if (e.target.closest('[data-util-export]')) return openExportChoice(e.target.closest('[data-util-export]'), () => utilizationData(utilMonth));
       const closeNav = e.target.closest('[data-close-month]');
       if (closeNav) {
         closeMonth = closeNav.dataset.closeMonth === '0' ? addMonths(todayISO(), -1) : addMonths(closeMonth, Number(closeNav.dataset.closeMonth));
@@ -525,11 +525,11 @@ const AdminView = {
         return renderPayroll();
       }
       if (e.target.closest('[data-pay-rates]')) return payRatesModal(render);
-      if (e.target.closest('[data-pay-export]')) return exportPayroll(payMonth).catch(err => toast(err.message, { tone: 'danger' }));
+      if (e.target.closest('[data-pay-export]')) return openExportChoice(e.target.closest('[data-pay-export]'), () => payrollData(payMonth));
       const cFilter = e.target.closest('[data-contract-filter]');
       if (cFilter) { contractFilter = cFilter.dataset.contractFilter; return renderContracts(); }
       if (e.target.closest('[data-add-contract]')) return contractModal(null, render);
-      if (e.target.closest('[data-contract-export]')) return exportContracts().catch(err => toast(err.message, { tone: 'danger' }));
+      if (e.target.closest('[data-contract-export]')) return openExportChoice(e.target.closest('[data-contract-export]'), contractsData);
       const cRow = e.target.closest('[data-contract]');
       if (cRow && e.target.closest('[data-edit-contract]')) return contractModal(Store.contract(cRow.dataset.contract), render);
       if (cRow && e.target.closest('[data-renew-contract]')) return contractModal(null, render, Store.contract(cRow.dataset.contract));

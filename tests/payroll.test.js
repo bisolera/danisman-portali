@@ -108,6 +108,27 @@
   const rows = XLSX.utils.sheet_to_json(wb.Sheets['Prim ve yan haklar'], { header: 1 });
   ok('excel', rows.some(r => r[0] === 'Prim Deneme' && r[3] === 203 && r[4] === 25.375 && r[6] === 7.375 && r[8] === 7375 && r[11].startsWith('Kesin')), rows.slice(0, 3));
 
+  // Dışarı aktar menüsü: Excel ya da PDF; PDF aynı satırlardan, sayılar Türkçe, ISO tarih gg.aa.yyyy, toplam satırı kalın
+  App.login(Store.user('u1'));
+  go('#/yonetim?tab=prim&ay=2025-03');
+  const exportBtn = panel().querySelector('[data-pay-export]');
+  ok('disari_aktar_dugmesi', exportBtn.textContent.includes('Dışarı aktar'));
+  exportBtn.click();
+  const menuItems = [...document.querySelectorAll('.menu .menu-item')].map(b => b.textContent);
+  ok('disari_aktar_menusu', menuItems.length === 2 && menuItems[0].includes('Excel') && menuItems[1].includes('PDF / Yazdır'), menuItems);
+  let printed = 0;
+  const origPrint = window.print;
+  window.print = () => { printed++; };
+  document.querySelectorAll('.menu .menu-item')[1].click();
+  window.print = origPrint;
+  const sheet = document.querySelector('#print-root .print-report');
+  const pdfRow = [...(sheet?.querySelectorAll('tbody tr') || [])].find(tr => tr.textContent.includes('Prim Deneme'));
+  ok('pdf_cikti', printed === 1 && sheet.querySelector('h1').textContent === 'Prim ve yan haklar' && pdfRow?.textContent.includes('25,375')
+    && pdfRow.textContent.includes('7.375,00 ₺') && pdfRow.textContent.includes('1.000,00 ₺') && sheet.textContent.includes('01.01.2025')
+    && !!sheet.querySelector('tr.is-total'), pdfRow?.textContent);
+  window.dispatchEvent(new Event('afterprint'));
+  ok('pdf_bos_rapor', printReport(payrollData('2024-11-01')) === false && !!document.querySelector('.toast'));
+
   // Kullanıcı formu: işaretler kaydedilir
   go('#/yonetim?tab=kullanicilar');
   panel().querySelector('[data-edit-user="u3"]').click();

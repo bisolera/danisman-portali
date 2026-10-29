@@ -261,7 +261,7 @@ const ExpensesView = {
       body.innerHTML = `<section class="card">
         <div class="card-head">
           <div><h2>Masraf raporu · ${monthTitle(month)}</h2><p class="sub">Reddedilenler hariç. Müşteriye yansıtılacaklar faturaya eklenmek üzere ayrıca listelenir.</p></div>
-          <div class="week-nav"><button class="btn ghost sm" data-exp-export${r.items.length ? '' : ' disabled'}>${icon('download', 15)} Excel'e aktar</button>${monthNav()}</div>
+          <div class="week-nav">${exportButton('data-exp-export', r.items.length)}${monthNav()}</div>
         </div>
         <div class="close-stats report-stats money-stats">
           <div><b>${fmtMoney(r.total)}</b><span>toplam</span></div>
@@ -299,7 +299,7 @@ const ExpensesView = {
       if (t.dataset.month) { month = t.dataset.month === '0' ? monthStart(today) : addMonths(month, Number(t.dataset.month)); setHash(); return render(); }
       if (t.hasAttribute('data-print-month')) return printExpenseForm(me, month);
       if (t.hasAttribute('data-print-user')) return printExpenseForm(Store.user(t.closest('[data-report-user]').dataset.reportUser), month);
-      if (t.hasAttribute('data-exp-export')) return exportExpenses(month).catch(err => toast(err.message, { tone: 'danger' }));
+      if (t.hasAttribute('data-exp-export')) return openExportChoice(t, () => expensesData(month));
       if (t.hasAttribute('data-receipt') && x) return openReceiptPreview(x);
       if (t.hasAttribute('data-edit') && x && canEditExpense(x)) {
         editing = x.id; receipt = undefined; dupConfirmed = false;

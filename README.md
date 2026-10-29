@@ -36,7 +36,8 @@ Giriş ekranında bir demo hesap seç (Ayşe Yılmaz = yönetici) ya da e-postan
 
 ## Yazdırma / PDF ve telefona kurulum
 
-- **Aylık formu yazdır / PDF:** Özet, Aktiviteler → Dışa aktar, ay kapanışı paneli ve Yönetim → Ay kapanışı'ndan. Müşteri başına bir A4 sayfa, altta danışman ve müşteri onayı için imza alanı. Yazdır penceresinde "PDF olarak kaydet" seçilince PDF olur.
+- **Dışarı aktar:** Raporlar, Doluluk, Sözleşmeler, Prim & yan haklar, Masraf raporu ve Aktiviteler'deki **Dışarı aktar** menüsü iki seçenek sunar: **Excel** (.xlsx) ya da **PDF / Yazdır** (A4 yatay; Excel'deki her sayfa bir tablo). İkisi aynı satırlardan üretilir, rakamlar birbirini tutar (`saveReportExcel`, `printReport`).
+- **Aylık formu yazdır / PDF:** Özet, Aktiviteler → Dışarı aktar, ay kapanışı paneli ve Yönetim → Ay kapanışı'ndan. Müşteri başına bir A4 sayfa, altta danışman ve müşteri onayı için imza alanı. Yazdır penceresinde "PDF olarak kaydet" seçilince PDF olur.
 - **Uygulama olarak kur:** Profilim → *Uygulama olarak yükle* (Chrome, Edge, Android) ya da Safari'de Paylaş → Ana Ekrana Ekle. Kendi simgesiyle açılır, bağlantı yokken de çalışır (`sw.js`, `manifest.webmanifest`). iPhone'da ana ekrandaki uygulama Safari'deki kayıtları görmez; sunucuya geçene kadar tek yerden kullan.
 
 ## Ay kapanışı

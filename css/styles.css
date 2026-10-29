@@ -1070,6 +1070,17 @@ tr.is-inactive .grid-proj { opacity: .55; }
   .print-foot { margin-top: 14px; font-size: 8pt; color: #888; text-align: right; }
   .cv .print-foot { margin-top: auto; padding-top: 14px; }
   .print-subtotals { margin: 10px 0 0; font-size: 9.5pt; color: #333; line-height: 1.6; }
+  /* Rapor çıktısı (printReport): geniş tablolar için A4 yatay, küçük yazı */
+  @page report { size: A4 landscape; margin: 12mm 10mm; }
+  .print-report { page: report; font-size: 8.5pt; }
+  .print-report .print-head h1 { font-size: 12pt; }
+  .print-report .print-table { margin-top: 10px; }
+  .print-report .print-table th { font-size: 7.5pt; padding: 5px 6px; }
+  .print-report .print-table td { padding: 4px 6px; }
+  .print-report .print-table tr.is-total td { font-weight: 700; border-top: 1.5px solid #333; }
+  .print-report .print-table tr.is-gap td { padding: 2px; border: 0; }
+  .print-sheet { margin: 18px 0 0; font-family: var(--font-head); font-size: 10.5pt; break-after: avoid; }
+  .print-empty { margin: 6px 0 0; color: #666; }
   .cv-person { margin: 14px 0 6px; }
   .cv-person h2 { margin: 0; font-family: var(--font-head); font-size: 18pt; }
   .cv-person p { margin: 2px 0 0; color: #555; }

@@ -74,6 +74,32 @@ function printPages(html, fileTitle) {
   window.print();
 }
 
+/* ---------- Rapor çıktısı: Excel'e giden sayfaların aynısı, A4 yatay ----------
+   Her Excel sayfası bir başlık + tablo olur. Sayılar Türkçe yazılır (sheet.money'deki sütunlar tutar: 1.000,00 ₺), ISO tarihler gg.aa.yyyy; boş satır ayraçtır,
+   "Toplam" / "Genel toplam" / "Ekip" geçen satır kalın basılır. */
+const PRINT_TOTAL = /^(Toplam|Genel toplam|Ekip)$/;
+function reportHtml(rep) {
+  const text = (v, money) => (typeof v === 'number' ? (money ? fmtMoney(v) : v.toLocaleString('tr-TR', { maximumFractionDigits: 3 }))
+    : /^\d{4}-\d{2}-\d{2}$/.test(v) ? fmtDateInput(v) : esc(String(v ?? '')));
+  const table = s => {
+    const [head, ...body] = s.rows, num = head.map((_, i) => body.some(r => typeof r[i] === 'number')), money = head.map(h => (s.money || []).includes(h));
+    if (!body.length) return '<p class="print-empty">Bu bölümde kayıt yok.</p>';
+    return `<table class="print-table"><thead><tr>${head.map((h, i) => `<th class="${num[i] ? 'num' : ''}">${esc(h)}</th>`).join('')}</tr></thead>
+      <tbody>${body.map(r => (r.length ? `<tr class="${r.some(v => PRINT_TOTAL.test(v)) ? 'is-total' : ''}">${head.map((_, i) =>
+        `<td class="${typeof r[i] === 'number' ? 'num' : ''}">${text(r[i], money[i])}</td>`).join('')}</tr>` : `<tr class="is-gap"><td colspan="${head.length}"></td></tr>`)).join('')}</tbody></table>`;
+  };
+  return `<section class="print-report">
+    <header class="print-head"><span class="print-brand">BISOLERA</span><div><h1>${esc(rep.title)}</h1><p>${esc(rep.period)}</p></div></header>
+    ${rep.sheets.map(s => `${rep.sheets.length > 1 ? `<h2 class="print-sheet">${esc(s.name)}</h2>` : ''}${table(s)}`).join('')}
+    <p class="print-foot">Bisolera Danışman Portalı · ${esc(fmtStamp(new Date().toISOString()))} tarihinde hazırlandı</p>
+  </section>`;
+}
+function printReport(rep) {
+  if (rep.empty) { toast(rep.empty, { tone: 'info' }); return false; }
+  printPages(reportHtml(rep), rep.file);
+  return true;
+}
+
 function printMonthlyForm(user, iso, { customerIds = null, signature = true } = {}) {
   const groups = monthlyFormData(user.id, iso).filter(g => !customerIds || customerIds.includes(g.customer.id));
   if (!groups.length) return false;

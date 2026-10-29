@@ -18,7 +18,7 @@ const ActivitiesView = {
         <div><h1>Aktiviteler</h1><p>Gününü gir, haftanı ve ayını takip et.</p></div>
         <div class="row-gap">
           <button class="btn ghost" data-import>${icon('upload', 16)} Excel’den yükle</button>
-          <button class="btn ghost" data-export>${icon('download', 16)} Dışa aktar</button>
+          <button class="btn ghost" data-export aria-haspopup="menu">${icon('download', 16)} Dışarı aktar ${icon('chevron-down', 14)}</button>
         </div>
       </header>
       <div class="act-toolbar">
@@ -452,14 +452,18 @@ const ActivitiesView = {
       const monday = weekStart(selected), month = monthStart(selected), prev = addMonths(month, -1);
       const fail = e => toast(e.message, { tone: 'danger' });
       const list = (from, to, tag) => exportActivities(me, from, to, tag).catch(fail);
+      const listPdf = (from, to, tag) => printReport(activitiesData(me, from, to, tag));
       const form = iso => exportMonthlyForm(me, iso).catch(fail);
+      const week = fmtRange(monday, addDays(monday, 6));
       openMenu(anchor, [
-        { icon: 'sheet', label: 'Aylık aktivite formu', hint: monthTitle(month), fn: () => form(month) },
-        { icon: 'sheet', label: 'Aylık aktivite formu', hint: monthTitle(prev), fn: () => form(prev) },
-        { icon: 'printer', label: 'Aylık formu yazdır / PDF', hint: monthTitle(month), fn: () => openPrintDialog(me, month) },
-        { icon: 'printer', label: 'Aylık formu yazdır / PDF', hint: monthTitle(prev), fn: () => openPrintDialog(me, prev) },
-        { icon: 'list', label: 'Kayıt listesi · hafta', hint: fmtRange(monday, addDays(monday, 6)), fn: () => list(monday, addDays(monday, 6), `hafta-${monday}`) },
-        { icon: 'list', label: 'Kayıt listesi · ay', hint: monthTitle(month), fn: () => list(month, monthEnd(month), month.slice(0, 7)) },
+        { icon: 'sheet', label: 'Aylık form · Excel', hint: monthTitle(month), fn: () => form(month) },
+        { icon: 'sheet', label: 'Aylık form · Excel', hint: monthTitle(prev), fn: () => form(prev) },
+        { icon: 'printer', label: 'Aylık form · PDF / Yazdır', hint: monthTitle(month), fn: () => openPrintDialog(me, month) },
+        { icon: 'printer', label: 'Aylık form · PDF / Yazdır', hint: monthTitle(prev), fn: () => openPrintDialog(me, prev) },
+        { icon: 'sheet', label: 'Kayıt listesi · Excel', hint: week, fn: () => list(monday, addDays(monday, 6), `hafta-${monday}`) },
+        { icon: 'sheet', label: 'Kayıt listesi · Excel', hint: monthTitle(month), fn: () => list(month, monthEnd(month), month.slice(0, 7)) },
+        { icon: 'printer', label: 'Kayıt listesi · PDF / Yazdır', hint: week, fn: () => listPdf(monday, addDays(monday, 6), `hafta-${monday}`) },
+        { icon: 'printer', label: 'Kayıt listesi · PDF / Yazdır', hint: monthTitle(month), fn: () => listPdf(month, monthEnd(month), month.slice(0, 7)) },
       ]);
     }
 

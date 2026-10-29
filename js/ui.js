@@ -117,6 +117,17 @@ function openMenu(anchor, items) {
   closeActiveMenu = close;
 }
 
+// "Dışarı aktar": her raporda aynı düğme ve menü. build() raporu veri olarak kurar (excel.js); Excel ve PDF aynı satırları kullanır.
+function exportButton(attr, enabled = true) {
+  return `<button class="btn ghost sm" ${attr}${enabled ? '' : ' disabled'} aria-haspopup="menu">${icon('download', 15)} Dışarı aktar ${icon('chevron-down', 14)}</button>`;
+}
+function openExportChoice(anchor, build) {
+  openMenu(anchor, [
+    { icon: 'sheet', label: 'Excel', hint: '.xlsx', fn: () => saveReportExcel(build()).catch(e => toast(e.message, { tone: 'danger' })) },
+    { icon: 'printer', label: 'PDF / Yazdır', hint: 'A4 yatay', fn: () => printReport(build()) },
+  ]);
+}
+
 const AVATAR_COLORS =['#2b8a3e', '#2563eb', '#9333ea', '#db2777', '#ea580c', '#0891b2', '#4f46e5'];
 function avatar(user, size = 32) {
   const color = AVATAR_COLORS[[...user.id].reduce((t, c) => t + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
