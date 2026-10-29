@@ -14,9 +14,9 @@ const ROUTES = {
 };
 
 // Uygulama olarak kurma (PWA): tarayıcı kuruluma hazır olduğunu bildirince pencere bekletilir, Profilim'den açılır
-let installPrompt = null;
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
-window.addEventListener('appinstalled', () => { installPrompt = null; });
+let installPrompt = null, refreshInstall = null;   // refreshInstall: Profilim açıkken kurulum kutusunu yeniden çizer
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; refreshInstall?.(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; refreshInstall?.(); });
 const isStandalone = () => !!window.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone === true;
 
 function parseHash() {
@@ -141,13 +141,21 @@ function lookBoxHtml() {
   </div>`;
 }
 
-// Profilim'deki "uygulama olarak kur" kutusu; zaten uygulama olarak açıksa gösterilmez
+// Profilim'deki "uygulama olarak kur" kutusu; zaten uygulama olarak açıksa gösterilmez.
+// Kurulum düğmesi yalnızca tarayıcı izin verince (beforeinstallprompt) çıkar: iPhone/iPad'de hiç çıkmaz (Apple izin vermez,
+// Paylaş menüsünden eklenir), Android Chrome'da sayfa açıldıktan biraz sonra gelebilir. O zamana kadar cihaza göre adımlar gösterilir.
 function installBoxHtml() {
   if (isStandalone()) return '';
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS kendini Mac diye tanıtır
+  const inApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|LinkedInApp|GSA\//i.test(ua);                                   // başka bir uygulamanın içindeki tarayıcı
+  const steps = list => `<ol class="install-steps">${list.map(s => `<li>${s}</li>`).join('')}</ol>`;
   const how = installPrompt ? `<button class="btn ghost sm" data-install>${icon('phone', 15)} Uygulama olarak yükle</button>`
-    : ios ? '<p class="small-text">Safari’de <strong>Paylaş → Ana Ekrana Ekle</strong>. Not: iPhone’da ana ekrandaki uygulama Safari’deki kayıtları görmez; sunucuya geçene kadar tek yerden kullan.</p>'
-    : '<p class="small-text">Tarayıcı menüsünden <strong>Uygulamayı yükle</strong> ya da <strong>Ana ekrana ekle</strong>’yi seç.</p>';
+    : inApp ? `<p class="small-text">Bu sayfa başka bir uygulamanın içinde açık; oradan kurulamaz. Bağlantıyı ${ios ? '<strong>Safari</strong>' : '<strong>Chrome</strong>'}’da açıp tekrar dene (sağ üstteki menüden “Tarayıcıda aç”).</p>`
+    : ios ? `${steps(['Safari’de alttaki <strong>Paylaş</strong> simgesine dokun (yukarı oklu kare)', 'Listeden <strong>Ana Ekrana Ekle</strong>’yi seç (görünmüyorsa aşağı kaydır)', 'Sağ üstte <strong>Ekle</strong>’ye dokun'])}
+      <p class="small-text muted">iPhone’da ana ekrandaki uygulama Safari’deki kayıtları görmez; sunucuya geçene kadar tek yerden kullan.</p>`
+    : /android/i.test(ua) ? steps(['Chrome’da sağ üstteki <strong>⋮</strong> menüsüne dokun', '<strong>Uygulamayı yükle</strong> ya da <strong>Ana ekrana ekle</strong>’yi seç', '<strong>Yükle</strong>’ye dokun'])
+    : '<p class="small-text">Adres çubuğunun sağındaki kurulum simgesine ya da tarayıcı menüsündeki <strong>Uygulamayı yükle</strong>’ye tıkla.</p>';
   return `<div class="install-box">
     <div class="backup-head">${icon('phone', 16)}<div><strong>Telefona / masaüstüne uygulama olarak kur</strong>
       <p>Kendi simgesiyle açılır; bağlantı yokken de çalışır.</p></div></div>
@@ -180,6 +188,7 @@ function openProfile() {
       </div>
       ${installBoxHtml()}`,
     footer: `<button class="btn ghost sm" data-reset>${icon('refresh', 15)} Demo verilerini sıfırla</button><span class="grow"></span><button class="btn dark sm" data-logout>${icon('logout', 15)} Çıkış yap</button>`,
+    onClose() { refreshInstall = null; },
     onMount(m, close) {
       m.querySelector('[data-logout]').addEventListener('click', () => { close(); App.logout(); });
       // Görünüm kutusu her seçimde yeniden çizildiği için dinleyici pencerede
@@ -189,12 +198,15 @@ function openProfile() {
         Theme.set(t ? { theme: t.dataset.themeId } : { density: d.dataset.densityId });
         m.querySelector('[data-look]').outerHTML = lookBoxHtml();
       });
-      m.querySelector('[data-install]')?.addEventListener('click', async () => {
+      m.addEventListener('click', async e => {
+        if (!e.target.closest('[data-install]') || !installPrompt) return;
         const prompt = installPrompt;
         installPrompt = null;               // kurulum penceresi yalnızca bir kez açılabilir
         prompt.prompt();
         if ((await prompt.userChoice).outcome === 'accepted') { close(); toast('Portal uygulama olarak yüklendi'); }
       });
+      // Tarayıcı kuruluma pencere açıkken izin verirse adımların yerine düğme gelir
+      refreshInstall = () => { const box = m.querySelector('.install-box'); if (box) box.outerHTML = installBoxHtml(); };
 
       // Yedekleme
       const info = m.querySelector('[data-backup-info]'), err = m.querySelector('[data-backup-error]'), confirmBox = m.querySelector('[data-restore-confirm]');
