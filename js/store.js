@@ -181,7 +181,7 @@ const Store = (() => {
     // Sözleşmeler: { customerId, name, start, end, hours?, projectIds, noticeDays, renewal, note, renewedTo? }
     contracts: ({ customerId } = {}) => db.contracts.filter(c => !customerId || c.customerId === customerId),
     contract: id => byId(db.contracts, id),
-    addContract(c) { const contract = { id: uid(), projectIds: [], noticeDays: 60, renewal: 'manuel', note: '', ...c }; db.contracts.push(contract); persist(); return contract; },
+    addContract(c) { const contract = { id: uid(), projectIds: [], noticeDays: 60, renewal: 'manuel', note: '', billingUnit: 'saat', rate: null, poolBilling: 'harcanan', ...c }; db.contracts.push(contract); persist(); return contract; },
     updateContract: (id, changes) => patch(db.contracts, id, changes),
     deleteContract(id) {
       const i = db.contracts.findIndex(c => c.id === id);

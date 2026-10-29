@@ -2,10 +2,12 @@
 
 const AdminView = {
   mount(el, { query }) {
-    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['doluluk', 'Doluluk'], ['sozlesmeler', 'Sözleşmeler'], ['prim', 'Prim & yan haklar'], ['ekip', 'Ekip durumu'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
+    const TABS = [['onaylar', 'İzin onayları'], ['kapanis', 'Ay kapanışı'], ['raporlar', 'Raporlar'], ['doluluk', 'Doluluk'], ['sozlesmeler', 'Sözleşmeler'], ['fatura', 'Faturalama'], ['prim', 'Prim'], ['ekip', 'Ekip'], ['tatiller', 'Tatiller'], ['kullanicilar', 'Kullanıcılar']];
     let contractFilter = 'aktif';
     // Prim genelde biten ay için hesaplanır
     let payMonth = query.tab === 'prim' && /^\d{4}-\d{2}$/.test(query.ay || '') ? `${query.ay}-01` : monthStart(addMonths(todayISO(), -1));
+    // Fatura da genelde biten ay için hazırlanır
+    let invMonth = query.tab === 'fatura' && /^\d{4}-\d{2}$/.test(query.ay || '') ? `${query.ay}-01` : monthStart(addMonths(todayISO(), -1));
     let tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'onaylar';
     // Doluluk: bağlantıyla ay seçilebilir (#/yonetim?tab=doluluk&ay=2026-09); ay yeni başladıysa geçen ay açılır
     let utilMonth = /^\d{4}-\d{2}$/.test(query.ay || '') ? `${query.ay}-01` : todayISO();
@@ -30,7 +32,7 @@ const AdminView = {
       };
       tabsEl.innerHTML = TABS.map(([k, label]) =>
         `<button class="${k === tab ? 'is-active' : ''}" data-tab="${k}">${label}${counts[k] ? ` <span class="count">${counts[k]}</span>` : ''}</button>`).join('');
-      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, doluluk: renderUtilization, sozlesmeler: renderContracts, prim: renderPayroll, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
+      ({ onaylar: renderApprovals, kapanis: renderClosing, raporlar: renderReports, doluluk: renderUtilization, sozlesmeler: renderContracts, fatura: renderInvoices, prim: renderPayroll, ekip: renderTeam, tatiller: renderHolidays, kullanicilar: renderUsers })[tab]();
       App.refreshBadges();
     }
 
@@ -244,7 +246,7 @@ const AdminView = {
         ${shown.length ? `<div class="table-wrap"><table class="table contract-table">
           <thead><tr><th>Müşteri / Sözleşme</th><th>Dönem</th><th>Projeler</th><th>Saat havuzu</th><th>Durum</th><th></th></tr></thead>
           <tbody>${shown.map(r => `<tr data-contract="${r.c.id}" class="${alertIds.has(r.c.id) ? 'has-alert' : ''}">
-            <td><span class="cell-proj"><span class="dot" style="background:${r.customer.color}"></span><span><strong>${esc(r.customer.name)}</strong><small>${esc(r.c.name)}${r.c.note ? ` · ${esc(r.c.note)}` : ''}</small></span></span></td>
+            <td><span class="cell-proj"><span class="dot" style="background:${r.customer.color}"></span><span><strong>${esc(r.customer.name)}</strong><small>${esc(r.c.name)}${r.c.note ? ` · ${esc(r.c.note)}` : ''}</small><small class="${r.c.rate == null ? 'warn-text' : 'muted'}">${esc(contractRateText(r.c))}</small></span></span></td>
             <td class="nowrap">${fmtDate(r.c.start)} – ${fmtDate(r.c.end)}<small class="muted block-sm">${esc(period(r))}</small></td>
             <td>${r.c.projectIds.map(pid => `<span class="code">${esc(Store.project(pid)?.code || '?')}</span>`).join(' ') || '<span class="faint">—</span>'}</td>
             <td class="w-budget">${r.u.hours
@@ -332,6 +334,62 @@ const AdminView = {
           <li>Araba parası araç yerine para alanlara aylık ödenir. Ay ortasında giren ya da ayrılan, çalıştığı gün kadar alır (kıst: tutar × gün ÷ ayın gün sayısı).</li>
           <li>Kişinin ay kapanışı onaylanınca tutarı kesinleşir; o zamana kadar taslaktır.</li>
         </ol></details>` : emptyState('users', 'Prime tabi ya da araba parası alan kimse yok', 'Kullanıcılar sekmesinde kişiyi düzenleyip “Prime tabi” ya da “Araç yerine araba parası” işaretle.')}
+      </section>`;
+    }
+
+    // Faturalama: ayın saatlerinden sözleşme başına fatura taslağı. Ücretler yalnızca burada ve Sözleşmeler'de (yönetici).
+    function renderInvoices() {
+      const r = invoiceMonth(invMonth), from = monthStart(invMonth);
+      const hrs = h => `${fmtNum(Math.round(h * 100) / 100)} sa`;
+      const qty = l => (l.unit === 'gun' ? `${fmtDays(l.qty)} gün` : hrs(l.qty));
+      const who = users => [...users].sort((a, b) => b[1] - a[1]).map(([id, h]) => `${esc(firstName(Store.user(id)?.name || '?'))} ${hrs(h)}`).join(' · ');
+      const poolText = ({ pool: p, billed }) => (p.prepaid
+        ? (billed ? `havuz bitti: ${hrs(p.inPool)} havuzdan, ${hrs(billed)} aşım` : `havuzdan, ${hrs(p.used)} / ${hrs(p.size)} kullanıldı`)
+        : `${p.over ? 'havuz aşıldı: ' : 'havuz '}${hrs(p.used)} / ${hrs(p.size)}`);
+      const groups = [...new Set(r.lines.map(l => l.customer.id))].map(id => ({ customer: Store.customer(id), lines: r.lines.filter(l => l.customer.id === id) }));
+      const any = r.lines.length || r.unpriced.length;
+      panel.innerHTML = `<section class="card">
+        <div class="card-head">
+          <div><h2>Faturalama</h2><p class="sub">Ayın saatlerinden sözleşme başına fatura taslağı. Tutarlar TL, KDV hariç; yalnızca yöneticiler görür.</p></div>
+          <div class="row-gap">
+            ${invMonth !== monthStart(addMonths(todayISO(), -1)) ? '<button class="link-btn" data-inv-month="0">Geçen aya dön</button>' : ''}
+            <div class="month-switch">
+              <button class="icon-btn" data-inv-month="-1" aria-label="Önceki ay">${icon('chevron-left', 16)}</button>
+              <span class="month-label">${monthTitle(invMonth)}</span>
+              <button class="icon-btn" data-inv-month="1" aria-label="Sonraki ay"${from >= monthStart(todayISO()) ? ' disabled' : ''}>${icon('chevron-right', 16)}</button>
+            </div>
+            ${exportButton('data-inv-export', any)}
+          </div>
+        </div>
+        ${any ? `<div class="pay-sum">
+          <div class="pay-sum-main"><span>Faturalanacak toplam</span><b>${fmtMoney(r.total)}</b>
+            <span class="pay-sum-meta">${r.pending ? `${pill('Taslak', 'warn')} ${r.pending} sözleşmede onaylanmamış ay var; tutar değişebilir`
+              : r.lines.length ? `${pill('Kesin', 'ok')} Bütün saatler onaylı aylardan` : ''}</span></div>
+          <div><span>Müşteri</span><b>${r.customers}</b><small>${r.lines.length} sözleşme</small></div>
+          <div class="${r.unpricedHours ? 'is-warn' : ''}"><span>Ücret tanımsız</span><b>${hrs(r.unpricedHours)}</b><small>${r.unpricedHours ? 'faturalanabilir ama ücreti yok' : 'bütün saatlerin ücreti var'}</small></div>
+        </div>` : ''}
+        ${r.lines.length ? `<div class="table-wrap"><table class="table pay-table inv-table">
+          <thead><tr><th>Müşteri / sözleşme</th><th class="num">Saat</th><th class="num">Faturalanacak</th><th class="num">Ücret</th><th class="num">Tutar</th></tr></thead>
+          <tbody>${groups.map(g => `<tr class="inv-group"><td colspan="4"><span class="cell-proj"><span class="dot" style="background:${g.customer.color}"></span><strong>${esc(g.customer.name)}</strong></span></td>
+              <td class="num nowrap">${g.lines.length > 1 ? fmtMoney(sum(g.lines, l => l.amount)) : ''}</td></tr>
+            ${g.lines.map(l => `<tr data-inv-row="${l.contract.id}">
+              <td class="inv-name"><strong>${esc(l.contract.name)}</strong><small>${who(l.users)}</small></td>
+              <td class="num nowrap">${hrs(l.hours)}</td>
+              <td class="num nowrap">${qty(l)}${l.pool ? `<small class="${l.pool.over && !l.pool.prepaid ? 'warn-text' : 'muted'} block-sm">${poolText(l)}</small>` : ''}</td>
+              <td class="num nowrap">${fmtMoney(l.rate)} / ${BILLING_UNITS[l.unit].short}</td>
+              <td class="num nowrap"><strong>${fmtMoney(l.amount)}</strong><span class="pay-st${l.final ? ' is-final' : ''}">${l.final ? 'Kesin' : 'Taslak'}</span></td>
+            </tr>`).join('')}`).join('')}</tbody>
+          <tfoot><tr><td colspan="4">Toplam · ${r.customers} müşteri</td><td class="num nowrap">${fmtMoney(r.total)}</td></tr></tfoot>
+        </table></div>` : r.unpriced.length ? '' : emptyState('sheet', `${monthTitle(invMonth)} için faturalanacak saat yok`, 'Faturalanabilir projelere saat yazıldıkça burada sözleşme başına tutar çıkar.')}
+        ${r.unpriced.length ? `<div class="callout warn inv-missing">${icon('alert', 16)}<div><strong>${hrs(r.unpricedHours)} faturalanabilir saatin ücreti yok.</strong> Sözleşme ekle ya da sözleşmeye ücret gir; yoksa bu saatler faturaya girmez.
+          <ul class="alert-list">${r.unpriced.map(u => `<li><b>${esc(u.customer.name)} · ${esc(u.project.name)}</b> (${esc(u.project.code)}): ${hrs(u.hours)} · ${esc(u.reason)}${u.contract ? ` (${esc(u.contract.name)})` : ''}</li>`).join('')}</ul>
+          <div class="row-gap"><button class="btn ghost sm" data-tab-go="sozlesmeler">${icon('arrow-right', 15)} Sözleşmelere git</button></div></div></div>` : ''}
+        <details class="howto"><summary>Nasıl hesaplanır?</summary><ol>
+          <li>Ayın faturalanabilir projelere yazılan saatleri, projenin o tarihteki sözleşmesine göre toplanır.</li>
+          <li>Ücret sözleşmede: saatlikse saat × ücret; günlükse (saat ÷ 8, kesirli) × ücret. Tutarlar TL, KDV hariç.</li>
+          <li>Saat havuzu "peşin ödendi" ise havuz bitene kadar fatura çıkmaz, aşan saat aynı ücretle faturalanır. "Harcanan saat" ise her ay o ayın saati faturalanır.</li>
+          <li>Saat yazan herkesin ay kapanışı onaylanınca tutar kesinleşir; o zamana kadar taslaktır.</li>
+        </ol></details>
       </section>`;
     }
 
@@ -524,6 +582,15 @@ const AdminView = {
         history.replaceState(null, '', `#/yonetim?tab=prim&ay=${payMonth.slice(0, 7)}`);
         return renderPayroll();
       }
+      const invNav = e.target.closest('[data-inv-month]');
+      if (invNav) {
+        invMonth = invNav.dataset.invMonth === '0' ? monthStart(addMonths(todayISO(), -1)) : addMonths(invMonth, Number(invNav.dataset.invMonth));
+        history.replaceState(null, '', `#/yonetim?tab=fatura&ay=${invMonth.slice(0, 7)}`);
+        return renderInvoices();
+      }
+      if (e.target.closest('[data-inv-export]')) return openExportChoice(e.target.closest('[data-inv-export]'), () => invoiceData(invMonth));
+      const go = e.target.closest('[data-tab-go]');
+      if (go) { tab = go.dataset.tabGo; history.replaceState(null, '', `#/yonetim?tab=${tab}`); return render(); }
       if (e.target.closest('[data-pay-rates]')) return payRatesModal(render);
       if (e.target.closest('[data-pay-export]')) return openExportChoice(e.target.closest('[data-pay-export]'), () => payrollData(payMonth));
       const cFilter = e.target.closest('[data-contract-filter]');
@@ -822,6 +889,10 @@ function renewalDraft(c) {
 }
 
 // Sözleşme ekle / düzenle / yenile. Saat havuzu girilirse en az bir proje bağlanmalı (kullanılan saat oradan gelir).
+// Sözleşmenin ücreti tek satırda: "2.000,00 ₺ / sa · havuz peşin" ya da "Ücret girilmemiş"
+const contractRateText = c => (c.rate == null ? 'Ücret girilmemiş'
+  : `${fmtMoney(c.rate)} / ${BILLING_UNITS[c.billingUnit || 'saat'].short}${c.hours && c.poolBilling === 'asim' ? ' · havuz peşin' : ''}`);
+
 function contractModal(c, onSave, renewFrom = null) {
   const src = c || (renewFrom && renewalDraft(renewFrom));
   const customers = Store.customers().filter(x => !x.internal).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
@@ -839,6 +910,18 @@ function contractModal(c, onSave, renewFrom = null) {
         <label class="field"><span class="field-label">Hatırlatma <span class="faint">(bitişten kaç gün önce)</span></span><input class="input" name="noticeDays" type="number" min="1" max="365" value="${src?.noticeDays ?? 60}"></label>
       </div>
       <div class="field"><span class="field-label">Bağlı projeler <span class="faint">(bu projelere yazılan saat havuzdan düşer)</span></span><div class="chips" data-projects></div></div>
+      <div class="form-sec contract-bill">
+        <div class="form-sec-title">Faturalama <span class="faint">· yalnızca yöneticiler görür</span></div>
+        <div class="form-2">
+          <div class="field"><span class="field-label">Ücret birimi</span>
+            <div class="seg">${Object.entries(BILLING_UNITS).map(([k, u]) => `<input type="radio" name="billingUnit" id="cb-${k}" value="${k}"${(src?.billingUnit || 'saat') === k ? ' checked' : ''}><label for="cb-${k}">${u.label}</label>`).join('')}</div></div>
+          <label class="field"><span class="field-label">Ücret <span class="faint">(TL, KDV hariç)</span></span>
+            <span class="input-suffix"><input class="input" name="rate" inputmode="decimal" value="${src?.rate != null ? MONEY.format(src.rate) : ''}" placeholder="Boşsa fatura hesaplanmaz"><span data-rate-unit></span></span></label>
+        </div>
+        <div class="field" data-pool-billing${src?.hours ? '' : ' hidden'}><span class="field-label">Saat havuzu nasıl faturalanır?</span>
+          <div class="seg">${Object.entries(POOL_BILLING).map(([k, label]) => `<input type="radio" name="poolBilling" id="cp-${k}" value="${k}"${(src?.poolBilling || 'harcanan') === k ? ' checked' : ''}><label for="cp-${k}">${label}</label>`).join('')}</div>
+          <small class="field-hint">Peşin ödendiyse havuz bitene kadar fatura çıkmaz; aşan saat aynı ücretle faturalanır.</small></div>
+      </div>
       <div class="field"><span class="field-label">Yenileme</span>
         <div class="seg">${Object.entries(CONTRACT_RENEWAL).map(([k, label]) => `<input type="radio" name="renewal" id="cr-${k}" value="${k}"${(src?.renewal || 'manuel') === k ? ' checked' : ''}><label for="cr-${k}">${label}</label>`).join('')}</div></div>
       <label class="field"><span class="field-label">Not <span class="faint">(isteğe bağlı)</span></span><input class="input" name="note" maxlength="200" value="${esc(src?.note || '')}" placeholder="Örn. fesih bildirimi 30 gün önce yazılı"></label>
@@ -856,14 +939,21 @@ function contractModal(c, onSave, renewFrom = null) {
       };
       el.customerId.addEventListener('change', () => { chosen = new Set(); renderProjects(); });
       renderProjects();
+      const unitText = () => { m.querySelector('[data-rate-unit]').textContent = `₺ / ${BILLING_UNITS[el.billingUnit.value].short}`; };
+      unitText();
+      f.addEventListener('change', e => { if (e.target.name === 'billingUnit') unitText(); });
+      el.hours.addEventListener('input', () => { m.querySelector('[data-pool-billing]').hidden = !el.hours.value; });
       el.name.focus();
       f.addEventListener('submit', e => {
         e.preventDefault();
         const hours = el.hours.value ? Number(el.hours.value) : null, noticeDays = Number(el.noticeDays.value);
+        const rate = el.rate.value.trim() ? parseAmount(el.rate.value) : null;
         const data = {
           customerId: el.customerId.value, name: el.name.value.trim(), start: el.start.value, end: el.end.value, hours, noticeDays,
           projectIds: [...f.querySelectorAll('[name=projectIds]:checked')].map(x => x.value), renewal: el.renewal.value, note: el.note.value.trim(),
+          billingUnit: el.billingUnit.value, rate, poolBilling: el.poolBilling.value,
         };
+        if (rate != null && !(rate >= 0 && rate <= 10000000)) return formError(f, 'Ücreti yaz (ör. 2.000,00) ya da boş bırak.', el.rate);
         if (!data.name) return formError(f, 'Sözleşmenin adını yaz.', el.name);
         if (!data.start || !data.end || data.end < data.start) return formError(f, 'Tarihleri kontrol et: bitiş başlangıçtan önce olamaz.', el.end);
         if (hours != null && !(hours >= 1 && hours <= 100000)) return formError(f, 'Saat havuzu 1–100.000 arasında olmalı ya da boş bırakılmalı.', el.hours);

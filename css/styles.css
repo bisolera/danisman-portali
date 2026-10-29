@@ -764,6 +764,17 @@ tr.is-inactive .grid-proj { opacity: .55; }
 .pay-st.is-final { color: var(--brand-700); }
 .pay-table tfoot td { border-top: 1px solid var(--line); }
 .rate-form { padding-top: 4px; border-top: 1px solid var(--line); }
+
+/* ---------- Faturalama ---------- */
+.pay-sum > div.is-warn { background: var(--warn-bg); border-color: var(--warn-line); }
+.pay-sum > div.is-warn b, .pay-sum > div.is-warn > span:first-child { color: var(--warn-ink); }
+.inv-table tr.inv-group td { padding-top: 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); font-weight: 700; }
+.inv-table .inv-name { padding-left: 28px; }
+.inv-table .inv-name small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.inv-missing .alert-list { margin-bottom: 8px; }
+.cell-proj small.warn-text { color: var(--warn); font-weight: 600; }
+.contract-bill { padding-top: 14px; border-top: 1px solid var(--line-2); }
+.contract-bill .seg { flex-wrap: wrap; }
 .rate-form .sub-head { margin-bottom: 0; }
 .rate-table td { padding: 8px 10px; white-space: nowrap; }
 .rate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

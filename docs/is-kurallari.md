@@ -88,6 +88,15 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Yenile: yeni dönem aynı ayarlarla açılır (tam ay süren sözleşme aynı sayıda ay uzar, adındaki yıl ilerler); eski sözleşme bitiş uyarısı vermez, ama sürüyorsa saat havuzu izlenmeye devam eder
 - [x] Yalnızca yönetici görür (Yönetim → Sözleşmeler, Özet'te uyarı, müşteri kartında özet)
 
+## Faturalama (yalnızca yönetici)
+- [x] Ücret **sözleşmede** tutulur: birim (saatlik / günlük), ücret (TL, KDV hariç) ve saat havuzu varsa nasıl faturalandığı. Ücreti yalnızca yönetici görür ve girer (Yönetim → Sözleşmeler); danışmanın hiçbir ekranında ücret yok
+- [x] Ay faturası (Yönetim → Faturalama, `invoiceMonth`): o ay **faturalanabilir** projelere yazılan saat, projenin o tarihteki sözleşmesine göre toplanır. Saatlikse saat × ücret; günlükse (saat ÷ 8, kesirli) × ücret; kuruşa yuvarlanır
+- [x] Saat havuzu **harcanan**: her ay o ayın saati faturalanır, havuz aşılırsa uyarı. **Peşin ödendi**: havuz bitene kadar fatura çıkmaz, önceki aylarda harcanan önce havuzdan düşer, aşan saat aynı ücretle faturalanır. Örnek: 100 saatlik havuz, Şubat 80 sa (fatura yok), Mart 40 sa → 20 sa aşım × 2.000 ₺ = 40.000 ₺
+- [x] Para birimi yalnızca **TL**; kur çevirisi yok
+- [x] Sözleşmesi ya da ücreti olmayan faturalanabilir saat **"ücret tanımsız"** listesinde görünür ve tutarı hesaplanmaz; faturalanmadan unutulan saat kalmasın
+- [x] Saat yazan herkesin ay kapanışı onaylıysa tutar **kesin**, değilse **taslak**
+- [x] Çıktı: Dışarı aktar → Excel (fatura özeti, danışman dökümü, ücret tanımsız) ya da PDF. Gerçek ücretler repoya yazılmaz; örnek verideki ücretler uydurmadır
+
 ## Müşteri ve proje
 - [ ] Faturalanır / faturalanmaz ayrımı **proje bazında**
 - [ ] Aylık sözleşme saati: %80'de uyarı, %100'de aşım (`budgetState`)

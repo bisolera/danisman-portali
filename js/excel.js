@@ -687,20 +687,41 @@ function payrollData(iso) {
     { name: 'Prim ve yan haklar', rows, cols: [24, 11, 16, 18, 10, 11, 13, 12, 12, 13, 12, 16, 16], money: ['Günlük prim', 'Prim', 'Araba parası', 'Toplam'] }] };
 }
 
+// Fatura taslağı (yalnızca yönetici): sözleşme başına tutar, danışman dökümü, ücreti tanımsız saatler. TL, KDV hariç.
+async function exportInvoices(iso) { return saveReportExcel(invoiceData(iso)); }
+function invoiceData(iso) {
+  const r = invoiceMonth(iso);
+  if (!r.lines.length && !r.unpriced.length) return { empty: `${monthTitle(iso)} için faturalanacak saat yok` };
+  const round = n => Math.round(n * 1000) / 1000;
+  const summary = [['Müşteri', 'Sözleşme', 'Birim', 'Yazılan saat', 'Havuzdan (sa)', 'Faturalanacak saat', 'Miktar', 'Ücret', 'Tutar (TL)', 'Durum'],
+    ...r.lines.map(l => [l.customer.name, l.contract.name, BILLING_UNITS[l.unit].label, l.hours, l.pool?.prepaid ? l.pool.inPool : '', l.billed,
+      `${l.unit === 'gun' ? fmtDays(l.qty) : fmtNum(round(l.qty))} ${BILLING_UNITS[l.unit].short}`, l.rate, l.amount, l.final ? 'Kesin (aylar onaylı)' : 'Taslak']),
+    [], ['Toplam', '', '', '', '', '', '', '', r.total], ['Dönem', monthTitle(iso)], ['Not', 'Tutarlar TL, KDV hariç']];
+  const people = [['Müşteri', 'Sözleşme', 'Danışman', 'Saat'],
+    ...r.lines.flatMap(l => [...l.users].sort((a, b) => b[1] - a[1]).map(([id, h]) => [l.customer.name, l.contract.name, Store.user(id)?.name || id, h]))];
+  const missing = [['Müşteri', 'Proje', 'Proje Kodu', 'Sözleşme', 'Neden', 'Saat'],
+    ...r.unpriced.map(u => [u.customer.name, u.project.name, u.project.code, u.contract?.name || '', u.reason, u.hours])];
+  return { title: 'Fatura taslağı', period: monthTitle(iso), file: `bisolera-fatura-${iso.slice(0, 7)}`, done: `${monthTitle(iso)} fatura taslağı indirildi`, sheets: [
+    { name: 'Fatura özeti', rows: summary, cols: [20, 32, 9, 12, 13, 16, 12, 12, 14, 18], money: ['Ücret', 'Tutar (TL)'] },
+    { name: 'Danışman dökümü', rows: people, cols: [20, 32, 24, 10] },
+    { name: 'Ücret tanımsız', rows: missing, cols: [20, 32, 12, 28, 22, 10] }] };
+}
+
 // Sözleşme listesi: dönem, saat havuzu kullanımı, tahmini tükenme ve durum
 async function exportContracts() { return saveReportExcel(contractsData()); }
 function contractsData() {
   const today = todayISO(), list = Store.contracts().slice().sort((a, b) => a.end.localeCompare(b.end));
   if (!list.length) return { empty: 'Sözleşme yok' };
-  const rows = [['Müşteri', 'Sözleşme', 'Başlangıç', 'Bitiş', 'Kalan gün', 'Projeler', 'Saat havuzu', 'Kullanılan', 'Kalan saat', 'Kullanım %', 'Tahmini tükenme', 'Durum', 'Yenileme', 'Not'],
+  const rows = [['Müşteri', 'Sözleşme', 'Başlangıç', 'Bitiş', 'Kalan gün', 'Projeler', 'Saat havuzu', 'Kullanılan', 'Kalan saat', 'Kullanım %', 'Tahmini tükenme', 'Durum', 'Yenileme', 'Not', 'Ücret birimi', 'Ücret (TL, KDV hariç)', 'Havuz faturalama'],
     ...list.map(c => {
       const u = contractUsage(c, today);
       return [Store.customer(c.customerId)?.name || '', c.name, c.start, c.end, c.end >= today ? daysBetween(today, c.end) : 0,
         c.projectIds.map(pid => Store.project(pid)?.code).filter(Boolean).join(', '), c.hours || '', u.used, u.remaining ?? '',
-        u.pct == null ? '' : Math.round(u.pct), u.runsOutOn || '', CONTRACT_STATUS[contractStatus(c, today)].label, CONTRACT_RENEWAL[c.renewal] || '', c.note || ''];
+        u.pct == null ? '' : Math.round(u.pct), u.runsOutOn || '', CONTRACT_STATUS[contractStatus(c, today)].label, CONTRACT_RENEWAL[c.renewal] || '', c.note || '',
+        BILLING_UNITS[c.billingUnit || 'saat'].label, c.rate ?? '', c.hours ? POOL_BILLING[c.poolBilling || 'harcanan'] : ''];
     })];
   return { title: 'Sözleşmeler', period: `${fmtDate(today)} itibarıyla`, file: `bisolera-sozlesmeler-${today}`, done: `${list.length} sözleşme Excel'e aktarıldı`, sheets: [
-    { name: 'Sözleşmeler', rows, cols: [20, 32, 12, 12, 10, 18, 11, 11, 11, 10, 15, 13, 18, 36] }] };
+    { name: 'Sözleşmeler', rows, cols: [20, 32, 12, 12, 10, 18, 11, 11, 11, 10, 15, 13, 18, 36, 12, 18, 30], money: ['Ücret (TL, KDV hariç)'] }] };
 }
 
 // Ham liste: her kayıt bir satır + proje bazında özet sayfası

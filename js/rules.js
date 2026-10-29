@@ -545,6 +545,50 @@ function currentContract(customerId, today = todayISO()) {
   return list.find(c => c.end >= today) || null;
 }
 
+/* ---------- Faturalama (yalnızca yönetici) ---------- */
+
+// Bir kaydın sözleşmesi: projesi sözleşmeye bağlı ve tarihi sözleşme döneminde (aynı dönemde çakışma contractClash ile engelli)
+const contractFor = (projectId, date) => Store.contracts().find(c => c.projectIds.includes(projectId) && c.start <= date && date <= c.end) || null;
+
+// Ayın fatura taslağı, sözleşme başına bir satır. Saat: o ay faturalanabilir projelere yazılan saat.
+// Ücret sözleşmede: saatlik ya da günlük (gün = saat ÷ 8, kesirli); TL, KDV hariç, kuruşa yuvarlanır.
+// Saat havuzu "peşin ödendi" ise yalnızca havuzu aşan saat faturalanır: önceki aylarda harcanan önce havuzdan düşer.
+// Sözleşmesi ya da ücreti olmayan faturalanabilir saat "ücret tanımsız" listesine gider; tutarı hesaplanmaz.
+// Kesinlik: o sözleşmeye saat yazan herkesin ay kapanışı onaylıysa.
+function invoiceMonth(iso) {
+  const from = monthStart(iso), to = monthEnd(iso), byContract = new Map(), unpriced = new Map();
+  const addUser = (e, a) => { e.hours += a.hours; e.users.set(a.userId, (e.users.get(a.userId) || 0) + a.hours); };
+  Store.activities({ from, to }).filter(a => Store.project(a.projectId)?.billable).forEach(a => {
+    const c = contractFor(a.projectId, a.date);
+    if (c && c.rate != null) {
+      if (!byContract.has(c.id)) byContract.set(c.id, { contract: c, hours: 0, users: new Map() });
+      return addUser(byContract.get(c.id), a);
+    }
+    const key = `${a.projectId}|${c?.id || ''}`;
+    if (!unpriced.has(key)) unpriced.set(key, { project: Store.project(a.projectId), contract: c, reason: c ? 'Sözleşmede ücret yok' : 'Sözleşme yok', hours: 0, users: new Map() });
+    addUser(unpriced.get(key), a);
+  });
+  const lines = [...byContract.values()].map(e => {
+    const c = e.contract, unit = c.billingUnit === 'gun' ? 'gun' : 'saat';
+    let billed = e.hours, pool = null;
+    if (c.hours) {
+      const until = addDays(from, -1);
+      const before = c.start > until ? 0 : sum(c.projectIds.flatMap(pid => Store.activities({ projectId: pid, from: c.start, to: until })), a => a.hours);
+      const over = Math.max(0, before + e.hours - c.hours) - Math.max(0, before - c.hours);   // bu ayın havuzu aşan saati
+      const prepaid = c.poolBilling === 'asim';
+      if (prepaid) billed = over;
+      pool = { size: c.hours, used: before + e.hours, prepaid, inPool: e.hours - over, over };
+    }
+    const qty = unit === 'gun' ? billed / DAILY_HOURS : billed;
+    const pending = [...e.users.keys()].filter(uid => periodStatus(uid, iso) !== 'onaylandi').length;
+    return { contract: c, customer: Store.customer(c.customerId), hours: e.hours, billed, qty, unit, rate: c.rate,
+      amount: Math.round(qty * c.rate * 100) / 100, pool, users: e.users, pending, final: !pending };
+  }).sort((a, b) => a.customer.name.localeCompare(b.customer.name, 'tr') || a.contract.name.localeCompare(b.contract.name, 'tr'));
+  const missing = [...unpriced.values()].map(u => ({ ...u, customer: Store.customer(u.project.customerId) })).sort((a, b) => b.hours - a.hours);
+  return { lines, total: sum(lines, l => l.amount), customers: new Set(lines.map(l => l.customer.id)).size,
+    unpriced: missing, unpricedHours: sum(missing, u => u.hours), pending: lines.filter(l => !l.final).length };
+}
+
 /* ---------- Prim ve araba parası (yalnızca yönetici) ---------- */
 
 // Ayın başında yürürlükte olan tutarlar (yoksa null)

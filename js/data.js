@@ -80,6 +80,9 @@ const CONTRACT_STATUS = {
   yenilendi: { label: 'Yenilendi', tone: 'info' },
 };
 const CONTRACT_RENEWAL = { manuel: 'Manuel', otomatik: 'Otomatik yenilenir' };
+// Faturalama (yalnızca yönetici): ücret sözleşmede, TL ve KDV hariç. Günlükte gün = saat ÷ 8 (kesirli).
+const BILLING_UNITS = { saat: { label: 'Saatlik', short: 'sa' }, gun: { label: 'Günlük', short: 'gün' } };
+const POOL_BILLING = { harcanan: 'Harcanan saat her ay faturalanır', asim: 'Havuz peşin ödendi, yalnızca aşım faturalanır' };
 
 // Yetkinlik kataloğu: danışman seviyesini girer, projeler bu kimliklerle etiketlenir (deneyim saati buradan hesaplanır)
 const SKILLS = [
@@ -310,11 +313,12 @@ function buildSeed() {
 
   // Sözleşmeler (demo): biri yıllık havuzlu, biri bitişe yakın, biri bitmiş ve yenilenmiş
   const year = today.slice(0, 4);
+  // Sözleşme ücretleri (demo): UYDURMADIR; gerçek ücretler repoya yazılmaz, Yönetim → Sözleşmeler'den girilir.
   const contracts = [
-    { id: 'k-kzy', customerId: 'c6', name: `${year} BW & BPC Destek Sözleşmesi`, start: `${year}-01-01`, end: `${year}-12-31`, hours: 500, projectIds: ['p14'], noticeDays: 60, renewal: 'otomatik', note: '' },
-    { id: 'k-mav', customerId: 'c7', name: 'Raporlama Destek Paketi', start: addMonths(monthStart(today), -5), end: addDays(today, 40), hours: 120, projectIds: ['p15'], noticeDays: 60, renewal: 'manuel', note: 'Yenileme için teklif hazırlanacak' },
-    { id: 'k-atl1', customerId: 'c1', name: 'BW/4HANA Migrasyon – 1. faz', start: addMonths(monthStart(today), -14), end: addDays(monthStart(today), -1), hours: null, projectIds: ['p1'], noticeDays: 60, renewal: 'manuel', note: '', renewedTo: 'k-atl2' },
-    { id: 'k-atl2', customerId: 'c1', name: 'BW/4HANA Migrasyon – 2. faz', start: monthStart(today), end: addDays(addMonths(monthStart(today), 6), -1), hours: 900, projectIds: ['p1'], noticeDays: 60, renewal: 'manuel', note: '' },
+    { id: 'k-kzy', customerId: 'c6', name: `${year} BW & BPC Destek Sözleşmesi`, start: `${year}-01-01`, end: `${year}-12-31`, hours: 500, projectIds: ['p14'], noticeDays: 60, renewal: 'otomatik', note: '', billingUnit: 'saat', rate: 2000, poolBilling: 'asim' },
+    { id: 'k-mav', customerId: 'c7', name: 'Raporlama Destek Paketi', start: addMonths(monthStart(today), -5), end: addDays(today, 40), hours: 120, projectIds: ['p15'], noticeDays: 60, renewal: 'manuel', note: 'Yenileme için teklif hazırlanacak', billingUnit: 'saat', rate: 1800, poolBilling: 'harcanan' },
+    { id: 'k-atl1', customerId: 'c1', name: 'BW/4HANA Migrasyon – 1. faz', start: addMonths(monthStart(today), -14), end: addDays(monthStart(today), -1), hours: null, projectIds: ['p1'], noticeDays: 60, renewal: 'manuel', note: '', renewedTo: 'k-atl2', billingUnit: 'gun', rate: 14000, poolBilling: 'harcanan' },
+    { id: 'k-atl2', customerId: 'c1', name: 'BW/4HANA Migrasyon – 2. faz', start: monthStart(today), end: addDays(addMonths(monthStart(today), 6), -1), hours: 900, projectIds: ['p1'], noticeDays: 60, renewal: 'manuel', note: '', billingUnit: 'gun', rate: 15000, poolBilling: 'harcanan' },
   ];
 
   // Prim ve araba parası (demo): tutarlar UYDURMADIR. Şirketin gerçek tutarları repoya yazılmaz, Yönetim'den girilir.
