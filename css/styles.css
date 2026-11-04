@@ -67,6 +67,12 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
 input, select, textarea { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
+/* Telefon ve tablet: iPhone, yazısı 16 px'ten küçük kutuya dokunulunca sayfayı büyütür ve geri küçültmez; kutular 16 px.
+   Çift dokunuşla büyütme kapalı (iki kez hızlı basılan düğme sayfayı büyütmesin); iki parmakla büyütme açık kalır. */
+html { touch-action: manipulation; }
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+}
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .ic { flex: none; display: block; }
 .muted { color: var(--muted); }
@@ -294,6 +300,7 @@ textarea.input { height: auto; min-height: 64px; padding: 10px 12px; resize: ver
 
 /* ---------- Hafta gezgini ve gün kutuları ---------- */
 .week-nav { display: flex; align-items: center; gap: 6px; }
+@media (max-width: 560px) { .week-nav { flex-wrap: wrap; } }   /* dar ekranda düğmeler alt satıra geçer, sayfa yana taşmaz */
 .week-label { min-width: 176px; text-align: center; display: flex; flex-direction: column; line-height: 1.25; }
 .week-label strong { font-size: 14px; }
 .week-label small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
