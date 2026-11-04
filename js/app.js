@@ -19,6 +19,13 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instal
 window.addEventListener('appinstalled', () => { installPrompt = null; refreshInstall?.(); });
 const isStandalone = () => !!window.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone === true;
 
+// Telefonda büyütme kapalı. Android viewport ayarına ve CSS'e uyar; iPhone/iPad Safari user-scalable=no'yu yok sayar,
+// o yüzden iki parmak hareketi burada durdurulur. Yalnızca dokunmatik Safari'de (Mac trackpad'i ve Android etkilenmez).
+if ('ongesturestart' in window && navigator.maxTouchPoints > 0) {
+  ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+}
+
 function parseHash() {
   const [path, qs] = location.hash.replace(/^#\/?/, '').split('?');
   return { name: path || 'ozet', query: Object.fromEntries(new URLSearchParams(qs || '')) };

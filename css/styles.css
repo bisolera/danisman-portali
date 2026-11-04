@@ -67,9 +67,10 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
 input, select, textarea { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
-/* Telefon ve tablet: iPhone, yazısı 16 px'ten küçük kutuya dokunulunca sayfayı büyütür ve geri küçültmez; kutular 16 px.
-   Çift dokunuşla büyütme kapalı (iki kez hızlı basılan düğme sayfayı büyütmesin); iki parmakla büyütme açık kalır. */
-html { touch-action: manipulation; }
+/* Telefon ve tablet: sayfa büyütülmez, yazılar zaten büyük. iPhone, yazısı 16 px'ten küçük kutuya dokunulunca sayfayı
+   büyütür ve geri küçültmez; kutular 16 px. pan-x pan-y: kaydırma serbest, çift dokunuş ve iki parmakla büyütme kapalı
+   (viewport'ta user-scalable=no; iPhone Safari bunu yok saydığı için iki parmak hareketi app.js'te durdurulur). */
+html { touch-action: pan-x pan-y; }
 @media (hover: none) and (pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
 }

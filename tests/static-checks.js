@@ -19,6 +19,9 @@ module.exports = function staticChecks() {
   ok('manifest_simgeleri', ['192x192', '512x512'].every(s => icons.some(i => i.sizes === s)) && icons.some(i => i.purpose === 'maskable')
     && icons.every(i => exists(i.src)), icons.filter(i => !exists(i.src)).map(i => i.src));
   ok('index_manifest_bagli', html.includes('<link rel="manifest" href="manifest.webmanifest">') && exists('icons/apple-touch-icon.png'));
+  const viewport = html.match(/<meta name="viewport" content="([^"]+)">/)?.[1] || '';
+  ok('telefonda_buyutme_kapali', /maximum-scale=1\b/.test(viewport) && /user-scalable=no/.test(viewport)
+    && /html \{ touch-action: pan-x pan-y; \}/.test(read('css/styles.css')) && read('js/app.js').includes("'gesturestart'"), viewport);
 
   const list = read('sw.js').match(/const SHELL = (\[[\s\S]*?\]);/);
   const shell = list ? Function(`return ${list[1]}`)() : [];
