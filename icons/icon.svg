@@ -1,0 +1,2 @@
+<!-- Uygulama ikonu: logodaki yeşil üçgen + b. icons/*.png bu çizimden üretildi (maskable ve apple-touch kenarsız kare). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#070707"/><g transform="translate(106.00 160.00) scale(3.7500)"><path fill="#66cc66" d="M0 48H39V0Q23 37.5 0 48Z"/><path fill="#ffffff" fill-rule="evenodd" d="M44 30a18 18 0 1 0 36 0a18 18 0 1 0-36 0ZM52 30a10 10 0 1 0 20 0a10 10 0 1 0-20 0Z"/><rect fill="#ffffff" x="44" y="0" width="8" height="48"/></g></svg>
