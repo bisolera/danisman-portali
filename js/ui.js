@@ -682,34 +682,90 @@ function bridgeStatusText(h, userId) {
   return `${who} · hedef ${fmtNum(dailyTarget(userId, h.date))} sa · ${cost}.`;
 }
 
+// Geçmiş köprü için seçeneklerin geçmiş zamanlı adları (düzeltme talebinde ve yöneticinin onay ekranında)
+const pastBridgeLabels = h => (h.half ? { off: 'İzinliydim', full: 'Çalıştım' } : { off: 'İzinliydim', half: 'Yarım gün çalıştım', full: 'Tam gün çalıştım' });
+
 function bridgeChoiceHtml(h, userId) {
-  const choice = bridgeChoice(h, userId);
+  const choice = bridgeChoice(h, userId), req = h.requests?.[userId];
   const action = canChooseBridge(h, userId)
     ? `<div class="bridge-opts" role="group" aria-label="Köprü günü seçimin">${bridgeOptions(h).map(([v, label]) =>
         `<button class="${v === choice ? 'is-active' : ''}" data-bridge-work="${v}" aria-pressed="${v === choice}">${label}</button>`).join('')}</div>`
-    : `<span class="muted small-text nowrap">${icon('lock', 13)} ${isLocked(userId, h.date) ? 'Ay kapanışa gönderildi' : 'Seçim süresi geçti; yöneticine söyle'}</span>`;
+    : req?.status === 'beklemede'
+      ? `<div class="bridge-req"><span class="pill pill-warn">Talep yöneticide · ${esc(pastBridgeLabels(h)[req.choice])}</span><button class="btn ghost sm" data-bridge-request-undo>Geri al</button></div>`
+      : canRequestBridge(h, Store.user(userId)) ? `<button class="btn ghost sm" data-bridge-request>${icon('pencil', 14)} Düzeltme talebi</button>`
+        : `<span class="muted small-text nowrap">${icon('lock', 13)} Seçim süresi geçti</span>`;
+  const decided = req?.status === 'reddedildi' ? ' Son düzeltme talebin reddedildi.' : req?.status === 'onaylandi' ? ' Yönetici düzeltmeyi onayladı.' : '';
   return `<div class="bridge${choice !== 'off' ? ' is-working' : ''}" data-bridge="${h.id}">
     <span class="bridge-ic">${icon(choice !== 'off' ? 'clock' : 'sun', 16)}</span>
     <div class="bridge-main"><strong>${fmtDate(h.date, { weekday: true, year: false })} · ${esc(h.name)}</strong>
-      <small>${esc(bridgeStatusText(h, userId))}</small></div>
+      <small>${esc(bridgeStatusText(h, userId) + decided)}</small></div>
     ${action}
   </div>`;
 }
 
-// Seçimi kaydeder; tıklama bir köprü seçeneğiyse true döner
+// Köprü satırındaki tıklamalar: seçim, düzeltme talebi, talebi geri alma. Tıklama bir köprü düğmesiyse true döner.
 function handleBridgeClick(e, userId, onChange) {
-  const b = e.target.closest('[data-bridge-work]');
+  const b = e.target.closest('[data-bridge-work], [data-bridge-request], [data-bridge-request-undo]');
   if (!b) return false;
   const h = Store.holidays().find(x => x.id === b.closest('[data-bridge]').dataset.bridge);
-  if (!h || !canChooseBridge(h, userId)) return true;
-  const work = { ...(h.work || {}) };
-  if (b.dataset.bridgeWork === 'off') delete work[userId];
-  else work[userId] = h.half ? 'full' : b.dataset.bridgeWork;
+  if (!h) return true;
+  if (b.hasAttribute('data-bridge-request')) { if (canRequestBridge(h, Store.user(userId))) bridgeRequestModal(h, userId, onChange); return true; }
+  if (b.hasAttribute('data-bridge-request-undo')) {
+    const requests = { ...(h.requests || {}) };
+    delete requests[userId];
+    Store.updateHoliday(h.id, { requests });
+    onChange();
+    toast('Düzeltme talebi geri alındı', { tone: 'info' });
+    return true;
+  }
+  if (!canChooseBridge(h, userId)) return true;
+  const work = bridgeWorkWith(h, userId, b.dataset.bridgeWork);
   Store.updateHoliday(h.id, { work });
   onChange();
   const off = bridgeOff({ ...h, work }, userId);
   toast(`${fmtShort(h.date)} · ${off ? `yıllık izninden ${fmtNum(off)} gün düşecek` : 'yıllık izninden düşmeyecek'}`, { tone: 'info' });
   return true;
+}
+
+// Köprü düzeltme talebi: seçim süresi geçince danışman o gün gerçekte ne yaptığını yöneticiye gönderir
+function bridgeRequestModal(h, userId, onSave) {
+  const labels = pastBridgeLabels(h), current = bridgeChoice(h, userId), logged = hoursOn(userId, h.date);
+  const preset = current === 'off' ? 'full' : 'off';
+  const offText = off => (off ? `yıllık izninden ${fmtNum(off)} gün düşer` : 'yıllık izninden düşmez');
+  openModal({
+    title: 'Köprü düzeltme talebi',
+    body: `<form class="form-stack" id="bridgeReqForm" novalidate>
+      <div class="bridge-req-head"><strong>${fmtDate(h.date, { weekday: true })} · ${esc(h.name)}</strong>
+        <small>Şu an <b>${esc(labels[current])}</b> sayılıyorsun; ${offText(bridgeOff(h, userId))}. O gün ${fmtNum(logged)} sa kayıt var.</small></div>
+      <div class="field"><span class="field-label">O gün ne yaptın?</span>
+        <div class="seg">${Object.entries(labels).map(([v, label]) => `<input type="radio" name="choice" id="brq-${v}" value="${v}"${v === preset ? ' checked' : ''}><label for="brq-${v}">${label}</label>`).join('')}</div></div>
+      <label class="field"><span class="field-label">Not <span class="faint">(isteğe bağlı)</span></span>
+        <textarea class="input" name="note" rows="2" maxlength="300" placeholder="Örn. müşteride kurulum vardı, tam gün çalıştım"></textarea></label>
+      <p class="field-hint" data-effect></p>
+      ${isLocked(userId, h.date) ? `<p class="small-text warn-text">${icon('lock', 13)} Bu ay kapanışa gönderilmiş; yönetici onaylarsa o ayın hedef saatleri yeniden hesaplanır.</p>` : ''}
+      <p class="form-error" hidden></p>
+    </form>`,
+    footer: `<span class="grow"></span><button class="btn ghost" data-close>Vazgeç</button><button class="btn primary" type="submit" form="bridgeReqForm">${icon('send', 15)} Yöneticiye gönder</button>`,
+    onMount(m, close) {
+      const f = m.querySelector('form'), el = f.elements;
+      const effect = () => {
+        const c = el.choice.value;
+        m.querySelector('[data-effect]').textContent = c === current ? 'Bu, şu anki durumun; farklı bir seçenek seç.'
+          : `Onaylanırsa ${offText(bridgeOff({ ...h, work: bridgeWorkWith(h, userId, c) }, userId))}${c !== 'off' && !logged ? '; o günün saatlerini Aktiviteler’den girmeyi unutma' : ''}.`;
+      };
+      f.addEventListener('change', effect);
+      effect();
+      f.addEventListener('submit', e => {
+        e.preventDefault();
+        const choice = el.choice.value, fresh = Store.holidays().find(x => x.id === h.id);
+        if (!choice || choice === current) return formError(f, 'Şu anki durumdan farklı bir seçenek seç.');
+        Store.updateHoliday(h.id, { requests: { ...(fresh.requests || {}), [userId]: { choice, note: el.note.value.trim(), at: new Date().toISOString(), status: 'beklemede' } } });
+        close();
+        onSave();
+        toast('Düzeltme talebin yöneticine gitti');
+      });
+    },
+  });
 }
 
 /* ---------- İzin satırı ----------

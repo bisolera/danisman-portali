@@ -26,7 +26,7 @@ const AdminView = {
 
     function render() {
       const counts = {
-        onaylar: Store.leaves({ status: 'beklemede' }).length + cancelRequests().length,
+        onaylar: Store.leaves({ status: 'beklemede' }).length + cancelRequests().length + bridgeRequests().length,
         kapanis: Store.periods({ status: 'gonderildi' }).length,
         sozlesmeler: new Set(contractAlerts().map(a => a.contract.id)).size,
       };
@@ -85,9 +85,34 @@ const AdminView = {
       </div>`;
     }
 
+    // Köprü düzeltme talebi: danışman seçimi kaçırdı ya da yanlış seçti; onaylanınca seçim uygulanır, izin bakiyesi düzelir
+    function bridgeReqRow(r) {
+      const u = Store.user(r.userId), h = r.holiday, labels = pastBridgeLabels(h), logged = hoursOn(u.id, h.date);
+      const diff = bridgeOff(h, u.id) - bridgeOff({ ...h, work: bridgeWorkWith(h, u.id, r.choice) }, u.id);
+      return `<div class="approval" data-bridge-req="${h.id}" data-req-user="${u.id}">
+        ${avatar(u, 40)}
+        <div class="approval-main">
+          <div><strong>${esc(u.name)}</strong> <span class="muted">· köprü gününü düzeltmek istiyor</span></div>
+          <div class="approval-what">${fmtDate(h.date, { weekday: true })} · ${esc(h.name)} · <strong>${esc(labels[r.choice])}</strong> <span class="muted">(şu an: ${esc(labels[bridgeChoice(h, u.id)])})</span></div>
+          <div class="approval-meta">
+            <span>${icon('sun', 14)} ${diff > 0 ? `Onaylarsan ${fmtNum(diff)} gün bakiyeye döner` : diff < 0 ? `Onaylarsan yıllık izninden ${fmtNum(-diff)} gün daha düşer` : 'Yıllık izni değişmez'}</span>
+            <span class="${r.choice !== 'off' && !logged ? 'warn-text' : ''}">${icon('clock', 14)} O gün ${fmtNum(logged)} sa kayıt var</span>
+            ${isLocked(u.id, h.date) ? `<span class="warn-text">${icon('lock', 14)} Ay kapanışa gönderilmiş; onaylarsan o ayın hedef saatleri yeniden hesaplanır</span>` : ''}
+            ${r.note ? `<span>“${esc(r.note)}”</span>` : ''}
+            <span class="faint">${fmtStamp(r.at)}</span>
+          </div>
+        </div>
+        <div class="approval-actions">
+          <button class="btn ghost sm" data-bridge-decide="reddedildi">Reddet</button>
+          <button class="btn primary sm" data-bridge-decide="onaylandi">${icon('check', 15)} Onayla</button>
+        </div>
+      </div>`;
+    }
+
     function renderApprovals() {
       const pending = Store.leaves({ status: 'beklemede' }).slice().sort((a, b) => a.start.localeCompare(b.start));
       const cancels = cancelRequests().sort((a, b) => a.start.localeCompare(b.start));
+      const bridgeReqs = bridgeRequests();
       const decided = Store.leaves().filter(l => l.decidedAt).sort((a, b) => b.decidedAt.localeCompare(a.decidedAt)).slice(0, 5);
       panel.innerHTML = `
         <section class="card">
@@ -95,6 +120,7 @@ const AdminView = {
           ${pending.length ? pending.map(approvalRow).join('') : emptyState('check', 'Bekleyen talep yok', 'Yeni talepler geldiğinde burada görünecek.')}
         </section>
         ${cancels.length ? `<section class="card section-gap"><div class="card-head"><h2>İptal talepleri</h2><span class="muted">${cancels.length} talep</span></div>${cancels.map(cancelRow).join('')}</section>` : ''}
+        ${bridgeReqs.length ? `<section class="card section-gap"><div class="card-head"><h2>Köprü düzeltme talepleri</h2><span class="muted">${bridgeReqs.length} talep</span></div>${bridgeReqs.map(bridgeReqRow).join('')}</section>` : ''}
         ${decided.length ? `<section class="card section-gap"><div class="card-head"><h2>Son kararlar</h2></div>${decided.map(l => leaveRow(l, { user: Store.user(l.userId) })).join('')}</section>` : ''}`;
     }
 
@@ -645,6 +671,20 @@ const AdminView = {
         toast(status === 'onaylandi' ? 'Talep onaylandı' : 'Talep reddedildi', {
           tone: status === 'onaylandi' ? 'ok' : 'info',
           action: { label: 'Geri al', fn: () => { Store.updateLeave(id, { status: 'beklemede', decidedBy: null, decidedAt: null }); render(); } },
+        });
+        return;
+      }
+      const bridgeDecide = e.target.closest('[data-bridge-decide]');
+      if (bridgeDecide) {
+        const row = bridgeDecide.closest('[data-bridge-req]'), uid = row.dataset.reqUser;
+        const h = Store.holidays().find(x => x.id === row.dataset.bridgeReq), r = h.requests[uid], ok = bridgeDecide.dataset.bridgeDecide === 'onaylandi';
+        const before = { work: h.work, requests: h.requests };
+        const requests = { ...h.requests, [uid]: { ...r, status: ok ? 'onaylandi' : 'reddedildi', decidedBy: App.user.id, decidedAt: new Date().toISOString() } };
+        Store.updateHoliday(h.id, ok ? { work: bridgeWorkWith(h, uid, r.choice), requests } : { requests });
+        render();
+        toast(ok ? `${Store.user(uid).name} · ${fmtShort(h.date)} köprü günü düzeltildi` : 'Köprü düzeltme talebi reddedildi', {
+          tone: ok ? 'ok' : 'info',
+          action: { label: 'Geri al', fn: () => { Store.updateHoliday(h.id, before); render(); } },
         });
         return;
       }

@@ -28,12 +28,15 @@ const LeaveView = {
         `<div class="card bal${main ? ' is-main' : ''}"><span class="bal-label">${label}</span><span class="bal-val">${val}<small> gün</small></span><span class="bal-sub">${esc(sub)}</span></div>`).join('');
     }
 
-    // Yaklaşan köprü izinleri: çalışacaksa danışman burada söyler, yıllık izninden düşmez
+    // Köprü izinleri: yaklaşanlarda danışman seçer; geçmişte kalanlar için yöneticiye düzeltme talebi gönderir
     function renderBridges() {
       const list = upcomingBridges(), box = el.querySelector('#bridges');
-      box.hidden = !list.length;
-      box.innerHTML = list.length ? `<div class="card-head"><h2>Köprü izinleri</h2><span class="muted">Şirket kapalı</span></div>
-        ${list.map(h => bridgeChoiceHtml(h, me.id)).join('')}` : '';
+      const from = me.startDate && me.startDate > LEAVE_START ? me.startDate : LEAVE_START;
+      const past = Store.holidays({ from, to: addDays(today, -1) }).filter(h => h.kind === 'kopru' && !isWeekend(h.date)).reverse();
+      box.hidden = !list.length && !past.length;
+      box.innerHTML = `<div class="card-head"><h2>Köprü izinleri</h2><span class="muted">Şirket kapalı</span></div>
+        ${list.length ? list.map(h => bridgeChoiceHtml(h, me.id)).join('') : '<p class="muted small-text">Yaklaşan köprü günü yok.</p>'}
+        ${past.length ? `<div class="sub-head">Geçmiş köprüler <span class="faint">· seçimi kaçırdıysan düzeltme talebi gönder</span></div>${past.map(h => bridgeChoiceHtml(h, me.id)).join('')}` : ''}`;
     }
     el.querySelector('#bridges').addEventListener('click', e => handleBridgeClick(e, me.id, refresh));
 

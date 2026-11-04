@@ -166,8 +166,9 @@
   Store.updateLeave(sick.id, { status: 'iptal' });
   Store.setPeriod(ka.id, '2030-05', { status: 'gonderildi' });
   go('#/izinler');
+  // Kapanışa gönderilmiş ayda doğrudan seçim yok; yerine yöneticiye düzeltme talebi düğmesi çıkar
   ok('kopru_kilitli_ayda_secilmez', !document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work]`)
-    && document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('kapanışa'));
+    && !!document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-request]`));
   Store.setPeriod(ka.id, '2030-05', { status: 'acik' });
   go('#/izinler');
   opt('off').click();

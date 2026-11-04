@@ -41,6 +41,21 @@ function bridgeDays(user, from = LEAVE_START) {
 // Danışman köprü gününde çalışıp çalışmayacağını o güne kadar seçer; ay kapanışa gönderildiyse seçim değişmez
 const canChooseBridge = (h, userId, today = todayISO()) => h.kind === 'kopru' && h.date >= today && !isLocked(userId, h.date);
 
+// Köprü düzeltme talebi: seçim artık doğrudan yapılamıyorsa (gün geçti ya da ay kapanışa gönderildi) danışman yöneticiden ister;
+// kapanmış ay da olur, yönetici onaylarsa hedef saatler yeniden hesaplanır. Talep köprü kaydında durur:
+// h.requests[userId] = { choice: 'off' | 'half' | 'full', note, at, status: 'beklemede' | 'onaylandi' | 'reddedildi', decidedBy?, decidedAt? }
+const canRequestBridge = (h, user, today = todayISO()) => h.kind === 'kopru' && !isWeekend(h.date) && h.date >= LEAVE_START
+  && (!user.startDate || user.startDate <= h.date) && !canChooseBridge(h, user.id, today) && h.requests?.[user.id]?.status !== 'beklemede';
+const bridgeRequests = () => Store.holidays().filter(h => h.kind === 'kopru').flatMap(h => Object.entries(h.requests || {})
+  .filter(([, r]) => r.status === 'beklemede').map(([userId, r]) => ({ holiday: h, userId, ...r })))
+  .sort((a, b) => a.holiday.date.localeCompare(b.holiday.date));
+// Talep onaylanınca kişinin seçimi: 'off' = izinli (kayıt silinir); yarım gün köprüde çalışmak 'full' sayılır
+const bridgeWorkWith = (h, userId, choice) => {
+  const work = { ...(h.work || {}) };
+  if (choice === 'off') delete work[userId]; else work[userId] = h.half ? 'full' : choice;
+  return work;
+};
+
 // Seçilen yılın sabit tarihli resmi tatilleri (dini bayramlar her yıl değiştiği için elle girilir)
 function fixedHolidays(year) {
   return FIXED_HOLIDAYS.map(([md, name, half]) => ({ date: `${year}-${md}`, name, kind: 'resmi', half: !!half }));
@@ -671,9 +686,9 @@ function lockMessage(userId, iso) {
     : `${monthTitle(iso)} onaya gönderildi; değiştirmek için önce gönderimi geri çek.`;
 }
 
-// Bekleyen onaylar: izin talepleri + iptal talepleri + onaya gönderilmiş aylar (yönetici rozetinde)
+// Bekleyen onaylar: izin talepleri + iptal talepleri + köprü düzeltme talepleri + onaya gönderilmiş aylar (yönetici rozetinde)
 function pendingApprovals() {
-  return Store.leaves({ status: 'beklemede' }).length + cancelRequests().length + Store.periods({ status: 'gonderildi' }).length;
+  return Store.leaves({ status: 'beklemede' }).length + cancelRequests().length + bridgeRequests().length + Store.periods({ status: 'gonderildi' }).length;
 }
 
 function nextWorkday(iso) {

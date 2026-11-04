@@ -920,6 +920,11 @@ tr.is-inactive .grid-proj { opacity: .55; }
 .bridge-opts button { border: 0; background: transparent; padding: 6px 10px; border-radius: 8px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .bridge-opts button:hover { background: var(--card); }
 .bridge-opts button.is-active { background: var(--card); color: var(--brand-700); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.sub-head + .bridge { border-top: 0; }
+.bridge-req { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.bridge-req-head { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2); }
+.bridge-req-head small { font-size: 12.5px; color: var(--muted); }
+@media (max-width: 560px) { .bridge { flex-wrap: wrap; } .bridge > .btn, .bridge-req, .bridge-opts { margin-left: 44px; } }
 .block-sm { display: block; font-size: 12px; margin-top: 2px; }
 .work-pick { display: flex; flex-direction: column; gap: 6px; }
 .work-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 230px); align-items: center; gap: 10px; font-weight: 500; }
