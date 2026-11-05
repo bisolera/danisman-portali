@@ -55,7 +55,12 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] **Ekip matrisi, uygun danışman araması ve başkasının profili / CV'si yalnızca yöneticide.** Danışman Yetkinlikler'de yalnızca kendi profilini ve CV'sini görür ve düzenler; kişi seçimi çıkmaz, adresle (`?v=ekip`, `?v=ara`, `?u=`) açsa da kendisininkine düşer. Yönetici herkesinkini görür ve düzenler. Sunucuya geçince yetkinlik, sertifika ve arama uçları da bu kurala göre açılır (bkz. `docs/sunucu-gecisi.md`).
 
 ## CV
-- [x] **CV formdan doldurulur, dosya yüklenmez** (Yetkinlikler → CV, `js/cv.js`). Eski Word CV yükleme kalktı; eski sürümde yüklenmiş dosyalar silinir.
+- [x] **CV formdan doldurulur, dosya saklanmaz** (Yetkinlikler → CV, `js/cv.js`). Eski Word CV yükleme kalktı; eski sürümde yüklenmiş dosyalar silinir.
+- [x] **CV'den aktar:** hazır Word CV (.docx) okunur, içindeki projeler, iş deneyimi, eğitim, kurslar ve kişisel bilgiler önizlemede gösterilir; seçilenler forma eklenir, dosya saklanmaz (`js/cv-import.js`). Şirketin "Consultant Profile" düzenini ve portalın kendi Word CV'sini tanır; .doc ve PDF okunmaz (Word'de .docx olarak kaydedilir)
+  - Formda dolu olan bilgi (ör. profil yazısı) önizlemede **seçili gelmez**; işaretlenirse eskisinin yerine geçer. Boş olanlar seçili gelir
+  - Zaten var olan proje (aynı müşteri + proje + başlangıç), iş (şirket + başlangıç), okul ve kurs tekrar eklenmez
+  - Bisolera satırı ve sertifikalar aktarılmaz (portaldan gelir). CV'deki ad kişinin adıyla uyuşmazsa uyarı çıkar
+  - Yalnızca yıl yazılmış proje dönemi ("2017 – 2018") ocak–aralık sayılır; bölümü, derecesi ya da yılı olmayan ve okul adına benzemeyen eğitim satırı not sayılıp atlanır
 - [x] Bölümler şirketin "Consultant Profile" düzenindedir: ad, CV'deki unvan, e-posta, telefon · profil yazısı · SAP deneyim özeti (madde madde) · her proje için tablo (müşteri, dönem, sektör, proje, rol, sorumluluklar) · kurslar · iş deneyimi ve sertifikalar · kişisel bilgiler (eğitim, medeni durum, uyruk, doğum tarihi, diller)
 - [x] Projeler, işler ve eğitim **yeniden eskiye** sıralanır; süren (bitişi boş) en üstte. Ay "aa.yyyy" yazılır; başlangıç ve bitiş ileri bir ay olamaz, bitiş başlangıçtan önce olamaz
 - [x] **Portaldan ekle:** Bisolera'da saat yazılmış müşteri projeleri (iç projeler hariç) müşteri, sektör, proje adı, dönem ve unvanla hazır gelir; son 31 günde saati olan "sürüyor" sayılır. Aynı proje ikinci kez önerilmez (`portalCvProjects`)

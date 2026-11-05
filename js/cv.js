@@ -255,7 +255,7 @@ function openCvDialog(user) {
 
 // Alan türleri: text, textarea, month (aa.yyyy), year (yyyy), select
 const CV_KINDS = {
-  projects: { one: 'Proje', add: 'Proje ekle', icon: 'list', empty: 'Proje girilmemiş', emptyHint: 'Çalıştığın projeleri ekle; Bisolera projelerin "Portaldan ekle" ile hazır gelir.', fields: [
+  projects: { one: 'Proje', add: 'Proje ekle', icon: 'list', empty: 'Proje girilmemiş', emptyHint: 'Çalıştığın projeleri ekle. Hazır Word CV’n varsa "CV’den aktar" ile, Bisolera projelerin "Portaldan ekle" ile hazır gelir.', fields: [
     { name: 'customer', label: 'Müşteri', required: true, placeholder: 'Örn. Atlas Holding' },
     { name: 'sector', label: 'Sektör', placeholder: 'Örn. Enerji' },
     { name: 'project', label: 'Proje', required: true, full: true, placeholder: 'Örn. BW/4HANA geçişi' },

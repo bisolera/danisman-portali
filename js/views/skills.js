@@ -102,7 +102,8 @@ const SkillsView = {
         <section class="card">
           <div class="card-head">
             <span class="cell-user">${avatar(u, 40)}<span><strong>${esc(u.name)}</strong><small data-cv-headline>${esc(r.headline || u.title)}</small></span></span>
-            <div class="row-gap">${personSelect(u)}<button class="btn primary sm" data-cv-export>${icon('download', 15)} CV'yi al</button></div>
+            <div class="row-gap">${personSelect(u)}${edit ? `<button class="btn ghost sm" data-cv-upload title="Hazır Word CV'deki bilgileri forma aktarır">${icon('upload', 15)} CV'den aktar</button>` : ''}
+              <button class="btn primary sm" data-cv-export>${icon('download', 15)} CV'yi al</button></div>
           </div>
           <div data-cv-status>${cvStatusHtml(u)}</div>
           ${viewingNote(u)}
@@ -187,6 +188,7 @@ const SkillsView = {
       if (t.hasAttribute('data-cv-export')) return openCvDialog(u);
       if (!canEdit()) return;
       if (t.dataset.cvAdd) return cvItemModal(u.id, t.dataset.cvAdd, null, redraw);
+      if (t.hasAttribute('data-cv-upload')) return openCvImportModal(u, redraw);
       if (t.hasAttribute('data-cv-import')) return cvPortalImportModal(u, redraw);
       if (t.hasAttribute('data-cv-areas')) {
         const box = body.querySelector('[data-cv-field="areas"]'), have = textLines(box.value), all = skillAreaLines(u);
@@ -276,7 +278,7 @@ const SkillsView = {
     /* ---------- Olaylar ---------- */
 
     el.addEventListener('click', e => {
-      const cv = e.target.closest('[data-cv-export], [data-cv-add], [data-cv-edit], [data-cv-del], [data-cv-import], [data-cv-areas]');
+      const cv = e.target.closest('[data-cv-export], [data-cv-upload], [data-cv-add], [data-cv-edit], [data-cv-del], [data-cv-import], [data-cv-areas]');
       if (cv) return handleCvClick(cv);
       const t = e.target.closest('[data-mode], [data-level], [data-cv-of], [data-add-cert], [data-edit-cert], [data-del-cert], [data-min-level], [data-person-row]');
       if (!t) return;

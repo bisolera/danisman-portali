@@ -79,7 +79,7 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET /api/invoices/:month` | fatura taslağı (`invoiceMonth`): sözleşme başına tutar, danışman dökümü, ücret tanımsız saatler | yalnızca yönetici; ücret ve tutar başka hiçbir uçta danışmana dönmez |
 | `GET/POST/PATCH/DELETE /api/expenses`, `PUT /api/expenses/:id/receipt` | masraf ve fişi | sahibi (yalnızca onay beklerken ya da reddedilmişken değiştirir); okuma: sahibi ve yönetici |
 | `POST /api/expenses/decision` (`ids`, `approve`/`reject`, gerekçe), `POST /api/expenses/pay` (`userId`) | onay, red, ödendi | yönetici |
-| `GET/PUT /api/users/:id/cv`, `POST/PATCH/DELETE /api/users/:id/cv/:kind` (`projects`, `jobs`, `education`, `courses`) | CV bilgileri ve listeleri | kendisi ya da yönetici; PDF ve Word tarayıcıda üretilir, sunucuya dosya gelmez |
+| `GET/PUT /api/users/:id/cv`, `POST/PATCH/DELETE /api/users/:id/cv/:kind` (`projects`, `jobs`, `education`, `courses`) | CV bilgileri ve listeleri | kendisi ya da yönetici; PDF ve Word tarayıcıda üretilir, "CV'den aktar" da Word dosyasını tarayıcıda okur: sunucuya dosya gelmez |
 
 ## Microsoft 365 girişi (Entra ID)
 Şirketin Microsoft 365 yöneticisi yapar:
