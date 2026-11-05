@@ -52,6 +52,10 @@ const Store = (() => {
     if (d.version < 8) d.expenses = d.expenses || [];                   // masraflar
     if (d.version < 9) d.contracts = d.contracts || [];                 // müşteri sözleşmeleri
     if (d.version < 10) d.payRates = d.payRates || [];                  // prim ve araba parası tutarları (Yönetim'den girilir)
+    if (d.version < 11) d.users.forEach(u => {                         // Word CV yükleme kalktı; CV formdan doldurulur (u.resume)
+      delete u.cv;
+      u.resume = u.resume || {};
+    });
     d.version = DATA_VERSION;
     return d;
   }
@@ -229,7 +233,7 @@ const Store = (() => {
   };
 })();
 
-/* Yedekleme: bu tarayıcıdaki tüm portal verisi (kayıtlar, tercihler, takvim, CV dosyaları) tek JSON dosyasında.
+/* Yedekleme: bu tarayıcıdaki tüm portal verisi (kayıtlar, tercihler, takvim, masraf fişleri) tek JSON dosyasında.
    Sunucuya geçene kadar tarayıcı verisinin silinmesine karşı tek güvence budur. */
 const Backup = {
   PREFIX: 'bisolera-',
@@ -250,7 +254,7 @@ const Backup = {
       data: Object.fromEntries(Backup.keys().map(k => [k, localStorage.getItem(k)])) };
   },
 
-  // Kayıtlar + dosya deposundaki dosyalar (CV); dosya içeriği base64
+  // Kayıtlar + dosya deposundaki dosyalar (masraf fişleri); dosya içeriği base64
   async snapshotFull() {
     const snap = Backup.snapshot(), files = {};
     try {

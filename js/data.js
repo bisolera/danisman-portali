@@ -2,7 +2,7 @@
    Canlıya geçerken buildSeed() kalkar; kullanıcı, müşteri ve proje verileri veritabanından gelir. */
 
 const COMPANY_DOMAIN = 'bisolera.com';
-const DATA_VERSION = 10;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
+const DATA_VERSION = 11;   // veri yapısı değişince artır; store.js → migrate() eski kaydı yeni yapıya taşır
 const NOTE_MAX = 2000;    // aylık formlardaki açıklamalar birkaç yüz karakteri rahatça geçiyor
 
 const BRAND = {
@@ -102,6 +102,12 @@ const SKILLS = [
 ];
 const skillName = id => (SKILLS.find(s => s.id === id) || { name: id }).name;
 const SKILL_LEVELS = ['—', 'Temel', 'Orta', 'Uzman'];   // 0 yok · 1 temel · 2 bağımsız çalışır · 3 proje yönetir, öğretir
+// CV seçenekleri: [Türkçe, İngilizce] — CV hangi dilde alınırsa o yazılır
+const CV_DEGREES = {
+  lise: ['Lise', 'High school'], onlisans: ['Ön lisans', 'Associate degree'], lisans: ['Lisans', "Bachelor's degree"],
+  yuksek: ['Yüksek lisans', "Master's degree"], doktora: ['Doktora', 'PhD'],
+};
+const CV_MARITAL = { bekar: ['Bekâr', 'Single'], evli: ['Evli', 'Married'] };
 const CERT_STATUS = {
   suresiz: { label: 'Süresiz', tone: 'muted' },
   gecerli: { label: 'Geçerli', tone: 'ok' },
@@ -290,7 +296,23 @@ function buildSeed() {
     u2: 'SAP BW ve BPC destek ve geliştirme projelerinde deneyimli; BW verilerinin Microsoft Fabric’e taşınmasında çalışıyor.',
     u4: 'SAP Datasphere kurulumu, veri modelleme ve replikasyon akışlarında uzman.',
   };
-  users.forEach(u => { u.skills = skills[u.id] || {}; u.summary = summaries[u.id] || ''; });
+  // CV (demo): müşteriler, eski işverenler ve okul UYDURMADIR; gerçek CV bilgisi repoya yazılmaz
+  const resumes = {
+    u2: {
+      phone: '0555 000 00 00', languages: 'Türkçe (ana dil), İngilizce (iyi)', nationality: 'Türkiye',
+      areas: 'SAP BW 7.x geliştirme ve destek\nSAP BPC planlama\nABAP / AMDP geliştirme\nBW verilerinin Microsoft Fabric’e taşınması',
+      projects: [
+        { id: 'cp1', customer: 'Kuzey Elektronik', sector: 'Dayanıklı tüketim', project: 'SAP BW & BPC Destek', role: 'SAP BW Danışmanı', from: '2024-01', to: '',
+          work: 'Süreç zinciri takibi ve hata çözümü\nBPC planlama modellerinde geliştirme', portalId: 'p14' },
+        { id: 'cp2', customer: 'Örnek Tekstil', sector: 'Tekstil', project: 'BW raporlama projesi', role: 'Jr. SAP BW Danışmanı', from: '2021-03', to: '2022-12',
+          work: 'Satış ve stok raporlarının geliştirilmesi\nBEx sorguları ve yetkilendirme' },
+      ],
+      jobs: [{ id: 'cj1', company: 'Örnek Danışmanlık', title: 'Jr. SAP BW Danışmanı', from: '2020-09', to: '2023-01' }],
+      education: [{ id: 'ce1', school: 'Örnek Üniversitesi', department: 'Yönetim Bilişim Sistemleri', degree: 'lisans', from: '2016', to: '2020' }],
+      courses: [{ id: 'cc1', name: 'SAP BW/4HANA modelleme eğitimi', detail: '5 gün' }],
+    },
+  };
+  users.forEach(u => { u.skills = skills[u.id] || {}; u.summary = summaries[u.id] || ''; u.resume = resumes[u.id] || {}; });
   const today = todayISO();
   const certs = [
     { id: 'k1', userId: 'u1', name: 'SAP BW/4HANA Associate', skillId: 'bw4', issued: '2023-05-10', expires: addDays(today, 300) },

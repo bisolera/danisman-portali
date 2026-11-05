@@ -873,10 +873,19 @@ tr.is-inactive .grid-proj { opacity: .55; }
 .cert-ic { flex: none; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--info-bg); color: var(--info); }
 .cert-alert { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 4px; font-size: 12.5px; }
 .cert-ok { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--info); font-weight: 600; }
-.cv-box { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; margin: 4px 0 14px; border: 1px dashed var(--line); border-radius: 12px; background: var(--surface-2); }
-.cv-box.has-cv { border-style: solid; background: var(--card); }
-.cv-ic { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--info-bg); color: var(--info); }
 .cv-yes { color: var(--brand-700); display: inline-flex; }
+.cv-note { margin: 10px 0 0; }
+.cv-miss { font-size: 12px; font-weight: 600; color: var(--warn); white-space: nowrap; }
+/* CV sekmesi: proje, iş, eğitim, kurs listeleri */
+.cv-items { display: flex; flex-direction: column; }
+.cv-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line-2); }
+.cv-item:first-child { border-top: 0; padding-top: 2px; }
+.cv-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cv-item-main small { color: var(--muted); font-size: 12.5px; }
+.cv-item-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cv-item-actions { flex: none; display: flex; gap: 2px; }
+.cv-item.is-auto { opacity: .9; }
+.cv-work { margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--ink); }
 @media (max-width: 900px) { .skill-groups { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .skill-row { grid-template-columns: minmax(0, 1fr) 56px; } .skill-row .lvl-seg { grid-column: 1 / -1; grid-row: 2; justify-self: start; } }
 
@@ -1104,7 +1113,6 @@ tr.is-inactive .grid-proj { opacity: .55; }
   .print-sign b { min-height: 16px; }
   .print-sign i { font-style: normal; font-size: 8.5pt; color: #777; border-top: 1px solid #333; padding-top: 4px; margin-top: 34px; }
   .print-foot { margin-top: 14px; font-size: 8pt; color: #888; text-align: right; }
-  .cv .print-foot { margin-top: auto; padding-top: 14px; }
   .print-subtotals { margin: 10px 0 0; font-size: 9.5pt; color: #333; line-height: 1.6; }
   /* Rapor çıktısı (printReport): geniş tablolar için A4 yatay, küçük yazı */
   @page report { size: A4 landscape; margin: 12mm 10mm; }
@@ -1117,17 +1125,23 @@ tr.is-inactive .grid-proj { opacity: .55; }
   .print-report .print-table tr.is-gap td { padding: 2px; border: 0; }
   .print-sheet { margin: 18px 0 0; font-family: var(--font-head); font-size: 10.5pt; break-after: avoid; }
   .print-empty { margin: 6px 0 0; color: #666; }
-  .cv-person { margin: 14px 0 6px; }
-  .cv-person h2 { margin: 0; font-family: var(--font-head); font-size: 18pt; }
-  .cv-person p { margin: 2px 0 0; color: #555; }
-  .cv-summary { margin: 8px 0 4px; line-height: 1.5; }
-  .cv h3 { margin: 16px 0 6px; font-family: var(--font-head); font-size: 11pt; text-transform: uppercase; letter-spacing: .05em; color: #0a2e0f; border-bottom: 1px solid #cfe9cf; padding-bottom: 3px; }
-  .cv h3 small { text-transform: none; letter-spacing: 0; font-weight: 400; color: #777; }
-  .cv-skills { margin: 0; display: flex; flex-direction: column; gap: 4px; }
-  .cv-skills div { display: grid; grid-template-columns: 22mm 1fr; gap: 8px; }
-  .cv-skills dt { font-weight: 700; color: #333; }
-  .cv-skills dd { margin: 0; }
-  .cv-skills small { color: #777; }
-  .cv-certs { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 2px; }
-  .cv-empty { color: #777; margin: 4px 0; }
+  /* CV (js/cv.js): şirketin "Consultant Profile" düzeni. Başlık tablonun thead'i: her sayfada tekrarlanır.
+     Proje tabloları sayfa arasında bölünmez; satırlar noktalı çizgiyle ayrılır. */
+  .cv-doc { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  .cv-doc > thead { display: table-header-group; }
+  .cv-doc > thead > tr > td, .cv-doc > tbody > tr > td { padding: 0; }
+  .cv-run { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 6px; margin-bottom: 14px; border-bottom: 2.5px solid var(--brand); }
+  .cv-run strong { font-family: var(--font-head); font-size: 19pt; font-weight: 800; color: #2b8a3e; }
+  .cv-id { text-align: center; margin: 4px 0 16px; }
+  .cv-id h1 { margin: 0 0 2px; font-family: var(--font-head); font-size: 14pt; }
+  .cv-id p { margin: 1px 0 0; font-weight: 600; }
+  .cv-sec { margin-top: 14px; }
+  .cv-sec h2 { margin: 0 0 6px; font-size: 10.5pt; font-weight: 700; padding-bottom: 3px; border-bottom: 1px solid #888; break-after: avoid; }
+  .cv-text { margin: 0; line-height: 1.5; text-align: justify; }
+  .cv-list { margin: 0; padding: 0; list-style: none; line-height: 1.45; }
+  .cv-list li { padding-left: 14px; text-indent: -14px; }
+  .cv-list li::before { content: '–'; display: inline-block; width: 14px; text-indent: 0; }
+  .cv-table { width: 100%; border-collapse: collapse; margin: 10px 0 12px; border-top: 1px solid #666; break-inside: avoid; }
+  .cv-table th, .cv-table td { text-align: left; vertical-align: top; padding: 3px 8px 3px 0; border-bottom: 1px dotted #444; line-height: 1.4; }
+  .cv-table th { width: 31%; font-weight: 400; }
 }

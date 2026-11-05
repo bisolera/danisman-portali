@@ -37,6 +37,7 @@ const App = {
 
   start() {
     Store.init();
+    dropOldCvFiles().catch(() => {});   // eski sürümden kalan Word CV dosyaları
     let id = null;
     try { id = localStorage.getItem(SESSION_KEY); } catch { /* yok say */ }
     const u = id && Store.user(id);
@@ -255,7 +256,7 @@ function openProfile() {
         Backup.markDone();
         showInfo();
         const n = Object.keys(snap.files).length;
-        toast(`Yedek indirildi${n ? ` (${n} CV dosyası dahil)` : ''}; dosyayı güvenli bir yerde sakla`);
+        toast(`Yedek indirildi${n ? ` (${n} fiş dosyası dahil)` : ''}; dosyayı güvenli bir yerde sakla`);
       });
       m.querySelector('[data-restore]').addEventListener('change', async e => {
         const file = e.target.files[0];
@@ -266,14 +267,14 @@ function openProfile() {
           const { backup, summary } = Backup.inspect(await file.text());
           confirmBox.hidden = false;
           confirmBox.innerHTML = `<p><strong>${esc(file.name)}</strong> · ${summary.exportedAt ? fmtStamp(summary.exportedAt) : 'tarih yok'}<br>
-            ${summary.users} kişi · ${summary.activities} aktivite · ${summary.leaves} izin kaydı${summary.files ? ` · ${summary.files} CV dosyası` : ''}</p>
+            ${summary.users} kişi · ${summary.activities} aktivite · ${summary.leaves} izin kaydı${summary.files ? ` · ${summary.files} fiş dosyası` : ''}</p>
             <p class="warn-text">Bu tarayıcıdaki mevcut verilerin yerini alacak. Güvenlik için önce mevcut verinin yedeği indirilecek.</p>
             <div class="row-gap"><button class="btn danger-ghost sm" data-restore-go>${icon('upload', 15)} Geri yükle</button><button class="btn ghost sm" data-restore-cancel>Vazgeç</button></div>`;
           confirmBox.querySelector('[data-restore-cancel]').onclick = () => { confirmBox.hidden = true; };
           confirmBox.querySelector('[data-restore-go]').onclick = async () => {
             downloadText(fileName('-geri-yukleme-oncesi'), JSON.stringify(await Backup.snapshotFull(), null, 1));
             Backup.restore(backup);
-            try { await Backup.restoreFiles(backup); } catch (e) { toast(`CV dosyaları geri yüklenemedi: ${e.message}`, { tone: 'danger' }); }
+            try { await Backup.restoreFiles(backup); } catch (e) { toast(`Fiş dosyaları geri yüklenemedi: ${e.message}`, { tone: 'danger' }); }
             toast('Yedek geri yüklendi; sayfa yenileniyor');
             setTimeout(() => location.reload(), 600);
           };

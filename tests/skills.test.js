@@ -1,4 +1,4 @@
-// Yetkinlikler: sertifika durumu, deneyim saati, uygun danışman, profil düzenleme yetkisi, CV, proje etiketi, sürüm taşıma
+// Yetkinlikler: sertifika durumu, deneyim saati, uygun danışman, profil düzenleme yetkisi, proje etiketi, sürüm taşıma (CV: cv.test.js)
 (async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const go = h => { history.replaceState(null, '', h); App.route(); };
@@ -66,11 +66,12 @@
   // Başkasının profili yalnızca yöneticide: danışmanda kişi seçimi yok, ?u= ile açsa da kendi profiline düşer
   go('#/yetkinlik?v=ben&u=u4');
   ok('danisman_baskasini_acamaz', !document.querySelector('[data-person]') && !document.querySelector('.card-head').textContent.includes('Can Öztürk')
-    && document.querySelector('.card-head').textContent.includes('Emre Aydın') && !document.querySelector('[data-summary]').disabled && !location.hash.includes('u=u4'));
+    && document.querySelector('.card-head').textContent.includes('Emre Aydın') && !document.querySelector('[data-level]').disabled && !location.hash.includes('u=u4'));
 
-  // Ekip matrisi ve uygun danışman yalnızca yöneticide: danışman adresle açsa da kendi profiline düşer, sekmeler görünmez
+  // Ekip matrisi ve uygun danışman yalnızca yöneticide: danışman adresle açsa da kendi profiline düşer; sekmeleri Profil ve CV
   go('#/yetkinlik?v=ekip');
-  ok('danisman_matris_goremez', !document.querySelector('.skill-matrix') && document.querySelector('#modes').hidden && !!document.querySelector('[data-summary]'));
+  ok('danisman_matris_goremez', !document.querySelector('.skill-matrix') && !!document.querySelector('.skill-groups')
+    && [...document.querySelectorAll('#modes [data-mode]')].map(b => b.dataset.mode).join() === 'ben,cv');
   go('#/yetkinlik?v=ara');
   ok('danisman_arama_goremez', !document.querySelector('[data-search-skill]') && !document.querySelector('[data-available]'));
 
@@ -93,26 +94,6 @@
   document.querySelector('[data-skill="fabric"] [data-level="1"]').click();
   ok('yonetici_duzenler', Store.user('u4').skills.fabric === 1);
   ok('yonetici_ekip_uyarisi', document.querySelector('#certAlert').textContent.includes('Can'));
-
-  // CV: özet, uzmanlıklar, geçerli sertifikalar, müşteri projeleri; dolmuş sertifika ve iç proje girmez; müşteri adı gizlenebilir
-  let printed = 0;
-  const origPrint = window.print;
-  window.print = () => { printed++; };
-  Store.updateUser('u2', { summary: 'Deneme özeti' });
-  Store.addCert({ userId: 'u2', name: 'Eski sertifika', expires: addDays(today, -3) });
-  printCv(Store.user('u2'));
-  let cv = document.querySelector('#print-root .cv');
-  ok('cv_icerik', printed === 1 && cv.textContent.includes('Emre Aydın') && cv.textContent.includes('Deneme özeti') && cv.textContent.includes('SAP BW 7.x')
-    && cv.textContent.includes('Deneme Fabric sertifikası') && !cv.textContent.includes('Eski sertifika') && cv.textContent.includes('Kuzey Elektronik')
-    && document.title.startsWith('CV_Emre Aydın'), cv.textContent.slice(0, 300));
-  printCv(Store.user('u2'), { hideCustomers: true });
-  cv = document.querySelector('#print-root .cv');
-  ok('cv_musteri_gizli', !cv.textContent.includes('Kuzey Elektronik') && cv.textContent.includes('Dayanıklı tüketim sektörü'));
-  openCvDialog(Store.user('u4'));
-  lastModal().querySelector('[data-print]').click();
-  ok('cv_penceresi', printed === 3 && document.querySelector('#print-root .cv').textContent.includes('Can Öztürk'));
-  window.print = origPrint;
-  await wait(250);
 
   // Proje formunda yetkinlik etiketi
   go('#/musteriler');

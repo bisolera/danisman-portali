@@ -1,10 +1,10 @@
-/* Yetkinlikler: kim neyi biliyor, sertifikalar, uygun danışman arama, teklif için CV.
-   Danışman yalnızca kendi profilini görür ve düzenler. Başkasının profili, ekip matrisi, uygun danışman araması ve doluluk yalnızca yöneticide. */
+/* Yetkinlikler: kim neyi biliyor, sertifikalar, CV (formdan doldurulur, js/cv.js), uygun danışman arama.
+   Danışman yalnızca kendi profilini ve CV'sini görür ve düzenler. Başkasınınkiler, ekip matrisi, uygun danışman araması ve doluluk yalnızca yöneticide. */
 
 const SkillsView = {
   mount(el, { query }) {
     const me = App.user, admin = App.isAdmin();
-    const MODES = admin ? [['ben', 'Profil'], ['ekip', 'Ekip matrisi'], ['ara', 'Uygun danışman']] : [['ben', 'Profil']];
+    const MODES = admin ? [['ben', 'Profil'], ['cv', 'CV'], ['ekip', 'Ekip matrisi'], ['ara', 'Uygun danışman']] : [['ben', 'Profil'], ['cv', 'CV']];
     let mode = MODES.some(([k]) => k === query.v) ? query.v : 'ben';
     let personId = admin && Store.user(query.u)?.active ? query.u : me.id;     // başkasının profilini yalnızca yönetici açar; danışman ?u= ile de kendisine düşer
     const search = { skills: [], minLevel: 2, certRequired: false, available: false };
@@ -17,14 +17,15 @@ const SkillsView = {
       <div id="body"></div>`;
     const body = el.querySelector('#body');
     const canEdit = () => admin || personId === me.id;
-    const setHash = () => history.replaceState(null, '', `#/yetkinlik?v=${mode}${mode === 'ben' && personId !== me.id ? `&u=${personId}` : ''}`);
+    const perPerson = () => mode === 'ben' || mode === 'cv';
+    const setHash = () => history.replaceState(null, '', `#/yetkinlik?v=${mode}${perPerson() && personId !== me.id ? `&u=${personId}` : ''}`);
     if ((query.u && query.u !== personId) || (query.v && query.v !== mode)) setHash();     // izin verilmeyen adres: gösterilen ekrana düzelt
 
     function render() {
       el.querySelector('#modes').hidden = MODES.length < 2;
       el.querySelector('#modes').innerHTML = MODES.map(([k, label]) => `<button class="${k === mode ? 'is-active' : ''}" data-mode="${k}">${label}</button>`).join('');
       renderCertAlert();
-      ({ ben: renderProfile, ekip: renderMatrix, ara: renderSearch })[mode]();
+      ({ ben: renderProfile, cv: renderCv, ekip: renderMatrix, ara: renderSearch })[mode]();
     }
 
     // Süresi dolan / yaklaşan sertifikalar: yönetici ekibin hepsini, danışman kendisininkini görür
@@ -38,25 +39,26 @@ const SkillsView = {
           ? `<b>${fmtDate(c.expires)} doldu</b>` : `${fmtDate(c.expires)} (${daysBetween(todayISO(), c.expires)} gün)`}</span>`).join('')}</div></div></div>` : '';
     }
 
-    /* ---------- Profil: seviyeler, özet, sertifikalar ---------- */
+    // Yönetici başka birinin profiline / CV'sine geçer
+    function personSelect(u) {
+      if (!admin) return '';
+      const people = Store.users().filter(x => x.active).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+      return `<select class="input sm-select" data-person aria-label="Kişi seç">${people.map(x => `<option value="${x.id}"${x.id === u.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>`;
+    }
+    const viewingNote = u => (canEdit() ? '' : `<p class="muted small-text">${icon('lock', 13)} ${esc(firstName(u.name))} kendisi düzenler; sen görüntülüyorsun.</p>`);
+
+    /* ---------- Profil: seviyeler, sertifikalar ---------- */
 
     function renderProfile() {
       const u = Store.user(personId), edit = canEdit(), hours = skillHours(u.id);
       const certs = Store.certs({ userId: u.id }).slice().sort((a, b) => (a.expires || '9999').localeCompare(b.expires || '9999'));
-      const people = Store.users().filter(x => x.active).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
       body.innerHTML = `
         <section class="card">
           <div class="card-head">
             <span class="cell-user">${avatar(u, 40)}<span><strong>${esc(u.name)}</strong><small>${esc(u.title)}${u.startDate ? ` · ${tenureText(u)}` : ''}</small></span></span>
-            <div class="row-gap">
-              ${admin ? `<select class="input sm-select" data-person aria-label="Kişi seç">${people.map(x => `<option value="${x.id}"${x.id === u.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''}
-              <button class="btn ghost sm" data-cv title="Portaldaki yetkinlik, sertifika ve projelerden tek sayfa">${icon('printer', 15)} Yetkinlik özeti (PDF)</button>
-            </div>
+            <div class="row-gap">${personSelect(u)}</div>
           </div>
-          ${cvBoxHtml(u)}
-          ${edit ? '' : `<p class="muted small-text">${icon('lock', 13)} ${esc(firstName(u.name))} kendi profilini düzenler; sen görüntülüyorsun.</p>`}
-          <label class="field"><span class="field-label">Kısa özet <span class="faint">(CV'nin başında görünür)</span></span>
-            <textarea class="input" rows="2" maxlength="500" data-summary${edit ? '' : ' disabled'} placeholder="Örn. 8 yıllık SAP BW deneyimi; BW/4HANA geçişleri ve BPC planlama projeleri">${esc(u.summary || '')}</textarea></label>
+          ${viewingNote(u)}
           <div class="skill-groups">${groups.map(g => `<div class="skill-group"><div class="sub-head">${esc(g)}</div>
             ${SKILLS.filter(s => s.group === g).map(s => {
               const level = u.skills?.[s.id] || 0, h = hours[s.id] || 0;
@@ -85,21 +87,127 @@ const SkillsView = {
         </section>`;
     }
 
-    // Word CV: kendisi ve yönetici görür / yükler; diğerleri yalnızca yüklü olup olmadığını görür
-    function cvBoxHtml(u) {
-      const cv = u.cv, see = canSeeCv(me, u), edit = canEditCv(me, u);
-      const info = !cv ? (edit ? 'Henüz yüklenmedi. Tekliflerde kullanılan Word CV’ni (.docx) yükle.' : 'Yüklenmemiş.')
-        : see ? `${esc(cv.name)} · ${fmtSize(cv.size)} · ${daysAgoText(cv.uploadedAt)} yüklendi${cv.uploadedBy && cv.uploadedBy !== u.id ? ` (${esc(firstName(Store.user(cv.uploadedBy)?.name || ''))})` : ''}`
-        : 'Yüklü. CV’de kişisel bilgiler olduğu için yalnızca kendisi ve yönetici görebilir.';
-      return `<div class="cv-box${cv ? ' has-cv' : ''}">
-        <span class="cv-ic">${icon('sheet', 18)}</span>
-        <div class="grow min0"><strong>CV (Word)</strong><small class="muted block-sm">${info}</small></div>
-        <div class="row-gap">
-          ${cv && see ? `<button class="btn primary sm" data-cv-preview>${icon('eye', 15)} Önizle</button><button class="btn ghost sm" data-cv-download>${icon('download', 15)} İndir</button>` : ''}
-          ${edit ? `<label class="btn ${cv ? 'ghost' : 'primary'} sm">${icon('upload', 15)} ${cv ? 'Değiştir' : 'Word CV yükle'}<input type="file" accept=".docx,${DOCX_TYPE}" data-cv-file hidden></label>
-            ${cv ? `<button class="icon-btn sm" data-cv-delete title="CV'yi sil" aria-label="CV'yi sil">${icon('trash', 15)}</button>` : ''}` : ''}
-        </div>
-      </div>`;
+    /* ---------- CV: formdan doldurulur; "CV'yi al" ile şirketin düzeninde PDF / Word (js/cv.js) ---------- */
+
+    function renderCv() {
+      const u = Store.user(personId), edit = canEdit(), r = resumeOf(u), dis = edit ? '' : ' disabled', opt = ' <span class="faint">(isteğe bağlı)</span>';
+      const imports = edit ? portalCvImportable(u).length : 0;
+      const input = (key, label, attrs = '') => `<label class="field"><span class="field-label">${label}</span><input class="input" data-cv-field="${key}" value="${esc(r[key] || '')}"${attrs}${dis}></label>`;
+      // Bisolera satırı portaldan gelir (giriş tarihi, unvan); kişi kendisi eklerse onunki geçerli
+      const bisolera = u.startDate && !r.jobs.some(j => /bisolera/i.test(j.company))
+        ? `<div class="cv-item is-auto"><div class="cv-item-main"><span class="cv-item-title"><strong>Bisolera</strong>${pill('Portaldan', 'muted')}</span>
+            <small>${esc(r.headline || u.title)} · ${fmtMonthInput(u.startDate.slice(0, 7))} – devam ediyor</small></div></div>` : '';
+      const certs = Store.certs({ userId: u.id }).filter(c => certValid(c, todayISO()));
+      body.innerHTML = `
+        <section class="card">
+          <div class="card-head">
+            <span class="cell-user">${avatar(u, 40)}<span><strong>${esc(u.name)}</strong><small data-cv-headline>${esc(r.headline || u.title)}</small></span></span>
+            <div class="row-gap">${personSelect(u)}<button class="btn primary sm" data-cv-export>${icon('download', 15)} CV'yi al</button></div>
+          </div>
+          <div data-cv-status>${cvStatusHtml(u)}</div>
+          ${viewingNote(u)}
+          <div class="form-grid">
+            ${input('headline', 'CV’deki unvan', ` maxlength="80" placeholder="${esc(u.title)}"`)}
+            <label class="field"><span class="field-label">E-posta</span><input class="input" value="${esc(u.email)}" disabled></label>
+            ${input('phone', 'Telefon', ' maxlength="30" inputmode="tel" placeholder="05xx xxx xx xx"')}
+            ${input('languages', 'Diller', ' maxlength="120" placeholder="Türkçe (ana dil), İngilizce (iyi)"')}
+            <label class="field"><span class="field-label">Doğum tarihi${opt}</span><input class="input" type="date" data-cv-field="birthDate" value="${r.birthDate || ''}"${dis}></label>
+            ${input('nationality', `Uyruk${opt}`, ' maxlength="40" placeholder="Türkiye"')}
+            <label class="field"><span class="field-label">Medeni durum${opt}</span><select class="input" data-cv-field="marital"${dis}><option value="">—</option>
+              ${Object.entries(CV_MARITAL).map(([k, [tr]]) => `<option value="${k}"${r.marital === k ? ' selected' : ''}>${tr}</option>`).join('')}</select></label>
+          </div>
+          <p class="muted small-text cv-note">CV'yi yalnızca sen ve yönetici görürsünüz. Doğum tarihi, medeni durum ve uyruk, CV alınırken istenirse dışarıda bırakılır.</p>
+        </section>
+        <section class="card section-gap">
+          <div class="card-head"><h2>Profil</h2></div>
+          <div class="form-stack">
+            <label class="field"><span class="field-label">Profil yazısı <span class="faint">(CV'nin başında)</span></span>
+              <textarea class="input" rows="4" maxlength="1500" data-summary${dis} placeholder="Örn. 6 yıllık SAP BW deneyimi; BW/4HANA geçişi, Datasphere ve BPC planlama projelerinde çalıştı.">${esc(u.summary || '')}</textarea></label>
+            <label class="field"><span class="field-label">SAP deneyim özeti <span class="faint">(her satır bir madde)</span></span>
+              <textarea class="input" rows="5" maxlength="1500" data-cv-field="areas"${dis} placeholder="SAP BW/4HANA geliştirme&#10;SAP Datasphere&#10;ABAP CDS View">${esc(r.areas || '')}</textarea></label>
+            ${edit ? `<div><button class="btn ghost sm" data-cv-areas>${icon('award', 15)} Yetkinliklerimden doldur</button></div>` : ''}
+          </div>
+        </section>
+        ${cvListCard('projects', 'Proje deneyimi', r.projects.slice().sort(byNewest), p => `
+          <span class="cv-item-title"><strong>${esc(p.project)}</strong>${p.portalId ? pill('Portaldan', 'muted') : ''}</span>
+          <small>${esc([p.customer, cvPeriod(p), p.role, p.sector].filter(Boolean).join(' · '))}</small>
+          ${textLines(p.work).length ? `<ul class="cv-work">${textLines(p.work).map(x => `<li>${esc(x.replace(/^[-–•]\s*/, ''))}</li>`).join('')}</ul>`
+            : '<span class="warn-text small-text">Sorumluluklar yazılmadı</span>'}`,
+          imports ? `<button class="btn ghost sm" data-cv-import>${icon('clock', 15)} Portaldan ekle (${imports})</button>` : '')}
+        ${cvListCard('jobs', 'İş deneyimi', r.jobs.slice().sort(byNewest), j => `<strong>${esc(j.company)}</strong><small>${esc(`${j.title} · ${cvPeriod(j)}`)}</small>`, '', bisolera)}
+        ${cvListCard('education', 'Eğitim', r.education, e => `<strong>${esc(e.school)}</strong>
+          <small>${esc([e.department, CV_DEGREES[e.degree]?.[0], [e.from, e.to].filter(Boolean).join('–')].filter(Boolean).join(' · '))}</small>`)}
+        ${cvListCard('courses', 'Kurslar ve eğitimler', r.courses, c => `<strong>${esc(c.name)}</strong>${c.detail ? `<small>${esc(c.detail)}</small>` : ''}`)}
+        <section class="card section-gap">
+          <div class="card-head"><h2>Sertifikalar</h2><button class="btn ghost sm" data-mode="ben">Profil'de düzenle</button></div>
+          <p class="muted small-text">Profil sekmesindeki geçerli sertifikalar CV'ye kendiliğinden girer.${certs.length ? '' : ' Şu an geçerli sertifika yok.'}</p>
+          ${certs.length ? `<ul class="cv-work">${certs.map(c => `<li>${esc(c.name)}${c.issued ? ` <span class="faint">· ${fmtMonthInput(c.issued.slice(0, 7))}</span>` : ''}</li>`).join('')}</ul>` : ''}
+        </section>`;
+    }
+
+    // Proje, iş, eğitim, kurs listeleri: her satırda düzenle / sil
+    function cvListCard(kind, title, items, line, extra = '', lead = '') {
+      const K = CV_KINDS[kind], edit = canEdit();
+      const rows = lead + items.map(it => `<div class="cv-item" data-cv-item="${it.id}"><div class="cv-item-main">${line(it)}</div>
+        ${edit ? `<div class="cv-item-actions"><button class="icon-btn sm" data-cv-edit title="Düzenle" aria-label="Düzenle">${icon('pencil', 15)}</button>
+          <button class="icon-btn sm" data-cv-del title="Sil" aria-label="Sil">${icon('trash', 15)}</button></div>` : ''}</div>`).join('');
+      return `<section class="card section-gap" data-cv-list="${kind}">
+        <div class="card-head"><h2>${title}</h2>${edit ? `<div class="row-gap">${extra}<button class="btn ghost sm" data-cv-add="${kind}">${icon('plus', 15)} ${K.add}</button></div>` : ''}</div>
+        ${rows ? `<div class="cv-items">${rows}</div>` : emptyState(K.icon, K.empty, edit ? K.emptyHint : '')}
+      </section>`;
+    }
+
+    const cvStatusHtml = u => {
+      const miss = cvMissing(u);
+      return miss.length ? `<div class="callout warn">${icon('alert', 16)}<div><strong>CV'de eksik:</strong> ${esc(miss.join(', '))}</div></div>`
+        : `<div class="callout ok">${icon('check', 16)}<div>CV tamam. "CV'yi al" ile PDF ya da Word olarak indirebilirsin.</div></div>`;
+    };
+    const refreshCvStatus = () => { const box = body.querySelector('[data-cv-status]'); if (box) box.innerHTML = cvStatusHtml(Store.user(personId)); };
+    // Ekip matrisinde: CV tamamsa işaret, değilse eksik sayısı (üstüne gelince ne eksik)
+    const cvCell = u => {
+      const miss = cvMissing(u);
+      return miss.length ? `<span class="cv-miss" title="${esc(`CV'de eksik: ${miss.join(', ')}`)}">${miss.length} eksik</span>`
+        : `<span class="cv-yes" title="CV tamam">${icon('check', 14)}</span>`;
+    };
+
+    // Alan değişince hemen kaydedilir; sayfa yeniden çizilmez, yoksa Tab ile sonraki alana geçerken imleç kaybolurdu
+    function saveCvField(field) {
+      const key = field.dataset.cvField;
+      let value = field.value.trim();
+      if (key === 'areas') value = textLines(value).join('\n');
+      if (key === 'birthDate' && value && (value > todayISO() || value < '1940-01-01')) return toast('Doğum tarihi geçerli değil', { tone: 'danger' });
+      saveResume(personId, { [key]: value });
+      if (key === 'headline') body.querySelector('[data-cv-headline]').textContent = value || Store.user(personId).title;
+      refreshCvStatus();
+      toast('Kaydedildi');
+    }
+
+    function handleCvClick(t) {
+      const u = Store.user(personId), redraw = () => { if (mode === 'cv') renderCv(); };
+      if (t.hasAttribute('data-cv-export')) return openCvDialog(u);
+      if (!canEdit()) return;
+      if (t.dataset.cvAdd) return cvItemModal(u.id, t.dataset.cvAdd, null, redraw);
+      if (t.hasAttribute('data-cv-import')) return cvPortalImportModal(u, redraw);
+      if (t.hasAttribute('data-cv-areas')) {
+        const box = body.querySelector('[data-cv-field="areas"]'), have = textLines(box.value), all = skillAreaLines(u);
+        const add = all.filter(x => !have.some(h => h.toLocaleLowerCase('tr') === x.toLocaleLowerCase('tr')));
+        if (!add.length) return toast(all.length ? 'Yetkinliklerin zaten listede' : 'Profil sekmesinde Orta ya da Uzman seviyede yetkinlik yok', { tone: 'info' });
+        box.value = [...have, ...add].join('\n');
+        return saveCvField(box);
+      }
+      const kind = t.closest('[data-cv-list]')?.dataset.cvList, id = t.closest('[data-cv-item]')?.dataset.cvItem;
+      const list = resumeOf(u)[kind] || [], item = list.find(x => x.id === id);
+      if (!item) return;
+      if (t.hasAttribute('data-cv-edit')) return cvItemModal(u.id, kind, item, redraw);
+      const at = list.indexOf(item);
+      saveResume(u.id, { [kind]: list.filter(x => x !== item) });
+      redraw();
+      toast(`${item.project || item.company || item.school || item.name} silindi`, { tone: 'info', action: { label: 'Geri al', fn: () => {
+        const now = resumeOf(Store.user(u.id))[kind].slice();
+        now.splice(at, 0, item);
+        saveResume(u.id, { [kind]: now });
+        redraw();
+      } } });
     }
 
     /* ---------- Ekip matrisi: satır = kişi, sütun = yetkinlik ---------- */
@@ -121,7 +229,7 @@ const SkillsView = {
                 return `<td class="sm-col"><span class="lvl lvl-${n}" title="${esc(`${s.name} · ${SKILL_LEVELS[n]}${h ? ` · ${fmtNum(h)} sa (12 ay)` : ''}`)}">${n ? n : h ? '·' : ''}</span></td>`;
               }).join('')}
               <td class="num nowrap">${certs.length ? `${certs.length}${bad ? ` ${pill(`${bad} uyarı`, 'warn')}` : ''}` : '<span class="faint">—</span>'}</td>
-              <td class="sm-col" data-cv-col>${u.cv ? `<span class="cv-yes" title="Word CV yüklü">${icon('check', 14)}</span>` : '<span class="faint">—</span>'}</td>
+              <td class="sm-col nowrap" data-cv-col>${cvCell(u)}</td>
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr><td class="sticky-col muted">Uzman / orta ve üstü</td>${SKILLS.map(s => {
@@ -129,7 +237,7 @@ const SkillsView = {
             return `<td class="sm-col${!mid ? ' gap' : ''}" title="${esc(`${s.name}: ${expert} uzman, ${mid} orta ve üstü`)}">${expert}/${mid}</td>`;
           }).join('')}<td></td><td></td></tr></tfoot>
         </table></div>
-        <div class="heat-legend"><span><i class="lvl lvl-1">1</i>Temel</span><span><i class="lvl lvl-2">2</i>Orta</span><span><i class="lvl lvl-3">3</i>Uzman</span><span><i class="lvl lvl-0">·</i>Seviye yok ama saat var</span><span><i class="gap-key"></i>Orta ve üstü kimse yok</span></div>
+        <div class="heat-legend"><span><i class="lvl lvl-1">1</i>Temel</span><span><i class="lvl lvl-2">2</i>Orta</span><span><i class="lvl lvl-3">3</i>Uzman</span><span><i class="lvl lvl-0">·</i>Seviye yok ama saat var</span><span><i class="gap-key"></i>Orta ve üstü kimse yok</span><span><span class="cv-yes">${icon('check', 14)}</span>CV tamam (değilse eksik sayısı)</span></div>
       </section>`;
     }
 
@@ -158,9 +266,7 @@ const SkillsView = {
               ${r.levels.map((n, i) => `<td class="nowrap"><span class="lvl lvl-${n}">${n}</span> ${SKILL_LEVELS[n]}${r.certs[i] ? ` <span class="cert-ok" title="${esc(r.certs[i].name)}">${icon('shield', 13)} sertifikalı</span>` : ''}</td>`).join('')}
               <td class="num">${fmtNum(r.hours)} sa</td>
               ${search.available ? `<td class="num">%${Math.round(r.util.pct * 100)}</td>` : ''}
-              <td class="num nowrap">${r.user.cv && canSeeCv(me, r.user)
-                ? `<button class="btn ghost sm" data-cv-preview-of="${r.user.id}">${icon('eye', 15)} CV</button>`
-                : `<button class="btn ghost sm" data-cv-of="${r.user.id}" title="Portaldaki yetkinlik, sertifika ve projelerden tek sayfa">${icon('printer', 15)} Özet</button>`}</td>
+              <td class="num nowrap"><button class="btn ghost sm" data-cv-of="${r.user.id}">${icon('download', 15)} CV</button></td>
             </tr>`).join('')}</tbody>
           </table></div>`
           : emptyState('users', 'Bu şartlara uyan danışman yok', 'Seviyeyi düşürmeyi ya da bir yetkinliği çıkarmayı dene.')}
@@ -170,7 +276,9 @@ const SkillsView = {
     /* ---------- Olaylar ---------- */
 
     el.addEventListener('click', e => {
-      const t = e.target.closest('[data-mode], [data-level], [data-cv], [data-cv-of], [data-cv-preview], [data-cv-preview-of], [data-cv-download], [data-cv-delete], [data-add-cert], [data-edit-cert], [data-del-cert], [data-min-level], [data-person-row]');
+      const cv = e.target.closest('[data-cv-export], [data-cv-add], [data-cv-edit], [data-cv-del], [data-cv-import], [data-cv-areas]');
+      if (cv) return handleCvClick(cv);
+      const t = e.target.closest('[data-mode], [data-level], [data-cv-of], [data-add-cert], [data-edit-cert], [data-del-cert], [data-min-level], [data-person-row]');
       if (!t) return;
       if (t.dataset.mode) { mode = t.dataset.mode; setHash(); return render(); }
       if (t.dataset.level && canEdit()) {
@@ -179,18 +287,7 @@ const SkillsView = {
         Store.updateUser(u.id, { skills });
         return renderProfile();
       }
-      if (t.hasAttribute('data-cv')) return openCvDialog(Store.user(personId));
       if (t.dataset.cvOf) return openCvDialog(Store.user(t.dataset.cvOf));
-      if (t.hasAttribute('data-cv-preview')) return openCvPreview(Store.user(personId));
-      if (t.dataset.cvPreviewOf) return openCvPreview(Store.user(t.dataset.cvPreviewOf));
-      if (t.hasAttribute('data-cv-download')) return downloadCv(Store.user(personId)).catch(err => toast(err.message, { tone: 'danger' }));
-      if (t.hasAttribute('data-cv-delete') && canEditCv(me, Store.user(personId))) {
-        const owner = Store.user(personId);
-        return deleteCv(owner.id).then(removed => {
-          render();
-          toast(`${removed.meta?.name || 'CV'} silindi`, { tone: 'info', action: { label: 'Geri al', fn: () => restoreCv(owner.id, removed).then(render) } });
-        }).catch(err => toast(err.message, { tone: 'danger' }));
-      }
       if (t.hasAttribute('data-add-cert')) return certModal(null, personId, render);
       const certRow = t.closest('[data-cert]');
       if (certRow && t.hasAttribute('data-edit-cert')) return certModal(Store.certs().find(c => c.id === certRow.dataset.cert), personId, render);
@@ -205,18 +302,12 @@ const SkillsView = {
 
     el.addEventListener('change', e => {
       if (admin && e.target.matches('[data-person]')) { personId = e.target.value; setHash(); return render(); }
-      if (e.target.matches('[data-cv-file]')) {
-        const file = e.target.files[0], owner = Store.user(personId), replacing = !!owner.cv;
-        e.target.value = '';
-        if (!file || !canEditCv(me, owner)) return;
-        return saveCv(owner.id, file, me.id)
-          .then(() => { render(); toast(replacing ? 'CV güncellendi' : 'CV yüklendi'); })
-          .catch(err => toast(err.message, { tone: 'danger', duration: 7000 }));
-      }
       if (e.target.matches('[data-summary]') && canEdit()) {
         Store.updateUser(personId, { summary: e.target.value.trim() });
-        return toast('Özet kaydedildi');
+        refreshCvStatus();
+        return toast('Profil yazısı kaydedildi');
       }
+      if (e.target.matches('[data-cv-field]') && canEdit()) return saveCvField(e.target);
       if (e.target.matches('[data-search-skill]')) search.skills = [...el.querySelectorAll('[data-search-skill]:checked')].map(x => x.value);
       else if (e.target.matches('[data-cert-required]')) search.certRequired = e.target.checked;
       else if (e.target.matches('[data-available]')) search.available = e.target.checked;

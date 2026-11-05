@@ -425,21 +425,6 @@ function findConsultants({ skills = [], minLevel = 1, certRequired = false, avai
     .sort((a, b) => sum(b.levels) - sum(a.levels) || b.hours - a.hours || a.user.name.localeCompare(b.user.name, 'tr'));
 }
 
-// CV için müşteri projeleri (son 24 ay, iç projeler hariç): en son çalışılan önce
-function cvProjects(userId, today = todayISO()) {
-  const map = new Map();
-  Store.activities({ userId, from: addMonths(today, -24), to: today }).forEach(a => {
-    const project = Store.project(a.projectId), customer = project && Store.customer(project.customerId);
-    if (!project || customer?.internal) return;
-    const row = map.get(project.id) || { project, customer, from: a.date, to: a.date, hours: 0 };
-    row.hours += a.hours;
-    if (a.date < row.from) row.from = a.date;
-    if (a.date > row.to) row.to = a.date;
-    map.set(project.id, row);
-  });
-  return [...map.values()].sort((a, b) => b.to.localeCompare(a.to));
-}
-
 /* ---------- Masraflar ---------- */
 
 // Masraf taslağının sorunları (boşsa kaydedilebilir)

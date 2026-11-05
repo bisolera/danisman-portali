@@ -27,8 +27,8 @@ async function runTestFile(testFile) {
   window.setImmediate = (fn, ...args) => setTimeout(fn, 0, ...args);
   const inject = code => { const s = window.document.createElement('script'); s.textContent = code; window.document.body.appendChild(s); };
 
-  // Excel ve Word önizleme kütüphaneleri önceden yüklenir; uygulamanın kendi yükleyicileri bunları kullanır
-  for (const lib of ['vendor/xlsx/xlsx.full.min.js', 'vendor/jszip/jszip.min.js', 'vendor/docx-preview/docx-preview.min.js']) {
+  // Excel ve Word (JSZip) kütüphaneleri önceden yüklenir; uygulamanın kendi yükleyicileri bunları kullanır
+  for (const lib of ['vendor/xlsx/xlsx.full.min.js', 'vendor/jszip/jszip.min.js']) {
     inject(fs.readFileSync(path.join(ROOT, lib), 'utf8'));
   }
   for (const src of scripts) inject(fs.readFileSync(path.join(ROOT, src), 'utf8'));

@@ -52,10 +52,19 @@ Portaldaki kurallar şu an **varsayım**. Yönetimin her maddeyi onaylaması ya 
 - [x] Deneyim: son 12 ayda o yetkinlikle etiketli projelere yazılan saat (kendiliğinden); etiketleri yönetici proje formunda verir
 - [x] Sertifika: bitişe **90 gün** kala "yakında doluyor" (Özet'te ve Yetkinlikler'de uyarı), bitince "süresi doldu" ve CV'ye girmez (`certStatus`, `CERT_WARN_DAYS`)
 - [x] Uygun danışman: seçilen yetkinliklerin hepsinde en az istenen seviye; sıralama seviye toplamı, sonra deneyim; "Bu ay müsait" (doluluk %75 altı) filtresi
-- [x] **Ekip matrisi, uygun danışman araması ve başkasının profili yalnızca yöneticide.** Danışman Yetkinlikler'de yalnızca kendi profilini görür ve düzenler; kişi seçimi çıkmaz, adresle (`?v=ekip`, `?v=ara`, `?u=`) açsa da kendi profiline düşer. Yönetici herkesinkini görür ve düzenler. Sunucuya geçince yetkinlik, sertifika ve arama uçları da bu kurala göre açılır (bkz. `docs/sunucu-gecisi.md`).
-- [x] Yetkinlik özeti (portalın ürettiği PDF): son 24 ayın müşteri projeleri (iç projeler hariç); "müşteri adlarını gizle" seçilince müşteri yerine sektör yazar
-- [x] **Word CV:** her danışmanın tek bir .docx CV'si (en fazla 10 MB); yenisi eskisinin yerine geçer; eski .doc kabul edilmez. Yükleme kendisi ve yönetici (`saveCv`, `js/files.js`)
-- [x] Word CV'yi **yalnızca kendisi ve yönetici** görür / indirir (KVKK: CV'de telefon, adres gibi kişisel bilgi olur). Diğer danışmanlar başkasının profilini açamadığı için yüklü olup olmadığını da görmez (`canSeeCv`). Sunucuya geçince `GET /api/users/:id/cv` de yalnızca bu ikisine açılır.
+- [x] **Ekip matrisi, uygun danışman araması ve başkasının profili / CV'si yalnızca yöneticide.** Danışman Yetkinlikler'de yalnızca kendi profilini ve CV'sini görür ve düzenler; kişi seçimi çıkmaz, adresle (`?v=ekip`, `?v=ara`, `?u=`) açsa da kendisininkine düşer. Yönetici herkesinkini görür ve düzenler. Sunucuya geçince yetkinlik, sertifika ve arama uçları da bu kurala göre açılır (bkz. `docs/sunucu-gecisi.md`).
+
+## CV
+- [x] **CV formdan doldurulur, dosya yüklenmez** (Yetkinlikler → CV, `js/cv.js`). Eski Word CV yükleme kalktı; eski sürümde yüklenmiş dosyalar silinir.
+- [x] Bölümler şirketin "Consultant Profile" düzenindedir: ad, CV'deki unvan, e-posta, telefon · profil yazısı · SAP deneyim özeti (madde madde) · her proje için tablo (müşteri, dönem, sektör, proje, rol, sorumluluklar) · kurslar · iş deneyimi ve sertifikalar · kişisel bilgiler (eğitim, medeni durum, uyruk, doğum tarihi, diller)
+- [x] Projeler, işler ve eğitim **yeniden eskiye** sıralanır; süren (bitişi boş) en üstte. Ay "aa.yyyy" yazılır; başlangıç ve bitiş ileri bir ay olamaz, bitiş başlangıçtan önce olamaz
+- [x] **Portaldan ekle:** Bisolera'da saat yazılmış müşteri projeleri (iç projeler hariç) müşteri, sektör, proje adı, dönem ve unvanla hazır gelir; son 31 günde saati olan "sürüyor" sayılır. Aynı proje ikinci kez önerilmez (`portalCvProjects`)
+- [x] İş deneyiminde **Bisolera satırı portaldan** gelir (işe giriş tarihi, unvan, sürüyor); kişi "Bisolera" adlı bir iş eklerse onunki kullanılır
+- [x] **Sertifikalar** Profil sekmesinden; CV'ye yalnızca geçerli olanlar girer
+- [x] "Yetkinliklerimden doldur": Orta ve Uzman yetkinlikler SAP deneyim özetine eklenir (Temel girmez, var olan tekrar eklenmez)
+- [x] CV'de eksik sayılanlar: profil yazısı, en az bir proje, her projenin sorumlulukları, eğitim, telefon, diller. CV sekmesinde ve yöneticinin ekip matrisinde görünür; eksik olsa da CV alınabilir (`cvMissing`)
+- [x] **CV'yi al:** Türkçe ya da İngilizce başlıklar (yazılan metin olduğu gibi kalır), PDF (yazdır) ya da Word (.docx). Seçenekler: iletişim bilgileri, kişisel bilgiler (doğum tarihi, medeni durum, uyruk), müşteri adlarını gizle (başka müşteriye giden teklifte; sektör kalır). Son seçilen dil hatırlanır
+- [x] CV'yi **yalnızca kendisi ve yönetici** görür ve düzenler (KVKK: telefon, doğum tarihi gibi kişisel bilgi var) (`canSeeCv`). Sunucuya geçince `/api/users/:id/cv` de yalnızca bu ikisine açılır.
 
 ## Masraflar
 - [x] Kategoriler: Ulaşım (uçak, tren, otobüs) · Taksi · Konaklama · Yemek · Otopark / otoyol · Diğer (`EXPENSE_CATEGORIES`, `js/data.js`)
