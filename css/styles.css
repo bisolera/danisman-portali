@@ -1128,22 +1128,23 @@ tr.is-inactive .grid-proj { opacity: .55; }
   .print-sheet { margin: 18px 0 0; font-family: var(--font-head); font-size: 10.5pt; break-after: avoid; }
   .print-empty { margin: 6px 0 0; color: #666; }
   /* CV (js/cv.js): şirketin "Consultant Profile" düzeni. Başlık tablonun thead'i: her sayfada tekrarlanır.
-     Proje tabloları sayfa arasında bölünmez; satırlar noktalı çizgiyle ayrılır. */
+     Proje tabloları sayfa arasında bölünmez; satırlar noktalı çizgiyle ayrılır. Renkler görünümden gelir (--cv-*: Bisolera, SAP, logosuz). */
   .cv-doc { width: 100%; border-collapse: collapse; font-size: 10pt; }
   .cv-doc > thead { display: table-header-group; }
   .cv-doc > thead > tr > td, .cv-doc > tbody > tr > td { padding: 0; }
-  .cv-run { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 6px; margin-bottom: 14px; border-bottom: 2.5px solid var(--brand); }
-  .cv-run strong { font-family: var(--font-head); font-size: 19pt; font-weight: 800; color: #2b8a3e; }
+  .cv-run { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 6px; margin-bottom: 14px; border-bottom: 2.5px solid var(--cv-accent); }
+  .cv-logo { display: block; height: var(--cv-logo-h); width: auto; }
+  .cv-run strong { font-family: var(--font-head); font-size: 19pt; font-weight: 800; color: var(--cv-accent); }
   .cv-id { text-align: center; margin: 4px 0 16px; }
-  .cv-id h1 { margin: 0 0 2px; font-family: var(--font-head); font-size: 14pt; }
+  .cv-id h1 { margin: 0 0 2px; font-family: var(--font-head); font-size: 14pt; color: var(--cv-ink); }
   .cv-id p { margin: 1px 0 0; font-weight: 600; }
   .cv-sec { margin-top: 14px; }
-  .cv-sec h2 { margin: 0 0 6px; font-size: 10.5pt; font-weight: 700; padding-bottom: 3px; border-bottom: 1px solid #888; break-after: avoid; }
+  .cv-sec h2 { margin: 0 0 6px; font-size: 10.5pt; font-weight: 700; color: var(--cv-accent); padding-bottom: 3px; border-bottom: 1.5px solid var(--cv-accent); break-after: avoid; }
   .cv-text { margin: 0; line-height: 1.5; text-align: justify; }
   .cv-list { margin: 0; padding: 0; list-style: none; line-height: 1.45; }
   .cv-list li { padding-left: 14px; text-indent: -14px; }
-  .cv-list li::before { content: '–'; display: inline-block; width: 14px; text-indent: 0; }
-  .cv-table { width: 100%; border-collapse: collapse; margin: 10px 0 12px; border-top: 1px solid #666; break-inside: avoid; }
-  .cv-table th, .cv-table td { text-align: left; vertical-align: top; padding: 3px 8px 3px 0; border-bottom: 1px dotted #444; line-height: 1.4; }
-  .cv-table th { width: 31%; font-weight: 400; }
+  .cv-list li::before { content: '–'; display: inline-block; width: 14px; text-indent: 0; color: var(--cv-accent); }
+  .cv-table { width: 100%; border-collapse: collapse; margin: 10px 0 12px; border-top: 1.5px solid var(--cv-accent); break-inside: avoid; }
+  .cv-table th, .cv-table td { text-align: left; vertical-align: top; padding: 3px 8px; border-bottom: 1px dotted var(--cv-line); line-height: 1.4; }
+  .cv-table th { width: 31%; font-weight: 400; color: var(--cv-ink); background: var(--cv-soft); }
 }

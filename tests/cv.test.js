@@ -129,6 +129,9 @@
   m.querySelector('[data-close]').click();
   await wait(250);
 
+  // jsdom resim yüklemez: logo "yüklenmiş" sayılsın, yazdırma beklemeden çalışsın (tarayıcıda en fazla 3 sn beklenir)
+  Object.defineProperty(HTMLImageElement.prototype, 'complete', { get: () => true, configurable: true });
+
   // Çıktı: İngilizce başlıklar, sıra (süren proje önce), Bisolera satırı, geçerli sertifika; dolmuş sertifika girmez
   Store.addCert({ userId: 'u2', name: 'Eski sertifika', issued: '2019-01-01', expires: addDays(today, -3) });
   let printed = 0;
@@ -157,8 +160,44 @@
   m.querySelector('#cvl-en').checked = true;
   m.querySelector('[data-print]').click();
   ok('pencereden_yazdir', printed === 3 && document.querySelector('#print-root .cv-doc').textContent.includes('Consultant Profile') && Prefs.get('u2').cvLang === 'en');
+
+  // Görünüm: Bisolera (varsayılan, yeşil, logo), SAP (mavi, SAP logosu), logosuz; dosya adında belirtilir; pencerede seçim hatırlanır
+  const root = () => document.querySelector('#print-root .cv-doc');
+  ok('gorunum_bisolera', root().classList.contains('cv-bisolera') && root().querySelector('.cv-logo')?.getAttribute('src') === 'img/cv/bisolera.png'
+    && root().getAttribute('style').includes('#2B8A3E'));
+  printCv(Store.user('u2'), { lang: 'en', theme: 'sap' });
+  ok('gorunum_sap', root().classList.contains('cv-sap') && root().querySelector('.cv-logo')?.getAttribute('src') === 'img/cv/sap.png'
+    && root().getAttribute('style').includes('#0A6ED1') && document.title.startsWith('CV_Emre Aydın_EN_SAP'), document.title);
+  printCv(Store.user('u2'), { theme: 'plain' });
+  ok('gorunum_logosuz', root().classList.contains('cv-plain') && !root().querySelector('img') && document.title.startsWith('CV_Emre Aydın_TR_logosuz'));
+  body().querySelector('[data-cv-export]').click();
+  m = lastModal();
+  ok('pencere_varsayilan_bisolera', m.querySelector('#cvt-bisolera').checked && m.querySelectorAll('[name="theme"]').length === 3);
+  m.querySelector('#cvt-sap').checked = true;
+  m.querySelector('[data-print]').click();
+  body().querySelector('[data-cv-export]').click();
+  m = lastModal();
+  ok('gorunum_hatirlanir', Prefs.get('u2').cvTheme === 'sap' && m.querySelector('#cvt-sap').checked && root().classList.contains('cv-sap'));
+  m.querySelector('#cvt-bisolera').checked = true;
+  m.querySelector('[data-print]').click();
   window.print = origPrint;
   await wait(250);
+
+  // Word'de logo: sayfa başlığına gömülür (media + ilişki); logo okunamazsa logosuz üretilir; renkler görünümden
+  const origFetch = window.fetch;
+  window.fetch = async path => ({ ok: path === 'img/cv/bisolera.png', arrayBuffer: async () => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2]).buffer });
+  const themed = async theme => {
+    const z = await JSZip.loadAsync(await cvDocxBlob(Store.user('u2'), { theme }));
+    const head = await z.file('word/header1.xml').async('string');
+    return { z, head, ok: !new DOMParser().parseFromString(head, 'application/xml').getElementsByTagName('parsererror').length };
+  };
+  const wb = await themed('bisolera'), ws = await themed('sap'), wp = await themed('plain');
+  ok('word_logo_gomulur', wb.ok && !!wb.z.file('word/media/logo.png') && wb.head.includes('r:embed="rIdLogo"') && wb.head.includes('2B8A3E')
+    && (await wb.z.file('word/_rels/header1.xml.rels').async('string')).includes('media/logo.png')
+    && (await wb.z.file('[Content_Types].xml').async('string')).includes('Extension="png"'));
+  ok('word_logo_yoksa_logosuz', ws.ok && !ws.z.file('word/media/logo.png') && !ws.head.includes('drawing') && ws.head.includes('0A6ED1')
+    && wp.ok && !wp.z.file('word/media/logo.png') && wp.head.includes('333333'));
+  window.fetch = origFetch;
 
   // Word: geçerli bir .docx (zip), XML'ler bozuk değil, "&" ve "<" kaçışlı, başlık sayfa üstünde
   saveResume('u2', { projects: [...Store.user('u2').resume.projects, { id: 'tx', customer: 'A & B', sector: '', project: 'X <Y>', role: '', from: '2019-01', to: '2019-02', work: '' }] });

@@ -17,6 +17,15 @@ const CV_TEXT = {
     languages: 'Languages', present: 'Present', hidden: 'Confidential client' },
 };
 
+// CV görünümü: logo ve renkler, PDF ve Word'de aynı. Logo dosyaları img/cv/ altında, Word'e gömülür.
+// ratio: logonun eni / boyu; h: logo yüksekliği (mm). soft: etiket sütununun zemini, line: satır çizgileri.
+const CV_THEMES = {
+  bisolera: { label: 'Bisolera', logo: 'img/cv/bisolera.png', ratio: 5.531, h: 8, accent: '2B8A3E', ink: '0A2E0F', soft: 'EEF7EE', line: '8CC596' },
+  sap: { label: 'SAP', logo: 'img/cv/sap.png', ratio: 2.02, h: 12, accent: '0A6ED1', ink: '0B2D5C', soft: 'EAF2FB', line: '8DB8E6' },
+  plain: { label: 'Logosuz', logo: null, ratio: 0, h: 0, accent: '333333', ink: '111111', soft: '', line: '9A9A9A' },
+};
+const cvThemeId = id => (CV_THEMES[id] ? id : 'bisolera');
+
 /* ---------- Ay alanı: "aa.yyyy" yazılır, "yyyy-aa" saklanır ---------- */
 
 const fmtMonthInput = ym => (ym ? `${ym.slice(5, 7)}.${ym.slice(0, 4)}` : '');
@@ -86,8 +95,9 @@ function cvMissing(user) {
 /* ---------- Çıktı ---------- */
 
 // PDF ve Word aynı içeriği kullanır. Tablo satırı: [etiket, değer]; ikisi de metin ya da satır listesi olabilir.
-// opts: lang 'tr' | 'en', hideCustomers (başka müşteriye giden teklif), contact (e-posta, telefon), personal (doğum tarihi, medeni durum, uyruk)
-function cvDoc(user, { lang = 'tr', hideCustomers = false, contact = true, personal = true } = {}, today = todayISO()) {
+// opts: lang 'tr' | 'en', theme 'bisolera' | 'sap' | 'plain', hideCustomers (başka müşteriye giden teklif), contact (e-posta, telefon),
+// personal (doğum tarihi, medeni durum, uyruk)
+function cvDoc(user, { lang = 'tr', theme = 'bisolera', hideCustomers = false, contact = true, personal = true } = {}, today = todayISO()) {
   const T = CV_TEXT[lang], r = resumeOf(user), pick = (map, id) => map[id]?.[lang === 'en' ? 1 : 0] || '';
   const headline = r.headline || user.title;
   const bullets = text => { const l = textLines(text); return l.length > 1 ? l.map(x => (/^[-–•]/.test(x) ? x : `– ${x}`)) : l; };
@@ -109,7 +119,7 @@ function cvDoc(user, { lang = 'tr', hideCustomers = false, contact = true, perso
     ...certs.map(c => [[`${c.name}${c.code ? ` (${c.code})` : ''}`, c.issued ? fmtMonthInput(c.issued.slice(0, 7)) : ''], T.cert]),
   ];
   return {
-    T, lang, name: user.name, headline, contact: contact ? [user.email, r.phone].filter(Boolean) : [],
+    T, lang, themeId: cvThemeId(theme), theme: CV_THEMES[cvThemeId(theme)], name: user.name, headline, contact: contact ? [user.email, r.phone].filter(Boolean) : [],
     sections: [
       user.summary && { title: T.profile, text: user.summary },
       textLines(r.areas).length && { title: T.areas, list: textLines(r.areas) },
@@ -125,11 +135,12 @@ function cvDoc(user, { lang = 'tr', hideCustomers = false, contact = true, perso
 
 // Yazdır / PDF: başlık ("Consultant Profile") tablonun başlığı olduğu için her sayfada tekrarlanır
 function cvHtml(user, opts = {}) {
-  const d = cvDoc(user, opts);
+  const d = cvDoc(user, opts), t = d.theme;
   const cell = v => [].concat(v).filter(Boolean).map(esc).join('<br>');
   const table = rows => `<table class="cv-table">${rows.map(([k, v]) => `<tr><th>${cell(k)}</th><td>${cell(v)}</td></tr>`).join('')}</table>`;
-  return `<table class="cv-doc" lang="${d.lang}">
-    <thead><tr><td><div class="cv-run"><span class="print-brand">BISOLERA</span><strong>${esc(d.T.title)}</strong></div></td></tr></thead>
+  const colors = `--cv-accent:#${t.accent};--cv-ink:#${t.ink};--cv-soft:${t.soft ? `#${t.soft}` : 'transparent'};--cv-line:#${t.line};--cv-logo-h:${t.h}mm`;
+  return `<table class="cv-doc cv-${d.themeId}" lang="${d.lang}" style="${colors}">
+    <thead><tr><td><div class="cv-run">${t.logo ? `<img class="cv-logo" src="${t.logo}" alt="${esc(t.label)}" onerror="this.remove()">` : '<span></span>'}<strong>${esc(d.T.title)}</strong></div></td></tr></thead>
     <tbody><tr><td>
       <div class="cv-id"><h1>${esc(d.name)}</h1>${[d.headline, ...d.contact].filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('')}</div>
       ${d.sections.map(s => `<section class="cv-sec"><h2>${esc(s.title)}</h2>
@@ -138,15 +149,17 @@ function cvHtml(user, opts = {}) {
     </td></tr></tbody></table>`;
 }
 
-const cvFileName = (user, lang, ext) => `CV_${user.name}_${lang.toUpperCase()}${ext}`;
+// "CV_Ad Soyad_EN", SAP ve logosuz görünüm ayrıca belirtilir: aynı kişinin iki CV'si karışmasın
+const cvFileName = (user, { lang = 'tr', theme = 'bisolera' } = {}, ext = '') =>
+  `CV_${user.name}_${lang.toUpperCase()}${{ sap: '_SAP', plain: '_logosuz' }[theme] || ''}${ext}`;
 function printCv(user, opts = {}) {
-  printPages(cvHtml(user, opts), cvFileName(user, opts.lang || 'tr', ''));
+  printPages(cvHtml(user, opts), cvFileName(user, opts));
 }
 
 /* ---------- Word (.docx) ----------
    Word belgesi bir zip'tir: içinde XML dosyaları. JSZip (vendor/jszip) yalnızca Word istenince yüklenir.
-   Yazı Arial 10, A4; "Consultant Profile" sayfa başlığında (her sayfada). Proje tabloları bölünmesin diye satırlar
-   bir sonrakine bağlıdır (keepNext). */
+   Yazı Arial 10, A4; logo ve "Consultant Profile" sayfa başlığında (her sayfada). Proje tabloları bölünmesin diye satırlar
+   bir sonrakine bağlıdır (keepNext). Renkler görünüme göre (CV_THEMES). */
 
 const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 let jszipPromise = null;
@@ -166,40 +179,56 @@ function loadJSZip() {
 
 const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 const W_TEXT = 9638, W_LABEL = 3000;   // A4 (11906) − 2 × 2 cm kenar boşluğu; etiket sütunu (twip: 1/20 punto)
-const BRAND_HEX = '2B8A3E';
 const xmlEsc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const wRun = (text, { b, size, color } = {}) => `<w:r><w:rPr>${b ? '<w:b/>' : ''}${color ? `<w:color w:val="${color}"/>` : ''}${size ? `<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>` : ''}</w:rPr><w:t xml:space="preserve">${xmlEsc(text)}</w:t></w:r>`;
 // pPr içindeki sıra Word için önemli: keepNext, pBdr, tabs, spacing, ind, jc
+// border: { color, sz } — alt çizgi (sz: sekizde bir punto)
 const wPara = (runs, { keep, border, tabs, before = 0, after = 0, indent, align } = {}) => `<w:p><w:pPr>${keep ? '<w:keepNext/>' : ''}`
-  + `${border ? '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="7F7F7F"/></w:pBdr>' : ''}${tabs || ''}`
+  + `${border ? `<w:pBdr><w:bottom w:val="single" w:sz="${border.sz || 6}" w:space="1" w:color="${border.color || '7F7F7F'}"/></w:pBdr>` : ''}${tabs || ''}`
   + `<w:spacing w:before="${before}" w:after="${after}"/>${indent ? `<w:ind w:left="${indent}" w:hanging="${indent}"/>` : ''}${align ? `<w:jc w:val="${align}"/>` : ''}</w:pPr>${runs}</w:p>`;
 
-function wTable(rows) {
-  const cell = (v, w, keep) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/></w:tcPr>${
-    ([].concat(v).filter(Boolean).length ? [].concat(v).filter(Boolean) : ['']).map(t => wPara(wRun(t), { keep })).join('')}</w:tc>`;
-  const line = (val, sz) => `w:val="${val}" w:sz="${sz}" w:space="0" w:color="404040"`;
-  return `<w:tbl><w:tblPr><w:tblW w:w="${W_TEXT}" w:type="dxa"/><w:tblBorders><w:top ${line('single', 6)}/><w:bottom ${line('dotted', 6)}/><w:insideH ${line('dotted', 4)}/></w:tblBorders>`
-    + `<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="30" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="30" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>`
+// Etiket sütunu görünümün açık renginde (soft), satırlar noktalı çizgiyle ayrılır, üst çizgi ana renkte
+function wTable(rows, t) {
+  const cell = (v, w, keep, label) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${label && t.soft ? `<w:shd w:val="clear" w:color="auto" w:fill="${t.soft}"/>` : ''}</w:tcPr>${
+    ([].concat(v).filter(Boolean).length ? [].concat(v).filter(Boolean) : ['']).map(x => wPara(wRun(x, label ? { color: t.ink } : {}), { keep })).join('')}</w:tc>`;
+  const line = (val, sz, color) => `w:val="${val}" w:sz="${sz}" w:space="0" w:color="${color}"`;
+  return `<w:tbl><w:tblPr><w:tblW w:w="${W_TEXT}" w:type="dxa"/><w:tblBorders><w:top ${line('single', 10, t.accent)}/><w:bottom ${line('dotted', 6, t.line)}/><w:insideH ${line('dotted', 4, t.line)}/></w:tblBorders>`
+    + `<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>`
     + `<w:tblGrid><w:gridCol w:w="${W_LABEL}"/><w:gridCol w:w="${W_TEXT - W_LABEL}"/></w:tblGrid>`
-    + rows.map(([k, v], i) => { const keep = i < rows.length - 1; return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(k, W_LABEL, keep)}${cell(v, W_TEXT - W_LABEL, keep)}</w:tr>`; }).join('')
+    + rows.map(([k, v], i) => { const keep = i < rows.length - 1; return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(k, W_LABEL, keep, true)}${cell(v, W_TEXT - W_LABEL, keep)}</w:tr>`; }).join('')
     + '</w:tbl>' + wPara('', { after: 200 });   // iki tablo arasında boş paragraf olmazsa Word onları birleştirir
 }
 
+// Sayfa başlığındaki logo (satır içi resim). Boyut EMU: 1 mm = 36000
+function wImage(rid, mmWide, mmHigh) {
+  const cx = Math.round(mmWide * 36000), cy = Math.round(mmHigh * 36000);
+  return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">`
+    + `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`
+    + '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+    + `<pic:nvPicPr><pic:cNvPr id="1" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`
+    + `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+}
+
+// Logo dosyası okunamazsa (çevrimdışı, dosya yok) Word logosuz üretilir
+async function cvLogoBytes(path) {
+  try { const res = await fetch(path); return res.ok ? new Uint8Array(await res.arrayBuffer()) : null; } catch { return null; }
+}
+
 async function cvDocxBlob(user, opts = {}) {
-  const JSZip = await loadJSZip(), d = cvDoc(user, opts);
+  const JSZip = await loadJSZip(), d = cvDoc(user, opts), t = d.theme, logo = t.logo ? await cvLogoBytes(t.logo) : null;
   const body = [
     wPara(wRun(d.name, { b: true, size: 26 }), { align: 'center', before: 120 }),
     ...[d.headline, ...d.contact].filter(Boolean).map(x => wPara(wRun(x, { b: true }), { align: 'center' })),
-    ...d.sections.map(s => wPara(wRun(s.title, { b: true }), { keep: true, border: true, before: 360, after: 100 })
+    ...d.sections.map(s => wPara(wRun(s.title, { b: true, color: t.accent }), { keep: true, border: { color: t.accent, sz: 10 }, before: 360, after: 100 })
       + (s.text ? wPara(wRun(s.text), { align: 'both', after: 80 }) : '')
       + (s.list || []).map(x => wPara(wRun(`–\t${x}`), { indent: 284, tabs: '<w:tabs><w:tab w:val="left" w:pos="284"/></w:tabs>' })).join('')
-      + (s.tables || []).map(wTable).join('')),
+      + (s.tables || []).map(rows => wTable(rows, t)).join('')),
   ].join('');
-  const header = `<w:hdr ${W_NS}>${wPara(wRun('BISOLERA', { b: true, size: 22, color: '0A2E0F' }) + '<w:r><w:tab/></w:r>' + wRun(d.T.title, { b: true, size: 36, color: BRAND_HEX }),
-    { tabs: `<w:tabs><w:tab w:val="right" w:pos="${W_TEXT}"/></w:tabs>`, border: true, after: 120 })}</w:hdr>`;
+  const header = `<w:hdr ${W_NS}>${wPara((logo ? wImage('rIdLogo', t.h * t.ratio, t.h) : '') + '<w:r><w:tab/></w:r>' + wRun(d.T.title, { b: true, size: 36, color: t.accent }),
+    { tabs: `<w:tabs><w:tab w:val="right" w:pos="${W_TEXT}"/></w:tabs>`, border: { color: t.accent, sz: 18 }, after: 120 })}</w:hdr>`;
   const zip = new JSZip();
   zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>'
     + '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
     + '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
     + '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/></Types>');
@@ -213,6 +242,11 @@ async function cvDocxBlob(user, opts = {}) {
     + '<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
     + '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>');
   zip.file('word/header1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${header}`);
+  if (logo) {
+    zip.file('word/media/logo.png', logo);
+    zip.file('word/_rels/header1.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/></Relationships>');
+  }
   zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>${body}`
     + '<w:sectPr><w:headerReference w:type="default" r:id="rId2"/><w:pgSz w:w="11906" w:h="16838"/>'
     + '<w:pgMar w:top="1418" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>');
@@ -220,16 +254,19 @@ async function cvDocxBlob(user, opts = {}) {
 }
 
 async function downloadCvDocx(user, opts = {}) {
-  downloadBlob(fileSafe(cvFileName(user, opts.lang || 'tr', '.docx')), await cvDocxBlob(user, opts));
+  downloadBlob(fileSafe(cvFileName(user, opts, '.docx')), await cvDocxBlob(user, opts));
 }
 
-// "CV'yi al": dil ve neyin gireceği seçilir, sonra PDF ya da Word. Son seçilen dil kişiye göre hatırlanır.
+// "CV'yi al": görünüm (Bisolera / SAP / logosuz), dil ve neyin gireceği seçilir, sonra PDF ya da Word. Son seçimler kişiye göre hatırlanır.
 function openCvDialog(user) {
-  const me = App.user, lang = Prefs.get(me.id).cvLang || 'tr', miss = cvMissing(user);
+  const me = App.user, lang = Prefs.get(me.id).cvLang || 'tr', theme = cvThemeId(Prefs.get(me.id).cvTheme), miss = cvMissing(user);
   openModal({
     title: `${user.name} · CV`,
     body: `<form class="form-stack" id="cvOut">
       ${miss.length ? `<div class="callout warn">${icon('alert', 16)}<div>CV'de eksik: ${esc(miss.join(', '))}. Yine de alınabilir.</div></div>` : ''}
+      <div class="field"><span class="field-label">Görünüm</span>
+        <div class="seg">${Object.entries(CV_THEMES).map(([k, x]) => `<input type="radio" name="theme" id="cvt-${k}" value="${k}"${k === theme ? ' checked' : ''}><label for="cvt-${k}">${x.logo ? `${x.label} logolu` : x.label}</label>`).join('')}</div>
+        <span class="field-hint">Bisolera: yeşil ağırlıklı · SAP: SAP mavisi · Logosuz: sade siyah-gri</span></div>
       <div class="field"><span class="field-label">Dil <span class="faint">(başlıklar ve tarihler; yazdıkların olduğu gibi kalır)</span></span>
         <div class="seg">${[['tr', 'Türkçe'], ['en', 'English']].map(([k, label]) => `<input type="radio" name="lang" id="cvl-${k}" value="${k}"${k === lang ? ' checked' : ''}><label for="cvl-${k}">${label}</label>`).join('')}</div></div>
       <label class="toggle"><input type="checkbox" name="contact" checked> İletişim bilgileri (e-posta, telefon)</label>
@@ -241,8 +278,9 @@ function openCvDialog(user) {
       <button class="btn ghost" data-word>${icon('sheet', 15)} Word</button><button class="btn primary" data-print>${icon('printer', 15)} PDF / Yazdır</button>`,
     onMount(m, close) {
       const f = m.querySelector('form');
-      const opts = () => ({ lang: f.elements.lang.value, contact: f.elements.contact.checked, personal: f.elements.personal.checked, hideCustomers: f.elements.hideCustomers.checked });
-      const go = fn => { const o = opts(); Prefs.set(me.id, { cvLang: o.lang }); close(); fn(o); };
+      const opts = () => ({ lang: f.elements.lang.value, theme: f.elements.theme.value, contact: f.elements.contact.checked, personal: f.elements.personal.checked,
+        hideCustomers: f.elements.hideCustomers.checked });
+      const go = fn => { const o = opts(); Prefs.set(me.id, { cvLang: o.lang, cvTheme: o.theme }); close(); fn(o); };
       m.querySelector('[data-print]').addEventListener('click', () => go(o => printCv(user, o)));
       m.querySelector('[data-word]').addEventListener('click', () => go(o => downloadCvDocx(user, o)
         .then(() => toast('Word CV indirildi'))

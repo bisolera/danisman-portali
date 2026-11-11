@@ -65,7 +65,8 @@ Karar verildikten sonra tasarım aynıdır; aşağıdaki şema ve API iki seçen
 | `GET/POST /api/leaves`, `POST /api/leaves/:id/decision` | izinler, onay/red | onay: yönetici |
 | `POST /api/leaves/:id/cancel-request`, `…/cancel-decision` | onaylı izin için iptal talebi, karar | talep: sahibi (izin başlamadan); karar: yönetici |
 | `GET /api/holidays?year`, `POST/PATCH/DELETE /api/holidays` | tatiller | okuma: herkes; yazma: yönetici |
-| `PUT/DELETE /api/holidays/:id/work` | köprü izninde seçim: yarım / tam gün çalışır, silinirse izinli | danışman kendisi (gün geçmeden, ay kilitli değilse); yönetici herkes için |
+| `PUT/DELETE /api/holidays/:id/work` | köprü izninde seçim: yarım / tam gün çalışır, silinirse izinli | yalnızca yönetici (kendisi için gün geçmeden, herkes için her zaman); danışmanın seçimi talep olarak gelir |
+| `POST/DELETE /api/holidays/:id/requests` (kendi talebi), `POST /api/holidays/:id/requests/:userId/decision` | köprü talebi (gün gelmeden seçim ya da gün geçince düzeltme) ve onay / red | talep: danışman kendisi; karar: yönetici. Onaylanınca `holiday_work` güncellenir |
 | `POST /api/periods/:month/submit`, `…/withdraw` | ay kapanışı (danışman) | sahibi |
 | `POST /api/periods/:userId/:month/approve`, `…/return`, `…/unlock` | ay kapanışı (yönetici) | yönetici |
 | `GET/POST/PATCH /api/customers`, `/api/projects` | müşteri ve proje | yazma: yönetici |

@@ -71,7 +71,13 @@ function printPages(html, fileTitle) {
     // Bazı tarayıcılar afterprint'i çıktı hazırlanmadan gönderiyor; sayfa biraz sonra kaldırılır
     setTimeout(() => { document.body.classList.remove('is-printing'); root.remove(); }, 1000);
   }, { once: true });
-  window.print();
+  // Resim (CV logosu) yüklenmeden yazdırılırsa çıktıda boş kalır: yüklenmesi en fazla 3 sn beklenir
+  const waiting = [...root.querySelectorAll('img')].filter(img => !img.complete);
+  if (!waiting.length) return window.print();
+  Promise.race([
+    Promise.all(waiting.map(img => new Promise(r => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }); }))),
+    new Promise(r => setTimeout(r, 3000)),
+  ]).then(() => window.print());
 }
 
 /* ---------- Rapor çıktısı: Excel'e giden sayfaların aynısı, A4 yatay ----------
