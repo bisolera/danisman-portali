@@ -85,18 +85,18 @@ const AdminView = {
       </div>`;
     }
 
-    // Köprü düzeltme talebi: danışman seçimi kaçırdı ya da yanlış seçti; onaylanınca seçim uygulanır, izin bakiyesi düzelir
+    // Köprü talebi: danışmanın köprü seçimi (gün gelmeden) ya da düzeltmesi (gün geçince); onaylanınca seçim uygulanır, izin bakiyesi düzelir
     function bridgeReqRow(r) {
-      const u = Store.user(r.userId), h = r.holiday, labels = pastBridgeLabels(h), logged = hoursOn(u.id, h.date);
+      const u = Store.user(r.userId), h = r.holiday, labels = bridgeLabels(h), logged = hoursOn(u.id, h.date), past = h.date <= todayISO();
       const diff = bridgeOff(h, u.id) - bridgeOff({ ...h, work: bridgeWorkWith(h, u.id, r.choice) }, u.id);
       return `<div class="approval" data-bridge-req="${h.id}" data-req-user="${u.id}">
         ${avatar(u, 40)}
         <div class="approval-main">
-          <div><strong>${esc(u.name)}</strong> <span class="muted">· köprü gününü düzeltmek istiyor</span></div>
+          <div><strong>${esc(u.name)}</strong> <span class="muted">· ${past ? 'köprü gününü düzeltmek istiyor' : 'köprü günü için seçim yaptı'}</span></div>
           <div class="approval-what">${fmtDate(h.date, { weekday: true })} · ${esc(h.name)} · <strong>${esc(labels[r.choice])}</strong> <span class="muted">(şu an: ${esc(labels[bridgeChoice(h, u.id)])})</span></div>
           <div class="approval-meta">
             <span>${icon('sun', 14)} ${diff > 0 ? `Onaylarsan ${fmtNum(diff)} gün bakiyeye döner` : diff < 0 ? `Onaylarsan yıllık izninden ${fmtNum(-diff)} gün daha düşer` : 'Yıllık izni değişmez'}</span>
-            <span class="${r.choice !== 'off' && !logged ? 'warn-text' : ''}">${icon('clock', 14)} O gün ${fmtNum(logged)} sa kayıt var</span>
+            ${past ? `<span class="${r.choice !== 'off' && !logged ? 'warn-text' : ''}">${icon('clock', 14)} O gün ${fmtNum(logged)} sa kayıt var</span>` : ''}
             ${isLocked(u.id, h.date) ? `<span class="warn-text">${icon('lock', 14)} Ay kapanışa gönderilmiş; onaylarsan o ayın hedef saatleri yeniden hesaplanır</span>` : ''}
             ${r.note ? `<span>“${esc(r.note)}”</span>` : ''}
             <span class="faint">${fmtStamp(r.at)}</span>
@@ -120,7 +120,7 @@ const AdminView = {
           ${pending.length ? pending.map(approvalRow).join('') : emptyState('check', 'Bekleyen talep yok', 'Yeni talepler geldiğinde burada görünecek.')}
         </section>
         ${cancels.length ? `<section class="card section-gap"><div class="card-head"><h2>İptal talepleri</h2><span class="muted">${cancels.length} talep</span></div>${cancels.map(cancelRow).join('')}</section>` : ''}
-        ${bridgeReqs.length ? `<section class="card section-gap"><div class="card-head"><h2>Köprü düzeltme talepleri</h2><span class="muted">${bridgeReqs.length} talep</span></div>${bridgeReqs.map(bridgeReqRow).join('')}</section>` : ''}
+        ${bridgeReqs.length ? `<section class="card section-gap"><div class="card-head"><h2>Köprü talepleri</h2><span class="muted">${bridgeReqs.length} talep</span></div>${bridgeReqs.map(bridgeReqRow).join('')}</section>` : ''}
         ${decided.length ? `<section class="card section-gap"><div class="card-head"><h2>Son kararlar</h2></div>${decided.map(l => leaveRow(l, { user: Store.user(l.userId) })).join('')}</section>` : ''}`;
     }
 
@@ -682,7 +682,7 @@ const AdminView = {
         const requests = { ...h.requests, [uid]: { ...r, status: ok ? 'onaylandi' : 'reddedildi', decidedBy: App.user.id, decidedAt: new Date().toISOString() } };
         Store.updateHoliday(h.id, ok ? { work: bridgeWorkWith(h, uid, r.choice), requests } : { requests });
         render();
-        toast(ok ? `${Store.user(uid).name} · ${fmtShort(h.date)} köprü günü düzeltildi` : 'Köprü düzeltme talebi reddedildi', {
+        toast(ok ? `${Store.user(uid).name} · ${fmtShort(h.date)} köprü günü seçimi onaylandı` : 'Köprü talebi reddedildi', {
           tone: ok ? 'ok' : 'info',
           action: { label: 'Geri al', fn: () => { Store.updateHoliday(h.id, before); render(); } },
         });

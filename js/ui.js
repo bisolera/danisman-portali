@@ -684,26 +684,32 @@ function bridgeStatusText(h, userId) {
 
 // Geçmiş köprü için seçeneklerin geçmiş zamanlı adları (düzeltme talebinde ve yöneticinin onay ekranında)
 const pastBridgeLabels = h => (h.half ? { off: 'İzinliydim', full: 'Çalıştım' } : { off: 'İzinliydim', half: 'Yarım gün çalıştım', full: 'Tam gün çalıştım' });
+// Talebin adı: gün gelmediyse "Tam gün çalışacağım", geçtiyse "Tam gün çalıştım"
+const bridgeLabels = (h, today = todayISO()) => (h.date >= today ? Object.fromEntries(bridgeOptions(h)) : pastBridgeLabels(h));
 
+// Danışman seçeneğe tıklayınca seçim yöneticiye talep olarak gider (onaylanana kadar eski durum geçerli);
+// yönetici kendi köprüsünü doğrudan seçer. Gün geçince ya da ay kapanınca "Düzeltme talebi" çıkar.
 function bridgeChoiceHtml(h, userId) {
-  const choice = bridgeChoice(h, userId), req = h.requests?.[userId];
-  const action = canChooseBridge(h, userId)
-    ? `<div class="bridge-opts" role="group" aria-label="Köprü günü seçimin">${bridgeOptions(h).map(([v, label]) =>
-        `<button class="${v === choice ? 'is-active' : ''}" data-bridge-work="${v}" aria-pressed="${v === choice}">${label}</button>`).join('')}</div>`
-    : req?.status === 'beklemede'
-      ? `<div class="bridge-req"><span class="pill pill-warn">Talep yöneticide · ${esc(pastBridgeLabels(h)[req.choice])}</span><button class="btn ghost sm" data-bridge-request-undo>Geri al</button></div>`
-      : canRequestBridge(h, Store.user(userId)) ? `<button class="btn ghost sm" data-bridge-request>${icon('pencil', 14)} Düzeltme talebi</button>`
+  const user = Store.user(userId), choice = bridgeChoice(h, userId), req = h.requests?.[userId];
+  const direct = choosesBridgeDirectly(user), open = canChooseBridge(h, userId), pending = req?.status === 'beklemede';
+  const action = pending
+    ? `<div class="bridge-req"><span class="pill pill-warn">Talep yöneticide · ${esc(bridgeLabels(h)[req.choice])}</span><button class="btn ghost sm" data-bridge-request-undo>Geri al</button></div>`
+    : open && (direct || canRequestBridge(h, user))
+      ? `<div class="bridge-opts" role="group" aria-label="Köprü günü seçimin">${bridgeOptions(h).map(([v, label]) =>
+          `<button class="${v === choice ? 'is-active' : ''}" data-bridge-work="${v}" aria-pressed="${v === choice}">${label}</button>`).join('')}</div>`
+      : canRequestBridge(h, user) ? `<button class="btn ghost sm" data-bridge-request>${icon('pencil', 14)} Düzeltme talebi</button>`
         : `<span class="muted small-text nowrap">${icon('lock', 13)} Seçim süresi geçti</span>`;
-  const decided = req?.status === 'reddedildi' ? ' Son düzeltme talebin reddedildi.' : req?.status === 'onaylandi' ? ' Yönetici düzeltmeyi onayladı.' : '';
+  const note = pending ? ' Onaylanana kadar bu geçerli.' : req?.status === 'reddedildi' ? ' Son talebin reddedildi.' : req?.status === 'onaylandi' ? ' Yönetici talebini onayladı.'
+    : open && !direct ? ' Seçimin yönetici onayına gider.' : '';
   return `<div class="bridge${choice !== 'off' ? ' is-working' : ''}" data-bridge="${h.id}">
     <span class="bridge-ic">${icon(choice !== 'off' ? 'clock' : 'sun', 16)}</span>
     <div class="bridge-main"><strong>${fmtDate(h.date, { weekday: true, year: false })} · ${esc(h.name)}</strong>
-      <small>${esc(bridgeStatusText(h, userId) + decided)}</small></div>
+      <small>${esc(bridgeStatusText(h, userId) + note)}</small></div>
     ${action}
   </div>`;
 }
 
-// Köprü satırındaki tıklamalar: seçim, düzeltme talebi, talebi geri alma. Tıklama bir köprü düğmesiyse true döner.
+// Köprü satırındaki tıklamalar: seçim (danışmanda talep), düzeltme talebi, talebi geri alma. Tıklama bir köprü düğmesiyse true döner.
 function handleBridgeClick(e, userId, onChange) {
   const b = e.target.closest('[data-bridge-work], [data-bridge-request], [data-bridge-request-undo]');
   if (!b) return false;
@@ -715,11 +721,19 @@ function handleBridgeClick(e, userId, onChange) {
     delete requests[userId];
     Store.updateHoliday(h.id, { requests });
     onChange();
-    toast('Düzeltme talebi geri alındı', { tone: 'info' });
+    toast('Talep geri alındı', { tone: 'info' });
+    return true;
+  }
+  const user = Store.user(userId), choice = b.dataset.bridgeWork, current = bridgeChoice(h, userId);
+  if (!choosesBridgeDirectly(user)) {
+    if (!canChooseBridge(h, userId) || !canRequestBridge(h, user) || choice === current) return true;
+    Store.updateHoliday(h.id, { requests: { ...(h.requests || {}), [userId]: { choice, note: '', at: new Date().toISOString(), status: 'beklemede' } } });
+    onChange();
+    toast(`${fmtShort(h.date)} · seçimin yöneticine gitti; onaylanana kadar ${current === 'off' ? 'izinli' : 'çalışıyor'} sayılırsın`, { tone: 'info' });
     return true;
   }
   if (!canChooseBridge(h, userId)) return true;
-  const work = bridgeWorkWith(h, userId, b.dataset.bridgeWork);
+  const work = bridgeWorkWith(h, userId, choice);
   Store.updateHoliday(h.id, { work });
   onChange();
   const off = bridgeOff({ ...h, work }, userId);

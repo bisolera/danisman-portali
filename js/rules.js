@@ -38,14 +38,18 @@ function bridgeDays(user, from = LEAVE_START) {
     && (!user.startDate || user.startDate <= h.date) && !other.some(l => l.start <= h.date && h.date <= l.end)), h => bridgeOff(h, user.id));
 }
 
-// Danışman köprü gününde çalışıp çalışmayacağını o güne kadar seçer; ay kapanışa gönderildiyse seçim değişmez
+// Seçim satırda düğmelerle yapılır: köprü günü gelmedi ve ay kapanışa gönderilmedi. Sonrasında düzeltme talebi.
 const canChooseBridge = (h, userId, today = todayISO()) => h.kind === 'kopru' && h.date >= today && !isLocked(userId, h.date);
+// Danışmanın her köprü seçimi yöneticinin onayına gider; onaylanana kadar eski durum geçerlidir (seçmeyen izinli sayılır).
+// Yönetici kendi seçimini doğrudan yapar: onaylayacak başka kimse yok.
+const choosesBridgeDirectly = user => user?.role === 'admin';
 
-// Köprü düzeltme talebi: seçim artık doğrudan yapılamıyorsa (gün geçti ya da ay kapanışa gönderildi) danışman yöneticiden ister;
-// kapanmış ay da olur, yönetici onaylarsa hedef saatler yeniden hesaplanır. Talep köprü kaydında durur:
+// Köprü talebi: danışman gün gelmeden seçer ya da gün geçince düzeltir; yönetici gün geçince (ya da ay kapandıysa) ister.
+// Kapanmış ay da olur, yönetici onaylarsa hedef saatler yeniden hesaplanır. Talep köprü kaydında durur:
 // h.requests[userId] = { choice: 'off' | 'half' | 'full', note, at, status: 'beklemede' | 'onaylandi' | 'reddedildi', decidedBy?, decidedAt? }
 const canRequestBridge = (h, user, today = todayISO()) => h.kind === 'kopru' && !isWeekend(h.date) && h.date >= LEAVE_START
-  && (!user.startDate || user.startDate <= h.date) && !canChooseBridge(h, user.id, today) && h.requests?.[user.id]?.status !== 'beklemede';
+  && (!user.startDate || user.startDate <= h.date) && (!choosesBridgeDirectly(user) || !canChooseBridge(h, user.id, today))
+  && h.requests?.[user.id]?.status !== 'beklemede';
 const bridgeRequests = () => Store.holidays().filter(h => h.kind === 'kopru').flatMap(h => Object.entries(h.requests || {})
   .filter(([, r]) => r.status === 'beklemede').map(([userId, r]) => ({ holiday: h, userId, ...r })))
   .sort((a, b) => a.holiday.date.localeCompare(b.holiday.date));

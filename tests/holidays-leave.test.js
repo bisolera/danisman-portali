@@ -138,11 +138,30 @@
   go('#/izinler');
   const opt = v => document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-work="${v}"]`);
   ok('kopru_uc_secenek', !document.querySelector('#bridges').hidden && !!opt('off') && !!opt('half') && !!opt('full') && opt('off').classList.contains('is-active'));
+  // Danışmanın seçimi yöneticiye talep olarak gider; onaylanana kadar izinli sayılır
   opt('half').click();
+  const reqOf = id => Store.holiday('2030-05-03').requests?.[id];
+  ok('kopru_secim_onaya_gider', reqOf(ka.id)?.status === 'beklemede' && reqOf(ka.id).choice === 'half' && bridgeWork(Store.holiday('2030-05-03'), ka.id) === null
+    && leaveBalance(ka).used === 1 && !opt('half') && document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('Talep yöneticide · Yarım gün çalışacağım'));
+  document.querySelector(`#bridges [data-bridge="${br.id}"] [data-bridge-request-undo]`).click();
+  ok('kopru_talebi_geri_alinir', !reqOf(ka.id) && !!opt('half'));
+  opt('half').click();
+  const approve = id => {
+    App.login(Store.user('u1'));
+    go('#/yonetim?tab=onaylar');
+    const row = panel().querySelector(`[data-bridge-req="${br.id}"][data-req-user="${id}"]`);
+    const seen = !!row && row.textContent.includes('köprü günü için seçim yaptı') && !row.textContent.includes('kayıt var');
+    row?.querySelector('[data-bridge-decide="onaylandi"]').click();
+    App.login(Store.user(id));
+    go('#/izinler');
+    return seen;
+  };
+  ok('kopru_talebi_onay_ekraninda', approve(ka.id));
   ok('kopru_yarim_gun_calisandan_yarim_duser', bridgeWork(Store.holiday('2030-05-03'), ka.id) === 'half' && leaveBalance(ka).used === 0.5
     && dailyTarget(ka.id, '2030-05-03') === 4, { used: leaveBalance(ka).used, target: dailyTarget(ka.id, '2030-05-03') });
   ok('kopru_yarim_gun_ekrani', opt('half').classList.contains('is-active') && document.querySelector(`#bridges [data-bridge="${br.id}"]`).textContent.includes('Yarım gün çalışıyorsun'));
   opt('full').click();
+  approve(ka.id);
   ok('kopru_tam_gun_calisandan_dusmez', leaveBalance(ka).used === 0 && dailyTarget(ka.id, '2030-05-03') === 8
     && leaveBalance(kb).used === 1 && dailyTarget(kb.id, '2030-05-03') === 0);
   go('#/aktiviteler?d=2030-05-03&v=gun');
@@ -172,10 +191,18 @@
   Store.setPeriod(ka.id, '2030-05', { status: 'acik' });
   go('#/izinler');
   opt('off').click();
+  ok('kopru_izinliyim_beklerken_calisiyor', bridgeWork(Store.holiday('2030-05-03'), ka.id) === 'full' && leaveBalance(ka).used === 0);
+  approve(ka.id);
   ok('kopru_izinliyim', bridgeWork(Store.holiday('2030-05-03'), ka.id) === null && leaveBalance(ka).used === 1);
 
-  // Yönetici: Tatiller'de kimin çalışacağını görür ve işaretler
+  // Yönetici kendi köprü seçimini doğrudan yapar (talep yok)
   App.login(Store.user('u1'));
+  go('#/izinler');
+  opt('half').click();
+  ok('kopru_yonetici_dogrudan', bridgeWork(Store.holiday('2030-05-03'), 'u1') === 'half' && !reqOf('u1'));
+  opt('off').click();
+
+  // Yönetici: Tatiller'de kimin çalışacağını görür ve işaretler
   go('#/yonetim?tab=tatiller');
   for (let i = parseISO(todayISO()).getFullYear(); i < 2030; i++) panel().querySelector('[data-hol-year="1"]').click();
   ok('kopru_tatiller_listesi', panel().textContent.includes('Herkesin yıllık izninden düşer'), panel().querySelector('h2').textContent);
